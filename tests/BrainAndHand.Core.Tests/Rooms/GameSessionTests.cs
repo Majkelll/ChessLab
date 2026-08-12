@@ -1,0 +1,88 @@
+using BrainAndHand.Core.Chess;
+using BrainAndHand.Core.HandBrain;
+using BrainAndHand.Core.Rooms;
+
+namespace BrainAndHand.Core.Tests.Rooms;
+
+public class GameSessionTests
+{
+    private static readonly SeatId WhiteBrain = new(Side.White, SeatRole.Brain);
+    private static readonly SeatId WhiteHand = new(Side.White, SeatRole.Hand);
+    private static readonly SeatId BlackBrain = new(Side.Black, SeatRole.Brain);
+    private static readonly SeatId BlackHand = new(Side.Black, SeatRole.Hand);
+
+    private static GameSession NewFullSession()
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid());
+        room.ClaimSeat(WhiteBrain, Guid.NewGuid(), "Ala");
+        room.ClaimSeat(WhiteHand, Guid.NewGuid(), "Bob");
+        room.ClaimSeat(BlackBrain, Guid.NewGuid(), "Cai");
+        room.ClaimSeat(BlackHand, Guid.NewGuid(), "Deb");
+        return new GameSession(room);
+    }
+
+    [Fact]
+    public void Start_WhenRoomNotFull_Throws()
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid());
+        var session = new GameSession(room);
+
+        Assert.Throws<InvalidOperationException>(() => session.Start(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(5), DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void Start_LocksRoomAndCreatesGame()
+    {
+        var session = NewFullSession();
+
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(5), DateTimeOffset.UtcNow);
+
+        Assert.True(session.Room.IsLocked);
+        Assert.NotNull(session.Game);
+    }
+
+    [Fact]
+    public void ActiveSeat_BeforeStart_Throws()
+    {
+        var session = NewFullSession();
+
+        Assert.Throws<InvalidOperationException>(() => session.ActiveSeat);
+    }
+
+    [Fact]
+    public void ActiveSeat_AtStart_IsWhiteBrain()
+    {
+        var session = NewFullSession();
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(5), DateTimeOffset.UtcNow);
+
+        Assert.Equal(WhiteBrain, session.ActiveSeat);
+    }
+
+    [Fact]
+    public void ActiveSeat_AfterBrainSelects_IsWhiteHand()
+    {
+        var session = NewFullSession();
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(5), DateTimeOffset.UtcNow);
+
+        session.Game!.SelectPieceKind(PieceKind.Pawn);
+
+        Assert.Equal(WhiteHand, session.ActiveSeat);
+    }
+
+    [Fact]
+    public void MakeMove_DeductsElapsedWallClockTime()
+    {
+        var session = NewFullSession();
+        var start = DateTimeOffset.UtcNow;
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(5), start);
+        session.Game!.SelectPieceKind(PieceKind.Pawn);
+        var move = session.Game.AvailableMoves().Single(m => m.From == Square.Parse("e2") && m.To == Square.Parse("e4"));
+
+        session.MakeMove(move.From, move.To, move.PromoteTo, start + TimeSpan.FromSeconds(12));
+
+        Assert.Equal(
+            TimeSpan.FromMinutes(10) - TimeSpan.FromSeconds(12) + TimeSpan.FromSeconds(5),
+            session.Game.Clock.WhiteRemaining);
+        Assert.Equal(BlackBrain, session.ActiveSeat);
+    }
+}

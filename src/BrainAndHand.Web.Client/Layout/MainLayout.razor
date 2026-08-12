@@ -1,0 +1,19 @@
+@inherits LayoutComponentBase
+
+<div class="min-h-screen bg-slate-900 text-slate-100">
+    <header class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+        <a href="" class="text-lg font-semibold tracking-tight">Ręka i Mózg</a>
+        <LoginDisplay />
+    </header>
+
+    <main class="mx-auto max-w-5xl px-6 py-10">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet
+     class="fixed inset-x-0 bottom-0 hidden bg-amber-100 p-3 text-center text-slate-900">
+    Wystąpił nieoczekiwany błąd.
+    <a href="." class="underline">Odśwież</a>
+    <span class="cursor-pointer">🗙</span>
+</div>

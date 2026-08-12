@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>bd6cb868-ba3a-45ba-83a5-74b8f622cd10</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <ProjectReference Include="..\BrainAndHand.Web.Client\BrainAndHand.Web.Client.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BrainAndHand.Core\BrainAndHand.Core.csproj" />
+    <ProjectReference Include="..\BrainAndHand.Data\BrainAndHand.Data.csproj" />
+    <ProjectReference Include="..\BrainAndHand.Bots\BrainAndHand.Bots.csproj" />
+  </ItemGroup>
+
+  <!--
+    Tailwind CSS build. Skipped when SkipTailwindBuild=true (the Docker build compiles
+    CSS in a dedicated Node stage and copies wwwroot/css/app.css in before `dotnet publish`).
+  -->
+  <Target Name="TailwindInstall" BeforeTargets="TailwindBuild" Condition="'$(SkipTailwindBuild)' != 'true' AND !Exists('node_modules')">
+    <Exec Command="npm install" WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
+  <Target Name="TailwindBuild" BeforeTargets="BeforeBuild" Condition="'$(SkipTailwindBuild)' != 'true'">
+    <Exec Command="npm run build:css" WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
+</Project>

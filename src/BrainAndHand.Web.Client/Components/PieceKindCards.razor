@@ -1,0 +1,44 @@
+@using BrainAndHand.Core.Chess
+
+<div class="flex flex-wrap gap-2">
+    @foreach (var kind in Kinds)
+    {
+        <button class="flex w-20 flex-col items-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30"
+                disabled="@(!Interactive || !AvailableKinds.Contains(kind))"
+                @onclick="() => OnKindSelected.InvokeAsync(kind)">
+            <span class="text-3xl leading-none">@Glyph(kind)</span>
+            <span class="mt-1 text-xs font-normal text-slate-400">@Label(kind)</span>
+        </button>
+    }
+</div>
+
+@code {
+    private static readonly PieceKind[] Kinds =
+        [PieceKind.Pawn, PieceKind.Knight, PieceKind.Bishop, PieceKind.Rook, PieceKind.Queen, PieceKind.King];
+
+    [Parameter] public IReadOnlyList<PieceKind> AvailableKinds { get; set; } = [];
+    [Parameter] public bool Interactive { get; set; }
+    [Parameter] public EventCallback<PieceKind> OnKindSelected { get; set; }
+
+    private static string Glyph(PieceKind kind) => kind switch
+    {
+        PieceKind.Pawn => "♟",
+        PieceKind.Knight => "♞",
+        PieceKind.Bishop => "♝",
+        PieceKind.Rook => "♜",
+        PieceKind.Queen => "♛",
+        PieceKind.King => "♚",
+        _ => "?",
+    };
+
+    private static string Label(PieceKind kind) => kind switch
+    {
+        PieceKind.Pawn => "Pion",
+        PieceKind.Knight => "Skoczek",
+        PieceKind.Bishop => "Goniec",
+        PieceKind.Rook => "Wieża",
+        PieceKind.Queen => "Hetman",
+        PieceKind.King => "Król",
+        _ => kind.ToString(),
+    };
+}

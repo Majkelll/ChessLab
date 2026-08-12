@@ -1,0 +1,213 @@
+@page "/room/{Code}"
+@attribute [Authorize]
+@using BrainAndHand.Core.Chess
+@using BrainAndHand.Core.Contracts
+@using BrainAndHand.Core.Rooms
+@using BrainAndHand.Web.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GameClient Game
+@inject NavigationManager Nav
+@inject IJSRuntime Js
+@implements IDisposable
+
+<PageTitle>Pokój @Code</PageTitle>
+
+<div class="flex items-center justify-between">
+    <div>
+        <h1 class="text-xl font-semibold">Pokój <span class="tracking-widest">@Code</span></h1>
+        <p class="mt-1 text-sm text-slate-400">Wyślij ten kod znajomym, żeby dołączyli.</p>
+    </div>
+    <button @onclick="CopyLinkAsync" class="rounded-md bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600">
+        Kopiuj link
+    </button>
+</div>
+
+@if (error is not null)
+{
+    <p class="mt-4 text-sm text-red-400">@error</p>
+}
+else if (room is null)
+{
+    <p class="mt-6 text-slate-400">Łączenie…</p>
+}
+else
+{
+    <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        @foreach (var side in new[] { Side.White, Side.Black })
+        {
+            <div class="rounded-lg border border-slate-800 p-4">
+                <h2 class="mb-3 font-medium text-slate-300">@(side == Side.White ? "Biali" : "Czarni")</h2>
+                @foreach (var role in new[] { SeatRole.Brain, SeatRole.Hand })
+                {
+                    var seatId = new SeatId(side, role);
+                    var seat = room.Seats.Single(s => s.Id == seatId);
+                    <div class="mb-2 flex items-center justify-between rounded-md bg-slate-800/60 px-3 py-2">
+                        <span class="text-sm text-slate-400">@(role == SeatRole.Brain ? "Mózg" : "Ręka")</span>
+                        @if (seat.Kind == OccupantKind.Empty)
+                        {
+                            <div class="flex items-center gap-2">
+                                <button @onclick="() => ClaimSeatAsync(seatId)" class="rounded bg-emerald-600 px-2 py-1 text-sm hover:bg-emerald-500">
+                                    Dołącz
+                                </button>
+                                <select class="rounded bg-slate-700 px-1 py-1 text-xs"
+                                        @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
+                                    <option value="">Bot…</option>
+                                    <option value="Easy">Łatwy</option>
+                                    <option value="Medium">Średni</option>
+                                    <option value="Hard">Trudny</option>
+                                    <option value="Expert">Ekspert</option>
+                                </select>
+                            </div>
+                        }
+                        else if (seat.Kind == OccupantKind.Bot)
+                        {
+                            <span class="text-sm">
+                                Bot (@DifficultyLabel(seat.Difficulty!.Value))
+                                <button @onclick="() => ClearSeatAsync(seatId)" class="ml-2 text-xs text-slate-400 underline">usuń</button>
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-sm">
+                                @seat.DisplayName
+                                @if (seat.UserId == myUserId)
+                                {
+                                    <button @onclick="() => LeaveSeatAsync(seatId)" class="ml-2 text-xs text-slate-400 underline">opuść</button>
+                                }
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    @if (!IsFull())
+    {
+        <p class="mt-6 text-sm text-slate-400">
+            Uzupełnij wszystkie 4 miejsca (dołączeniem albo wyborem bota), żeby móc rozpocząć.
+        </p>
+    }
+
+    @if (room.HostUserId == myUserId)
+    {
+        <button @onclick="StartGameAsync" disabled="@(!IsFull() || isStarting)"
+                class="mt-4 rounded-md bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-500 disabled:opacity-50">
+            Rozpocznij grę
+        </button>
+    }
+    else if (IsFull())
+    {
+        <p class="mt-4 text-sm text-slate-400">Czekaj, aż host rozpocznie grę.</p>
+    }
+}
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private RoomStateDto? room;
+    private Guid myUserId;
+    private string? error;
+    private bool isStarting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask!;
+        myUserId = Guid.Parse(authState.User.FindFirst("buid")!.Value);
+
+        Game.RoomUpdated += OnRoomUpdated;
+        Game.GameUpdated += OnGameUpdated;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await Game.EnsureConnectedAsync();
+            room = await Game.JoinRoomAsync(Code);
+            if (room.HasStarted)
+            {
+                Nav.NavigateTo($"/game/{Code}");
+                return;
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+    private bool IsFull() => room is not null && room.Seats.All(s => s.Kind != OccupantKind.Empty);
+
+    private async Task ClaimSeatAsync(SeatId seatId)
+    {
+        try { room = await Game.ClaimSeatAsync(Code, seatId); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task LeaveSeatAsync(SeatId seatId)
+    {
+        try { room = await Game.LeaveSeatAsync(Code, seatId); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task SetSeatBotAsync(SeatId seatId, string difficultyValue)
+    {
+        if (string.IsNullOrEmpty(difficultyValue) || !Enum.TryParse<BotDifficulty>(difficultyValue, out var difficulty))
+            return;
+
+        try { room = await Game.SetSeatBotAsync(Code, seatId, difficulty); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task ClearSeatAsync(SeatId seatId)
+    {
+        try { room = await Game.ClearSeatAsync(Code, seatId); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private static string DifficultyLabel(BotDifficulty difficulty) => difficulty switch
+    {
+        BotDifficulty.Easy => "łatwy",
+        BotDifficulty.Medium => "średni",
+        BotDifficulty.Hard => "trudny",
+        BotDifficulty.Expert => "ekspert",
+        _ => difficulty.ToString(),
+    };
+
+    private async Task StartGameAsync()
+    {
+        isStarting = true;
+        try { await Game.StartGameAsync(Code); }
+        catch (Exception ex) { error = ex.Message; isStarting = false; }
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        var url = Nav.ToAbsoluteUri($"/room/{Code}").ToString();
+        await Js.InvokeVoidAsync("navigator.clipboard.writeText", url);
+    }
+
+    private void OnRoomUpdated(RoomStateDto dto)
+    {
+        room = dto;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnGameUpdated(GameStateDto dto)
+    {
+        InvokeAsync(() => Nav.NavigateTo($"/game/{Code}"));
+    }
+
+    public void Dispose()
+    {
+        Game.RoomUpdated -= OnRoomUpdated;
+        Game.GameUpdated -= OnGameUpdated;
+    }
+}

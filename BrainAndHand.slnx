@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BrainAndHand.Bots/BrainAndHand.Bots.csproj" />
+    <Project Path="src/BrainAndHand.Core/BrainAndHand.Core.csproj" />
+    <Project Path="src/BrainAndHand.Data/BrainAndHand.Data.csproj" />
+    <Project Path="src/BrainAndHand.Web.Client/BrainAndHand.Web.Client.csproj" />
+    <Project Path="src/BrainAndHand.Web/BrainAndHand.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BrainAndHand.Core.Tests/BrainAndHand.Core.Tests.csproj" />
+  </Folder>
+</Solution>

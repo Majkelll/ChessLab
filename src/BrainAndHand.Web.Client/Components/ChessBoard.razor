@@ -1,0 +1,184 @@
+@using BrainAndHand.Core.Chess
+
+<div class="inline-block select-none">
+    <div class="grid grid-cols-8 overflow-hidden rounded-md border border-slate-700">
+        @foreach (var rank in VisualRanks())
+        {
+            @foreach (var square in rank)
+            {
+                var isLight = (square.File + square.Rank) % 2 == 1;
+                var isSelected = selectedFrom == square;
+                var isLegalTarget = selectedFrom is not null && LegalTargets(selectedFrom.Value).Contains(square);
+                var piece = PieceAt(square);
+
+                <div class="relative flex h-12 w-12 items-center justify-center sm:h-16 sm:w-16 @(isLight ? "bg-slate-300" : "bg-slate-600") @(isSelected ? "outline outline-4 -outline-offset-4 outline-amber-400" : "")"
+                     @onclick="() => OnSquareClicked(square)"
+                     @ondragover="() => { }" @ondragover:preventDefault="true"
+                     @ondrop="() => OnDrop(square)">
+
+                    @if (isLegalTarget)
+                    {
+                        <span class="pointer-events-none absolute h-3 w-3 rounded-full bg-amber-500/80 sm:h-4 sm:w-4"></span>
+                    }
+
+                    @if (piece is { } p)
+                    {
+                        <span class="text-3xl leading-none sm:text-5xl @(char.IsUpper(p) ? "text-white drop-shadow" : "text-slate-950")"
+                              draggable="@(CanMoveFrom(square) ? "true" : "false")"
+                              @ondragstart="() => OnDragStart(square)">
+                            @Glyph(p)
+                        </span>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@if (promotionChoices is not null)
+{
+    <div class="mt-2 flex gap-2">
+        @foreach (var choice in promotionChoices)
+        {
+            <button class="rounded-md bg-slate-700 px-3 py-2 text-2xl hover:bg-slate-600" @onclick="() => ChoosePromotion(choice)">
+                @Glyph(PromotionGlyphChar(choice))
+            </button>
+        }
+    </div>
+}
+
+@code {
+    private static readonly Dictionary<char, string> Glyphs = new()
+    {
+        ['P'] = "♙", ['N'] = "♘", ['B'] = "♗", ['R'] = "♖", ['Q'] = "♕", ['K'] = "♔",
+        ['p'] = "♟", ['n'] = "♞", ['b'] = "♝", ['r'] = "♜", ['q'] = "♛", ['k'] = "♚",
+    };
+
+    [Parameter, EditorRequired] public string Fen { get; set; } = "";
+    [Parameter] public IReadOnlyList<ChessMove> AvailableMoves { get; set; } = [];
+    [Parameter] public bool Interactive { get; set; }
+    [Parameter] public bool FlipBoard { get; set; }
+    [Parameter] public EventCallback<ChessMove> OnMoveSelected { get; set; }
+
+    private Dictionary<Square, char> board = new();
+    private Square? selectedFrom;
+    private Square? draggingFrom;
+    private List<ChessMove>? promotionChoices;
+
+    protected override void OnParametersSet() => board = ParseBoard();
+
+    private Dictionary<Square, char> ParseBoard()
+    {
+        var map = new Dictionary<Square, char>();
+        var ranks = Fen.Split(' ')[0].Split('/');
+        for (var i = 0; i < 8; i++)
+        {
+            var rank = 7 - i;
+            var file = 0;
+            foreach (var c in ranks[i])
+            {
+                if (char.IsDigit(c))
+                    file += c - '0';
+                else
+                    map[new Square(file++, rank)] = c;
+            }
+        }
+        return map;
+    }
+
+    private IEnumerable<IEnumerable<Square>> VisualRanks()
+    {
+        var ranks = FlipBoard ? Enumerable.Range(0, 8) : Enumerable.Range(0, 8).Reverse();
+        foreach (var rank in ranks)
+        {
+            var files = FlipBoard ? Enumerable.Range(0, 8).Reverse() : Enumerable.Range(0, 8);
+            yield return files.Select(f => new Square(f, rank));
+        }
+    }
+
+    private char? PieceAt(Square square) => board.TryGetValue(square, out var c) ? c : null;
+
+    private IEnumerable<Square> LegalTargets(Square from) =>
+        AvailableMoves.Where(m => m.From == from).Select(m => m.To).Distinct();
+
+    private bool CanMoveFrom(Square square) => Interactive && AvailableMoves.Any(m => m.From == square);
+
+    private async Task OnSquareClicked(Square square)
+    {
+        if (!Interactive || promotionChoices is not null)
+            return;
+
+        if (selectedFrom is null)
+        {
+            if (CanMoveFrom(square))
+                selectedFrom = square;
+            return;
+        }
+
+        if (selectedFrom == square)
+        {
+            selectedFrom = null;
+            return;
+        }
+
+        await TryMove(selectedFrom.Value, square);
+    }
+
+    private void OnDragStart(Square square)
+    {
+        if (CanMoveFrom(square))
+            draggingFrom = square;
+    }
+
+    private async Task OnDrop(Square square)
+    {
+        if (draggingFrom is not { } from)
+            return;
+
+        draggingFrom = null;
+        await TryMove(from, square);
+    }
+
+    private async Task TryMove(Square from, Square to)
+    {
+        var candidates = AvailableMoves.Where(m => m.From == from && m.To == to).ToList();
+
+        if (candidates.Count == 0)
+        {
+            selectedFrom = CanMoveFrom(to) ? to : null;
+            return;
+        }
+
+        selectedFrom = null;
+
+        if (candidates.Count == 1)
+            await OnMoveSelected.InvokeAsync(candidates[0]);
+        else
+            promotionChoices = candidates;
+    }
+
+    private async Task ChoosePromotion(ChessMove move)
+    {
+        promotionChoices = null;
+        await OnMoveSelected.InvokeAsync(move);
+    }
+
+    private char PromotionGlyphChar(ChessMove move)
+    {
+        var white = char.IsUpper(PieceAt(move.From) ?? 'P');
+        return (white, move.PromoteTo) switch
+        {
+            (true, PieceKind.Queen) => 'Q',
+            (true, PieceKind.Rook) => 'R',
+            (true, PieceKind.Bishop) => 'B',
+            (true, PieceKind.Knight) => 'N',
+            (false, PieceKind.Queen) => 'q',
+            (false, PieceKind.Rook) => 'r',
+            (false, PieceKind.Bishop) => 'b',
+            (false, PieceKind.Knight) => 'n',
+            _ => '?',
+        };
+    }
+
+    private static string Glyph(char pieceChar) => Glyphs.TryGetValue(pieceChar, out var g) ? g : "?";
+}

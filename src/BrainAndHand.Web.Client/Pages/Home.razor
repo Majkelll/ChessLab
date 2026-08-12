@@ -1,0 +1,76 @@
+@page "/"
+@using BrainAndHand.Web.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GameClient Game
+@inject NavigationManager Nav
+
+<PageTitle>Ręka i Mózg</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <h1 class="text-2xl font-semibold">Witaj, @context.User.Identity?.Name!</h1>
+
+        <div class="mt-6 flex flex-col gap-4 sm:flex-row">
+            <button @onclick="CreateRoomAsync"
+                    class="rounded-md bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                    disabled="@isCreating">
+                Utwórz pokój
+            </button>
+
+            <form @onsubmit="JoinRoomAsync" @onsubmit:preventDefault class="flex gap-2">
+                <input @bind="joinCode" @bind:event="oninput" placeholder="KOD POKOJU" maxlength="6"
+                       class="w-40 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 uppercase tracking-widest text-slate-100 placeholder:text-slate-500" />
+                <button type="submit" class="rounded-md bg-slate-700 px-4 py-2 font-medium text-slate-100 hover:bg-slate-600">
+                    Dołącz
+                </button>
+            </form>
+        </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <p class="mt-3 text-sm text-red-400">@error</p>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <h1 class="text-2xl font-semibold">Ręka i Mózg</h1>
+        <p class="mt-2 text-slate-400">
+            Wariant szachów 2 na 2 — Mózg widzi planszę i wskazuje typ figury, Ręka wykonuje ruch.
+            Zaloguj się przez Google, żeby zacząć.
+        </p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string joinCode = "";
+    private string? error;
+    private bool isCreating;
+
+    private async Task CreateRoomAsync()
+    {
+        isCreating = true;
+        error = null;
+        try
+        {
+            await Game.EnsureConnectedAsync();
+            var room = await Game.CreateRoomAsync();
+            Nav.NavigateTo($"/room/{room.Code}");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isCreating = false;
+        }
+    }
+
+    private Task JoinRoomAsync()
+    {
+        if (string.IsNullOrWhiteSpace(joinCode))
+            return Task.CompletedTask;
+
+        Nav.NavigateTo($"/room/{joinCode.Trim().ToUpperInvariant()}");
+        return Task.CompletedTask;
+    }
+}
