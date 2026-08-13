@@ -20,7 +20,6 @@ public sealed class GamePage(IPage page)
     public ILocator MoveHistory => Page.GetByTestId("move-history");
     public ILocator ErrorMessage => Page.GetByTestId("game-error");
     public ILocator PieceKindCards => Page.GetByTestId("piece-kind-cards");
-    public ILocator PromotionPicker => Page.GetByTestId("promotion-picker");
 
     /// <summary>The read-only "opponent: Knight" badge shown next to the opposing team's clock
     /// while it's their turn to move — only present for a seated player, and only once their
@@ -28,8 +27,31 @@ public sealed class GamePage(IPage page)
     public ILocator OpponentPick => Page.GetByTestId("opponent-pick");
 
     public ILocator PieceCard(PieceKind kind) => Page.GetByTestId($"piece-card-{kind}");
-    public ILocator Square(string square) => Page.GetByTestId($"square-{square}");
-    public ILocator PromotionChoice(PieceKind kind) => Page.GetByTestId($"promote-{kind}");
+
+    /// <summary>The board itself is rendered by cm-chessboard (https://github.com/shaack/cm-chessboard),
+    /// not our own markup, so squares/promotion below are located via its native DOM (a "square"-classed
+    /// rect carrying `data-square`, e.g. "e4") rather than a data-testid.</summary>
+    public ILocator ChessBoardRoot => Page.GetByTestId("chess-board");
+
+    /// <summary>cm-chessboard's pieces layer has `pointer-events: none`, so clicks/drags always land
+    /// on the square rect beneath a piece, never the piece itself — this is the right (and only)
+    /// element to target for both click-to-move and drag-and-drop.</summary>
+    public ILocator Square(string square) => ChessBoardRoot.Locator($"rect.square[data-square='{square}']");
+
+    public ILocator PromotionPicker => Page.Locator(".promotion-dialog-group");
+
+    /// <summary>Matched by suffix ("...q", "...r", ...) since cm-chessboard's promotion buttons carry
+    /// a color-prefixed piece code (e.g. "wq"/"bq") and only one side's dialog is ever shown at once.</summary>
+    public ILocator PromotionChoice(PieceKind kind) => Page.Locator($".promotion-dialog-button-group[data-piece$='{PromotionLetter(kind)}']");
+
+    private static string PromotionLetter(PieceKind kind) => kind switch
+    {
+        PieceKind.Queen => "q",
+        PieceKind.Rook => "r",
+        PieceKind.Bishop => "b",
+        PieceKind.Knight => "n",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a legal promotion piece."),
+    };
 
     public Task<int> MoveHistoryCountAsync() => MoveHistory.Locator("li").CountAsync();
 

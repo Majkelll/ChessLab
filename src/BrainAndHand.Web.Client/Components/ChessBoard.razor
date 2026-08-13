@@ -1,190 +1,111 @@
 @using BrainAndHand.Core.Chess
+@inject IJSRuntime Js
+@implements IAsyncDisposable
 
 <div class="w-full select-none">
     <div class="border-4 border-espresso bg-espresso p-1.5 shadow-[inset_0_0_0_1px_rgba(246,239,228,0.08)]">
-        <div class="grid aspect-square w-full grid-cols-8 auto-rows-fr">
-            @foreach (var rank in VisualRanks())
-            {
-                @foreach (var square in rank)
-                {
-                    var isLight = (square.File + square.Rank) % 2 == 1;
-                    var isSelected = selectedFrom == square;
-                    var isLegalTarget = selectedFrom is not null && LegalTargets(selectedFrom.Value).Contains(square);
-                    var piece = PieceAt(square);
-
-                    <div data-testid="@($"square-{square}")"
-                         class="relative flex items-center justify-center @(isLight ? "bg-board-light" : "bg-board-dark") @(isSelected ? "outline outline-4 -outline-offset-4 outline-amber-700" : "")"
-                         @onclick="() => OnSquareClicked(square)"
-                         @ondragover="() => { }" @ondragover:preventDefault="true"
-                         @ondrop="() => OnDrop(square)">
-
-                        @if (isLegalTarget)
-                        {
-                            <span class="pointer-events-none absolute h-[18%] w-[18%] rounded-full bg-amber-700/70"></span>
-                        }
-
-                        @if (piece is { } p)
-                        {
-                            <span class="text-[clamp(1.5rem,8vw,3rem)] leading-none @(char.IsUpper(p) ? "text-white [-webkit-text-stroke:1px_#2b2019]" : "text-espresso")"
-                                  draggable="@(CanMoveFrom(square) ? "true" : "false")"
-                                  @ondragstart="() => OnDragStart(square)">
-                                @Glyph(p)
-                            </span>
-                        }
-                    </div>
-                }
-            }
-        </div>
+        <div @ref="boardContainer" data-testid="chess-board" class="w-full"></div>
     </div>
 </div>
 
-@if (promotionChoices is not null)
-{
-    <div class="mt-2 flex flex-wrap gap-2" data-testid="promotion-picker">
-        @foreach (var choice in promotionChoices)
-        {
-            <button data-testid="@($"promote-{choice.PromoteTo}")"
-                    class="border border-amber-700/40 bg-amber-700/5 px-3 py-2 text-2xl hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer"
-                    @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                    @onclick="() => ChoosePromotion(choice)">
-                @Glyph(PromotionGlyphChar(choice))
-            </button>
-        }
-    </div>
-}
-
 @code {
-    private static readonly Dictionary<char, string> Glyphs = new()
-    {
-        ['P'] = "♙", ['N'] = "♘", ['B'] = "♗", ['R'] = "♖", ['Q'] = "♕", ['K'] = "♔",
-        ['p'] = "♟", ['n'] = "♞", ['b'] = "♝", ['r'] = "♜", ['q'] = "♛", ['k'] = "♚",
-    };
-
     [Parameter, EditorRequired] public string Fen { get; set; } = "";
     [Parameter] public IReadOnlyList<ChessMove> AvailableMoves { get; set; } = [];
     [Parameter] public bool Interactive { get; set; }
     [Parameter] public bool FlipBoard { get; set; }
     [Parameter] public EventCallback<ChessMove> OnMoveSelected { get; set; }
 
-    private Dictionary<Square, char> board = new();
-    private Square? selectedFrom;
-    private Square? draggingFrom;
-    private List<ChessMove>? promotionChoices;
+    private ElementReference boardContainer;
+    private IJSObjectReference? jsModule;
+    private IJSObjectReference? board;
+    private DotNetObjectReference<ChessBoard>? dotNetRef;
+    private string? syncedFen;
+    private bool syncedFlip;
 
-    protected override void OnParametersSet() => board = ParseBoard();
-
-    private Dictionary<Square, char> ParseBoard()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var map = new Dictionary<Square, char>();
-        var ranks = Fen.Split(' ')[0].Split('/');
-        for (var i = 0; i < 8; i++)
+        if (firstRender)
         {
-            var rank = 7 - i;
-            var file = 0;
-            foreach (var c in ranks[i])
-            {
-                if (char.IsDigit(c))
-                    file += c - '0';
-                else
-                    map[new Square(file++, rank)] = c;
-            }
-        }
-        return map;
-    }
-
-    private IEnumerable<IEnumerable<Square>> VisualRanks()
-    {
-        var ranks = FlipBoard ? Enumerable.Range(0, 8) : Enumerable.Range(0, 8).Reverse();
-        foreach (var rank in ranks)
-        {
-            var files = FlipBoard ? Enumerable.Range(0, 8).Reverse() : Enumerable.Range(0, 8);
-            yield return files.Select(f => new Square(f, rank));
-        }
-    }
-
-    private char? PieceAt(Square square) => board.TryGetValue(square, out var c) ? c : null;
-
-    private IEnumerable<Square> LegalTargets(Square from) =>
-        AvailableMoves.Where(m => m.From == from).Select(m => m.To).Distinct();
-
-    private bool CanMoveFrom(Square square) => Interactive && AvailableMoves.Any(m => m.From == square);
-
-    private async Task OnSquareClicked(Square square)
-    {
-        if (!Interactive || promotionChoices is not null)
-            return;
-
-        if (selectedFrom is null)
-        {
-            if (CanMoveFrom(square))
-                selectedFrom = square;
-            return;
+            dotNetRef = DotNetObjectReference.Create(this);
+            jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "./js/chessboardInterop.js");
+            board = await jsModule.InvokeAsync<IJSObjectReference>("create", boardContainer, dotNetRef, Fen, FlipBoard);
+            syncedFen = Fen;
+            syncedFlip = FlipBoard;
         }
 
-        if (selectedFrom == square)
-        {
-            selectedFrom = null;
+        if (board is null)
             return;
+
+        if (!firstRender && Fen != syncedFen)
+        {
+            syncedFen = Fen;
+            await board.InvokeVoidAsync("setPosition", Fen, true);
         }
 
-        await TryMove(selectedFrom.Value, square);
-    }
-
-    private void OnDragStart(Square square)
-    {
-        if (CanMoveFrom(square))
-            draggingFrom = square;
-    }
-
-    private async Task OnDrop(Square square)
-    {
-        if (draggingFrom is not { } from)
-            return;
-
-        draggingFrom = null;
-        await TryMove(from, square);
-    }
-
-    private async Task TryMove(Square from, Square to)
-    {
-        var candidates = AvailableMoves.Where(m => m.From == from && m.To == to).ToList();
-
-        if (candidates.Count == 0)
+        if (!firstRender && FlipBoard != syncedFlip)
         {
-            selectedFrom = CanMoveFrom(to) ? to : null;
-            return;
+            syncedFlip = FlipBoard;
+            await board.InvokeVoidAsync("setOrientation", FlipBoard);
         }
 
-        selectedFrom = null;
-
-        if (candidates.Count == 1)
-            await OnMoveSelected.InvokeAsync(candidates[0]);
-        else
-            promotionChoices = candidates;
-    }
-
-    private async Task ChoosePromotion(ChessMove move)
-    {
-        promotionChoices = null;
-        await OnMoveSelected.InvokeAsync(move);
-    }
-
-    private char PromotionGlyphChar(ChessMove move)
-    {
-        var white = char.IsUpper(PieceAt(move.From) ?? 'P');
-        return (white, move.PromoteTo) switch
+        // Cheap either way (just refreshes an array / toggles the input listener), so no need to
+        // track whether these actually changed since the last render.
+        var movesForJs = AvailableMoves.Select(m => new
         {
-            (true, PieceKind.Queen) => 'Q',
-            (true, PieceKind.Rook) => 'R',
-            (true, PieceKind.Bishop) => 'B',
-            (true, PieceKind.Knight) => 'N',
-            (false, PieceKind.Queen) => 'q',
-            (false, PieceKind.Rook) => 'r',
-            (false, PieceKind.Bishop) => 'b',
-            (false, PieceKind.Knight) => 'n',
-            _ => '?',
-        };
+            from = m.From.ToString(),
+            to = m.To.ToString(),
+            promotion = PromotionChar(m.PromoteTo),
+        });
+        await board.InvokeVoidAsync("setLegalMoves", movesForJs);
+        await board.InvokeVoidAsync("setInteractive", Interactive);
     }
 
-    private static string Glyph(char pieceChar) => Glyphs.TryGetValue(pieceChar, out var g) ? g : "?";
+    /// <summary>Called from chessboardInterop.js once a move (including, for a promotion, the
+    /// chosen piece) has been fully decided client-side — never a rules decision of its own, just
+    /// resolving back to the exact <see cref="ChessMove"/> the server already told us was legal.</summary>
+    [JSInvokable]
+    public Task OnMoveInput(string from, string to, string? promotion)
+    {
+        var fromSquare = Square.Parse(from);
+        var toSquare = Square.Parse(to);
+        var promoteTo = ParsePromotion(promotion);
+
+        var candidates = AvailableMoves
+            .Where(m => m.From == fromSquare && m.To == toSquare && m.PromoteTo == promoteTo)
+            .ToList();
+
+        return candidates.Count == 0 ? Task.CompletedTask : OnMoveSelected.InvokeAsync(candidates[0]);
+    }
+
+    private static string? PromotionChar(PieceKind? kind) => kind switch
+    {
+        PieceKind.Queen => "q",
+        PieceKind.Rook => "r",
+        PieceKind.Bishop => "b",
+        PieceKind.Knight => "n",
+        _ => null,
+    };
+
+    private static PieceKind? ParsePromotion(string? promotion) => promotion switch
+    {
+        "q" => PieceKind.Queen,
+        "r" => PieceKind.Rook,
+        "b" => PieceKind.Bishop,
+        "n" => PieceKind.Knight,
+        _ => null,
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        if (board is not null)
+        {
+            await board.InvokeVoidAsync("destroy");
+            await board.DisposeAsync();
+        }
+
+        if (jsModule is not null)
+            await jsModule.DisposeAsync();
+
+        dotNetRef?.Dispose();
+    }
 }

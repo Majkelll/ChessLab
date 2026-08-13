@@ -152,6 +152,45 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
     }
 
     [Fact]
+    public async Task Reaching_the_back_rank_shows_a_promotion_dialog_and_promotes_to_the_chosen_piece()
+    {
+        var game = await StartFourHumanGameAsync();
+
+        // A short cooperative line — Black's replies are irrelevant fillers — that walks White's
+        // b-pawn, capturing twice along the way, onto a8. That's the one situation with more than
+        // one legal move sharing the same from/to (one per promotion piece), so the board has to
+        // show a promotion dialog instead of just completing the move on the second click.
+        await ChessScripts.PlayTurnAsync(game, Side.White, PieceKind.Pawn, "e2", "e4");
+        await ChessScripts.PlayTurnAsync(game, Side.Black, PieceKind.Pawn, "e7", "e5");
+        await ChessScripts.PlayTurnAsync(game, Side.White, PieceKind.Pawn, "b2", "b4");
+        await ChessScripts.PlayTurnAsync(game, Side.Black, PieceKind.Pawn, "a7", "a5");
+        await ChessScripts.PlayTurnAsync(game, Side.White, PieceKind.Pawn, "b4", "a5");
+        await ChessScripts.PlayTurnAsync(game, Side.Black, PieceKind.Knight, "g8", "f6");
+        await ChessScripts.PlayTurnAsync(game, Side.White, PieceKind.Pawn, "a5", "a6");
+        await ChessScripts.PlayTurnAsync(game, Side.Black, PieceKind.Knight, "f6", "g8");
+        await ChessScripts.PlayTurnAsync(game, Side.White, PieceKind.Pawn, "a6", "b7");
+        await ChessScripts.PlayTurnAsync(game, Side.Black, PieceKind.Knight, "g8", "f6");
+
+        var whiteBrain = game[Side.White, SeatRole.Brain];
+        var whiteHand = game[Side.White, SeatRole.Hand];
+        await whiteBrain.WaitForTurnTextAsync("Brain is announcing a piece");
+        await whiteBrain.SelectPieceKindAsync(PieceKind.Pawn);
+        await whiteHand.WaitForTurnTextAsync("Hand is making a move");
+
+        await Expect(whiteHand.PromotionPicker).ToBeHiddenAsync();
+        await whiteHand.MoveAsync("b7", "a8"); // captures Black's still-unmoved rook
+        await Expect(whiteHand.PromotionPicker).ToBeVisibleAsync();
+        // The move isn't finished yet — nobody else's turn should start until a piece is chosen.
+        Assert.Equal(10, await whiteHand.MoveHistoryCountAsync());
+
+        await whiteHand.PromoteToAsync(PieceKind.Queen);
+
+        await Expect(whiteHand.PromotionPicker).ToBeHiddenAsync();
+        await Expect(whiteHand.MoveHistory.Locator("li").Last).ToContainTextAsync(new Regex("=Q"));
+        await game[Side.Black, SeatRole.Brain].WaitForTurnTextAsync("Brain is announcing a piece");
+    }
+
+    [Fact]
     public async Task Drag_and_drop_is_a_working_alternate_way_to_make_a_move()
     {
         var game = await StartFourHumanGameAsync();
