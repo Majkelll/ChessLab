@@ -92,3 +92,56 @@ body::before {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* cm-chessboard theme ("hand-and-brain"): a from-scratch skin (not one of the library's bundled
+   themes) so the board uses the exact same maple/walnut/amber tokens as the rest of the app. These
+   rules must load after cm-chessboard's own stylesheets (see App.razor's <link> order) since the
+   promotion dialog selectors below aren't theme-scoped in the vendor CSS and need equal-specificity
+   cascade order, not higher specificity, to win. */
+.cm-chessboard.hand-and-brain .board .square.white {
+  fill: var(--color-board-light);
+}
+
+.cm-chessboard.hand-and-brain .board .square.black {
+  fill: var(--color-board-dark);
+}
+
+.cm-chessboard.hand-and-brain.border-type-none .board .border {
+  fill: var(--color-board-dark);
+  stroke: none;
+}
+
+.cm-chessboard.hand-and-brain .coordinates .coordinate.white {
+  fill: var(--color-board-dark);
+  opacity: 0.7;
+}
+
+.cm-chessboard.hand-and-brain .coordinates .coordinate.black {
+  fill: var(--color-board-light);
+  opacity: 0.85;
+}
+
+/* Legal-move dots/capture markers and the from/to square highlight, recolored from the library's
+   default black to the same amber used for every other "you can act here" affordance in the app. */
+.cm-chessboard.hand-and-brain .markers .marker.marker-square {
+  fill: var(--color-amber-700);
+  opacity: 0.18;
+}
+
+.cm-chessboard.hand-and-brain .markers .marker.marker-dot,
+.cm-chessboard.hand-and-brain .markers .marker.marker-bevel {
+  fill: var(--color-amber-700);
+  opacity: 0.45;
+}
+
+svg.cm-chessboard .promotion-dialog-group .promotion-dialog {
+  fill: var(--color-cream);
+  fill-opacity: 0.98;
+  stroke: var(--color-espresso);
+  stroke-width: 0.7%;
+}
+
+svg.cm-chessboard .promotion-dialog-group .promotion-dialog-button:hover,
+svg.cm-chessboard .promotion-dialog-group .promotion-dialog-button-group:focus .promotion-dialog-button {
+  fill: color-mix(in srgb, var(--color-amber-700) 20%, transparent);
+}
