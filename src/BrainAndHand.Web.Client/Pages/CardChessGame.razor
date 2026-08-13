@@ -53,8 +53,10 @@ else
                         @foreach (var card in HandOf(mine.Side))
                         {
                             <span data-testid="@($"hand-card-{card}")"
-                                  class="border border-espresso/16 bg-white/40 px-2 py-1 font-mono text-xs">
-                                @card.Label() <span class="text-espresso-soft">@PieceKindDisplay.Label(card.ToPieceKind())</span>
+                                  title="@PieceKindDisplay.Label(card.ToPieceKind())"
+                                  class="flex flex-col items-center border border-espresso/16 bg-white/40 px-3 py-1.5">
+                                <span class="text-2xl leading-none">@PieceKindDisplay.Glyph(card.ToPieceKind())</span>
+                                <span class="mt-0.5 text-[10px] font-mono text-espresso-soft/70">@PieceKindDisplay.Label(card.ToPieceKind())</span>
                             </span>
                         }
                     </div>
@@ -70,7 +72,12 @@ else
                     <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
                         <span data-testid="@ClockTestId(opponentSide)" class="@ClockClasses(opponentSide)">@SideLabel(opponentSide) @FormatClock(DisplayedRemainingMs(opponentSide))</span>
                         <span data-testid="@HpTestId(opponentSide)" class="text-rust">@HpHearts(opponentSide)</span>
-                        <span data-testid="opponent-hand" class="text-xs text-espresso-soft/60">@string.Join(" ", HandOf(opponentSide).Select(c => c.Label()))</span>
+                        <span data-testid="opponent-hand" class="flex gap-1 text-base text-espresso-soft/60">
+                            @foreach (var card in HandOf(opponentSide))
+                            {
+                                <span title="@PieceKindDisplay.Label(card.ToPieceKind())">@PieceKindDisplay.Glyph(card.ToPieceKind())</span>
+                            }
+                        </span>
                     </div>
                     <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
                         <span data-testid="@ClockTestId(seat.Side)" class="@ClockClasses(seat.Side)">@SideLabel(seat.Side) @FormatClock(DisplayedRemainingMs(seat.Side))</span>
