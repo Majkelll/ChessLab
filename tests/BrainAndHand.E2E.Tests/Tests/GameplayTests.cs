@@ -104,6 +104,30 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
     }
 
     [Fact]
+    public async Task Hand_can_see_which_piece_kind_the_brain_announced()
+    {
+        var game = await StartFourHumanGameAsync();
+        var whiteBrain = game[Side.White, SeatRole.Brain];
+        var whiteHand = game[Side.White, SeatRole.Hand];
+
+        // Before an announcement, the Hand has nothing to show yet.
+        await Expect(whiteHand.PieceKindCards).ToBeHiddenAsync();
+
+        await whiteBrain.SelectPieceKindAsync(PieceKind.Knight);
+        await whiteHand.WaitForTurnTextAsync("Hand is making a move");
+
+        // The Hand sees the announced kind highlighted, not just an ambiguous "make a move".
+        await Expect(whiteHand.PieceKindCards).ToBeVisibleAsync();
+        Assert.True(await whiteHand.IsPieceCardAnnouncedAsync(PieceKind.Knight));
+        Assert.False(await whiteHand.IsPieceCardAnnouncedAsync(PieceKind.Pawn));
+        await Expect(whiteHand.TurnStatus).ToContainTextAsync("Hand is making a move (Knight)");
+
+        // Brain sees the exact same highlight on their own (now non-interactive) card grid.
+        Assert.True(await whiteBrain.IsPieceCardAnnouncedAsync(PieceKind.Knight));
+        Assert.False(await whiteBrain.IsPieceCardEnabledAsync(PieceKind.Knight));
+    }
+
+    [Fact]
     public async Task Drag_and_drop_is_a_working_alternate_way_to_make_a_move()
     {
         var game = await StartFourHumanGameAsync();
