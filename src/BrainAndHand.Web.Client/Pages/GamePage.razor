@@ -23,8 +23,8 @@ else if (room is null || state is null)
 }
 else
 {
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-[auto_1fr]">
-        <div class="w-[384px] sm:w-[512px]">
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(280px,512px)_1fr]">
+        <div class="mx-auto w-full max-w-[512px]">
             <ChessBoard Fen="@state.Fen"
                         AvailableMoves="@state.AvailableMoves"
                         Interactive="@(isBoardInteractive)"

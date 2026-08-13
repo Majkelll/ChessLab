@@ -1,7 +1,7 @@
 @using BrainAndHand.Core.Chess
 
-<div class="inline-block select-none">
-    <div class="grid grid-cols-8 border border-[#2b201929]">
+<div class="w-full select-none">
+    <div class="grid aspect-square w-full grid-cols-8 auto-rows-fr border border-[#2b201929]">
         @foreach (var rank in VisualRanks())
         {
             @foreach (var square in rank)
@@ -12,19 +12,19 @@
                 var piece = PieceAt(square);
 
                 <div data-testid="@($"square-{square}")"
-                     class="relative flex h-12 w-12 items-center justify-center sm:h-16 sm:w-16 @(isLight ? "bg-amber-50" : "bg-amber-200") @(isSelected ? "outline outline-4 -outline-offset-4 outline-amber-700" : "")"
+                     class="relative flex items-center justify-center @(isLight ? "bg-amber-50" : "bg-amber-200") @(isSelected ? "outline outline-4 -outline-offset-4 outline-amber-700" : "")"
                      @onclick="() => OnSquareClicked(square)"
                      @ondragover="() => { }" @ondragover:preventDefault="true"
                      @ondrop="() => OnDrop(square)">
 
                     @if (isLegalTarget)
                     {
-                        <span class="pointer-events-none absolute h-3 w-3 rounded-full bg-amber-700/70 sm:h-4 sm:w-4"></span>
+                        <span class="pointer-events-none absolute h-[18%] w-[18%] rounded-full bg-amber-700/70"></span>
                     }
 
                     @if (piece is { } p)
                     {
-                        <span class="text-3xl leading-none sm:text-5xl @(char.IsUpper(p) ? "text-white [-webkit-text-stroke:1px_#2b2019]" : "text-[#2b2019]")"
+                        <span class="text-[clamp(1.5rem,8vw,3rem)] leading-none @(char.IsUpper(p) ? "text-white [-webkit-text-stroke:1px_#2b2019]" : "text-[#2b2019]")"
                               draggable="@(CanMoveFrom(square) ? "true" : "false")"
                               @ondragstart="() => OnDragStart(square)">
                             @Glyph(p)
@@ -38,7 +38,7 @@
 
 @if (promotionChoices is not null)
 {
-    <div class="mt-2 flex gap-2" data-testid="promotion-picker">
+    <div class="mt-2 flex flex-wrap gap-2" data-testid="promotion-picker">
         @foreach (var choice in promotionChoices)
         {
             <button data-testid="@($"promote-{choice.PromoteTo}")"

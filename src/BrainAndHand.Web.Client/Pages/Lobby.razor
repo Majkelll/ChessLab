@@ -12,7 +12,7 @@
 
 <PageTitle>Room @Code</PageTitle>
 
-<div class="flex items-center justify-between">
+<div class="flex flex-wrap items-center justify-between gap-3">
     <div>
         <h1 class="text-xl font-semibold">Room <span data-testid="room-code" class="tracking-widest">@Code</span></h1>
         <p class="mt-1 text-sm text-[#2b20196b]">Send this code to friends so they can join.</p>
@@ -48,7 +48,7 @@ else
                     var seatId = new SeatId(side, role);
                     var seat = room.Seats.Single(s => s.Id == seatId);
                     <div data-testid="@($"seat-{side}-{role}")"
-                         class="flex items-center justify-between border border-[#2b201929] bg-white/40 px-3 py-2 hover:border-amber-600/60 transition duration-300">
+                         class="flex flex-wrap items-center justify-between gap-2 border border-[#2b201929] bg-white/40 px-3 py-2 hover:border-amber-600/60 transition duration-300">
                         <span class="text-sm text-[#2b20196b]">@(role == SeatRole.Brain ? "Brain" : "Hand")</span>
                         @if (seat.Kind == OccupantKind.Empty)
                         {
@@ -76,7 +76,7 @@ else
                                 <span data-testid="seat-bot-label" class="bg-[#e3d0b0] px-2 py-1 text-xs">Bot (@DifficultyLabel(seat.Difficulty!.Value))</span>
                                 <button data-testid="seat-remove-btn"
                                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                                        @onclick="() => ClearSeatAsync(seatId)" class="text-xs text-[#2b20196b] underline hover:text-amber-700">remove</button>
+                                        @onclick="() => ClearSeatAsync(seatId)" class="-m-2 p-2 text-xs text-[#2b20196b] underline hover:text-amber-700">remove</button>
                             </span>
                         }
                         else
@@ -87,7 +87,7 @@ else
                                 {
                                     <button data-testid="seat-leave-btn"
                                             @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                                            @onclick="() => LeaveSeatAsync(seatId)" class="ml-2 text-xs text-[#2b20196b] underline hover:text-amber-700">leave</button>
+                                            @onclick="() => LeaveSeatAsync(seatId)" class="-m-2 ml-0 p-2 text-xs text-[#2b20196b] underline hover:text-amber-700">leave</button>
                                 }
                             </span>
                         }
