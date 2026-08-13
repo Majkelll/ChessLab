@@ -14,28 +14,31 @@
 
 <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-semibold">Room <span data-testid="room-code" class="tracking-widest">@Code</span></h1>
-        <p class="mt-1 text-sm text-[#2b20196b]">Send this code to friends so they can join.</p>
+        <p class="font-mono text-xs text-espresso-soft/70">$ room</p>
+        <h1 class="text-xl font-semibold tracking-tight">
+            <span class="text-moss">ROOM</span><span class="text-espresso-soft">=</span><span data-testid="room-code" class="tracking-widest text-amber-700">@Code</span>
+        </h1>
+        <p class="mt-1 text-sm text-espresso/42">Send this code to friends so they can join.</p>
     </div>
     <button data-testid="copy-link-btn"
             @onmousedown="() => { }" @onmousedown:preventDefault="true"
             @onclick="CopyLinkAsync"
-            class="border border-[#2b201929] bg-white/40 px-3 py-1.5 font-mono text-sm hover:border-amber-600/60 transition duration-300 hover:cursor-pointer">
+            class="border border-espresso/16 bg-white/40 px-3 py-1.5 font-mono text-sm hover:border-moss/60 transition duration-300 hover:cursor-pointer">
         Copy link
     </button>
 </div>
 
 @if (error is not null)
 {
-    <p data-testid="lobby-error" class="mt-4 text-sm text-red-500">@error</p>
+    <p data-testid="lobby-error" class="mt-4 text-sm text-rust">@error</p>
 }
 else if (room is null)
 {
-    <p class="mt-6 text-[#2b20196b]">Connecting…</p>
+    <p class="mt-6 text-espresso/42">Connecting<span class="blink-cursor" aria-hidden="true">_</span></p>
 }
 else if (room.IsLocked)
 {
-    <p data-testid="room-retired" class="mt-6 text-[#2b20196b]">
+    <p data-testid="room-retired" class="mt-6 text-espresso/42">
         This room's game has ended. <a href="/" class="text-amber-700 underline hover:text-amber-600">Start a new room</a> to play again.
     </p>
 }
@@ -44,31 +47,40 @@ else
     <div class="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
         @foreach (var side in new[] { Side.White, Side.Black })
         {
+            // The two sides get their own accent color throughout their column — amber for White,
+            // moss for Black — so the two teams read apart at a glance without adding a third color.
+            var sideAccentText = side == Side.White ? "text-amber-700" : "text-moss";
+            var sideHoverBorder = side == Side.White ? "hover:border-amber-600/60" : "hover:border-moss/60";
+            var sideJoinClasses = side == Side.White
+                ? "border-amber-700/40 bg-amber-700/5 hover:bg-amber-700/20"
+                : "border-moss/40 bg-moss/5 hover:bg-moss/20";
+            var sideFocusBorder = side == Side.White ? "focus:border-amber-600/60" : "focus:border-moss/60";
+
             <div class="flex flex-col gap-3">
                 <div>
-                    <h2 class="text-sm font-normal text-amber-700">@(side == Side.White ? "WHITE" : "BLACK")</h2>
-                    <div class="h-1 w-full border-b border-[#2b201929]"></div>
+                    <h2 class="text-sm font-normal @sideAccentText">@(side == Side.White ? "WHITE" : "BLACK")</h2>
+                    <div class="h-1 w-full border-b border-espresso/16"></div>
                 </div>
                 @foreach (var role in new[] { SeatRole.Brain, SeatRole.Hand })
                 {
                     var seatId = new SeatId(side, role);
                     var seat = room.Seats.Single(s => s.Id == seatId);
                     <div data-testid="@($"seat-{side}-{role}")"
-                         class="flex flex-wrap items-center justify-between gap-2 border border-[#2b201929] bg-white/40 px-3 py-2 hover:border-amber-600/60 transition duration-300">
-                        <span class="text-sm text-[#2b20196b]">@(role == SeatRole.Brain ? "Brain" : "Hand")</span>
+                         class="flex flex-wrap items-center justify-between gap-2 border border-espresso/16 bg-white/40 px-3 py-2 @sideHoverBorder transition duration-300">
+                        <span class="text-sm text-espresso-soft">@(role == SeatRole.Brain ? "Brain" : "Hand")</span>
                         @if (seat.Kind == OccupantKind.Empty)
                         {
                             <div class="flex items-center gap-2">
                                 <button data-testid="seat-join-btn"
                                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
                                         @onclick="() => ClaimSeatAsync(seatId)"
-                                        class="border border-amber-700/40 bg-amber-700/5 px-2 py-1 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+                                        class="border px-2 py-1 font-mono text-sm transition duration-300 hover:cursor-pointer @sideJoinClasses">
                                     Join
                                 </button>
                                 <button data-testid="seat-add-bot-btn"
                                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
                                         @onclick="() => AddBotAsync(seatId)"
-                                        class="border border-[#2b201929] bg-white/60 px-2 py-1 font-mono text-sm hover:border-amber-600/60 transition duration-300 hover:cursor-pointer">
+                                        class="border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-sm @sideHoverBorder transition duration-300 hover:cursor-pointer">
                                     Add bot
                                 </button>
                             </div>
@@ -77,7 +89,7 @@ else
                         {
                             <span class="flex items-center gap-2 text-sm">
                                 <select data-testid="seat-bot-select"
-                                        class="border border-[#2b201929] bg-white/60 px-1 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none"
+                                        class="border border-espresso/16 bg-white/60 px-1 py-1 font-mono text-xs focus:outline-none @sideFocusBorder"
                                         @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
                                     <option value="Easy" selected="@(seat.Difficulty == BotDifficulty.Easy)">Easy (@EloLabel(BotDifficulty.Easy))</option>
                                     <option value="Medium" selected="@(seat.Difficulty == BotDifficulty.Medium)">Medium (@EloLabel(BotDifficulty.Medium))</option>
@@ -86,7 +98,7 @@ else
                                 </select>
                                 <button data-testid="seat-remove-btn"
                                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                                        @onclick="() => ClearSeatAsync(seatId)" class="-m-2 p-2 text-xs text-[#2b20196b] underline hover:text-amber-700">remove</button>
+                                        @onclick="() => ClearSeatAsync(seatId)" class="-m-2 p-2 text-xs text-espresso-soft underline hover:text-rust">remove</button>
                             </span>
                         }
                         else
@@ -97,7 +109,7 @@ else
                                 {
                                     <button data-testid="seat-leave-btn"
                                             @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                                            @onclick="() => LeaveSeatAsync(seatId)" class="-m-2 ml-0 p-2 text-xs text-[#2b20196b] underline hover:text-amber-700">leave</button>
+                                            @onclick="() => LeaveSeatAsync(seatId)" class="-m-2 ml-0 p-2 text-xs text-espresso-soft underline hover:text-rust">leave</button>
                                 }
                             </span>
                         }
@@ -107,20 +119,21 @@ else
         }
     </div>
 
-    <div class="mt-6 flex flex-wrap items-center gap-2 text-sm">
-        <span class="text-[#2b20196b]">Clock:</span>
+    <div class="mt-6 flex flex-wrap items-center gap-2 border border-espresso/16 bg-white/30 px-3 py-2 font-mono text-sm">
+        <span class="text-moss">:set</span>
+        <span class="text-espresso-soft">clock=</span>
         @if (room.HostUserId == myUserId)
         {
             <input type="number" min="1" max="180" data-testid="clock-initial-minutes"
                    value="@clockMinutes"
                    @onchange="OnClockMinutesChangedAsync"
-                   class="w-14 border border-[#2b201929] bg-white/60 px-2 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none" />
-            <span class="text-[#2b20196b]">min +</span>
+                   class="w-14 border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none" />
+            <span class="text-espresso-soft">min +</span>
             <input type="number" min="0" max="60" data-testid="clock-increment-seconds"
                    value="@clockIncrementSeconds"
                    @onchange="OnClockIncrementChangedAsync"
-                   class="w-14 border border-[#2b201929] bg-white/60 px-2 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none" />
-            <span class="text-[#2b20196b]">s increment</span>
+                   class="w-14 border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none" />
+            <span class="text-espresso-soft">s increment</span>
         }
         else
         {
@@ -130,7 +143,7 @@ else
 
     @if (!IsFull())
     {
-        <p data-testid="fill-seats-hint" class="mt-6 text-sm text-[#2b20196b]">
+        <p data-testid="fill-seats-hint" class="mt-6 text-sm text-espresso/42">
             Fill all 4 seats (by joining or picking a bot) before you can start.
         </p>
     }
@@ -147,7 +160,7 @@ else
     }
     else if (IsFull())
     {
-        <p data-testid="waiting-for-host" class="mt-4 text-sm text-[#2b20196b]">Waiting for the host to start the game.</p>
+        <p data-testid="waiting-for-host" class="mt-4 text-sm text-espresso/42">Waiting for the host to start the game.</p>
     }
 }
 

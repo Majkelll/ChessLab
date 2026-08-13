@@ -1,38 +1,40 @@
 @using BrainAndHand.Core.Chess
 
 <div class="w-full select-none">
-    <div class="grid aspect-square w-full grid-cols-8 auto-rows-fr border border-[#2b201929]">
-        @foreach (var rank in VisualRanks())
-        {
-            @foreach (var square in rank)
+    <div class="border-4 border-espresso bg-espresso p-1.5 shadow-[inset_0_0_0_1px_rgba(246,239,228,0.08)]">
+        <div class="grid aspect-square w-full grid-cols-8 auto-rows-fr">
+            @foreach (var rank in VisualRanks())
             {
-                var isLight = (square.File + square.Rank) % 2 == 1;
-                var isSelected = selectedFrom == square;
-                var isLegalTarget = selectedFrom is not null && LegalTargets(selectedFrom.Value).Contains(square);
-                var piece = PieceAt(square);
+                @foreach (var square in rank)
+                {
+                    var isLight = (square.File + square.Rank) % 2 == 1;
+                    var isSelected = selectedFrom == square;
+                    var isLegalTarget = selectedFrom is not null && LegalTargets(selectedFrom.Value).Contains(square);
+                    var piece = PieceAt(square);
 
-                <div data-testid="@($"square-{square}")"
-                     class="relative flex items-center justify-center @(isLight ? "bg-amber-50" : "bg-amber-200") @(isSelected ? "outline outline-4 -outline-offset-4 outline-amber-700" : "")"
-                     @onclick="() => OnSquareClicked(square)"
-                     @ondragover="() => { }" @ondragover:preventDefault="true"
-                     @ondrop="() => OnDrop(square)">
+                    <div data-testid="@($"square-{square}")"
+                         class="relative flex items-center justify-center @(isLight ? "bg-board-light" : "bg-board-dark") @(isSelected ? "outline outline-4 -outline-offset-4 outline-amber-700" : "")"
+                         @onclick="() => OnSquareClicked(square)"
+                         @ondragover="() => { }" @ondragover:preventDefault="true"
+                         @ondrop="() => OnDrop(square)">
 
-                    @if (isLegalTarget)
-                    {
-                        <span class="pointer-events-none absolute h-[18%] w-[18%] rounded-full bg-amber-700/70"></span>
-                    }
+                        @if (isLegalTarget)
+                        {
+                            <span class="pointer-events-none absolute h-[18%] w-[18%] rounded-full bg-amber-700/70"></span>
+                        }
 
-                    @if (piece is { } p)
-                    {
-                        <span class="text-[clamp(1.5rem,8vw,3rem)] leading-none @(char.IsUpper(p) ? "text-white [-webkit-text-stroke:1px_#2b2019]" : "text-[#2b2019]")"
-                              draggable="@(CanMoveFrom(square) ? "true" : "false")"
-                              @ondragstart="() => OnDragStart(square)">
-                            @Glyph(p)
-                        </span>
-                    }
-                </div>
+                        @if (piece is { } p)
+                        {
+                            <span class="text-[clamp(1.5rem,8vw,3rem)] leading-none @(char.IsUpper(p) ? "text-white [-webkit-text-stroke:1px_#2b2019]" : "text-espresso")"
+                                  draggable="@(CanMoveFrom(square) ? "true" : "false")"
+                                  @ondragstart="() => OnDragStart(square)">
+                                @Glyph(p)
+                            </span>
+                        }
+                    </div>
+                }
             }
-        }
+        </div>
     </div>
 </div>
 

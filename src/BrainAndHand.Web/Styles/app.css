@@ -7,8 +7,25 @@
 @source "../Components/**/*.razor";
 @source "../../BrainAndHand.Web.Client/**/*.razor";
 
+/* Coffee-shop / vim / chess-club palette. Espresso is the ink, cream and paper are the two warm
+   surfaces (page vs. panel), moss is the second accent (Brain role, connected/idle states) sitting
+   opposite amber (Hand role, primary actions), and rust stands in for alarm red so errors stay in
+   the same muted family instead of reading as a generic app warning color. */
 @theme {
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-cream: #f6efe4;
+  --color-paper: #efe3d0;
+  --color-paper-dark: #e3d0b0;
+  --color-espresso: #2b2019;
+  --color-espresso-soft: #6b5843;
+  --color-moss: #4a5940;
+  --color-moss-soft: #7c8a6e;
+  --color-rust: #a1462f;
+
+  /* Maple/walnut club-board tones, in place of stock Tailwind amber-50/amber-200 squares. */
+  --color-board-light: #ead9b8;
+  --color-board-dark: #8a6a45;
 }
 
 /* Real interactive elements only. Blazor's <FocusOnNavigate> programmatically focuses the page's
@@ -28,6 +45,44 @@
 
 html {
   overflow-anchor: none;
+}
+
+/* A near-invisible paper grain over the whole page — fixed so it doesn't scroll with content,
+   painted first so it sits beneath everything else in normal DOM/stacking order. Opacity is
+   deliberately subliminal: it should read as "this surface has tooth" on close inspection, not
+   as a visible pattern. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Faint horizontal wood-grain hairlines, for the header bar and board frame — a texture cue for
+   "wood" without importing an actual photographic texture. */
+.grain-wood {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-espresso) 5%, transparent) 0px,
+    color-mix(in srgb, var(--color-espresso) 5%, transparent) 1px,
+    transparent 1px,
+    transparent 5px
+  );
+}
+
+/* A blinking terminal cursor, used as a decorative accent (next to the wordmark, in place of a
+   spinner during "connecting…" states) rather than a real caret. */
+@keyframes cursor-blink {
+  0%, 45% { opacity: 1; }
+  50%, 95% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.blink-cursor {
+  animation: cursor-blink 1.1s step-end infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

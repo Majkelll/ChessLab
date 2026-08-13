@@ -15,11 +15,11 @@
 
 @if (error is not null)
 {
-    <p data-testid="game-error" class="text-sm text-red-500">@error</p>
+    <p data-testid="game-error" class="text-sm text-rust">@error</p>
 }
 else if (room is null || state is null)
 {
-    <p class="text-[#2b20196b]">Connecting…</p>
+    <p class="text-espresso/42">Connecting<span class="blink-cursor" aria-hidden="true">_</span></p>
 }
 else
 {
@@ -41,15 +41,15 @@ else
         </div>
 
         <div>
-            <div class="flex items-center gap-2 text-sm">
-                <span data-testid="clock-white" class="bg-[#e3d0b0] px-2 py-1 text-xs">white @FormatClock(DisplayedRemainingMs(Side.White))</span>
-                <span data-testid="clock-black" class="bg-[#e3d0b0] px-2 py-1 text-xs">black @FormatClock(DisplayedRemainingMs(Side.Black))</span>
+            <div class="flex items-center gap-2 font-mono text-sm">
+                <span data-testid="clock-white" class="border border-espresso/16 bg-paper-dark px-2 py-1 text-xs @(state is { IsGameOver: false, SideToMove: Side.White } ? "border-amber-700/50" : "")">white @FormatClock(DisplayedRemainingMs(Side.White))</span>
+                <span data-testid="clock-black" class="border border-espresso/16 bg-paper-dark px-2 py-1 text-xs @(state is { IsGameOver: false, SideToMove: Side.Black } ? "border-moss/50" : "")">black @FormatClock(DisplayedRemainingMs(Side.Black))</span>
             </div>
 
             @if (state.IsGameOver)
             {
                 <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
-                    Game over: <span data-testid="game-over-reason">@EndReasonLabel(state.EndReason)</span>
+                    <span class="text-espresso-soft">Game over:</span> <span data-testid="game-over-reason">@EndReasonLabel(state.EndReason)</span>
                     @if (state.Winner is { } winner)
                     {
                         <text> — <span data-testid="game-over-winner">@(winner == Side.White ? "white" : "black")</span> wins</text>
@@ -64,13 +64,16 @@ else
             }
             else
             {
-                <p data-testid="turn-status" class="mt-4">
-                    Turn: @(state.SideToMove == Side.White ? "white" : "black")
-                    — @(state.Phase == TurnPhase.BrainSelecting ? "Brain is announcing a piece" : "Hand is making a move")
-                    @if (state.Phase == TurnPhase.HandMoving && state.SelectedPieceKind is { } announced)
-                    {
-                        <text> (@PieceKindDisplay.Label(announced))</text>
-                    }
+                <p data-testid="turn-status" class="mt-4 flex flex-wrap items-center gap-2 font-mono text-sm">
+                    <span class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
+                    <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
+                    <span class="@(state.Phase == TurnPhase.BrainSelecting ? "text-moss" : "text-amber-700")">
+                        @(state.Phase == TurnPhase.BrainSelecting ? "Brain is announcing a piece" : "Hand is making a move")
+                        @if (state.Phase == TurnPhase.HandMoving && state.SelectedPieceKind is { } announced)
+                        {
+                            <text> (@PieceKindDisplay.Label(announced))</text>
+                        }
+                    </span>
                 </p>
 
                 @if (mySeat is not null)
@@ -78,18 +81,18 @@ else
                     <button data-testid="resign-btn"
                             @onmousedown="() => { }" @onmousedown:preventDefault="true"
                             @onclick="ResignAsync"
-                            class="mt-6 border border-red-500/40 bg-red-500/5 px-3 py-1.5 font-mono text-sm text-red-500 hover:bg-red-500/20 transition duration-300 hover:cursor-pointer">
+                            class="mt-6 border border-rust/40 bg-rust/5 px-3 py-1.5 font-mono text-sm text-rust hover:bg-rust/20 transition duration-300 hover:cursor-pointer">
                         Resign
                     </button>
                 }
             }
 
-            <h3 class="mt-6 text-xs font-normal text-[#2b20196b]">MOVE HISTORY</h3>
-            <div class="h-1 w-full border-b border-[#2b201929]"></div>
-            <ol data-testid="move-history" class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+            <h3 class="mt-6 text-xs font-normal text-espresso/42">MOVE HISTORY</h3>
+            <div class="h-1 w-full border-b border-espresso/16"></div>
+            <ol data-testid="move-history" class="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-sm">
                 @for (var i = 0; i < state.MoveHistory.Count; i++)
                 {
-                    <li>@(i + 1). @state.MoveHistory[i].San</li>
+                    <li><span class="text-espresso-soft/70">@(i + 1).</span> @state.MoveHistory[i].San</li>
                 }
             </ol>
         </div>
