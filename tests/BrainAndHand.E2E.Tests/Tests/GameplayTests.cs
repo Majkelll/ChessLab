@@ -28,9 +28,9 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
         Assert.True(await whiteBrain.IsPieceCardEnabledAsync(PieceKind.Pawn));
         Assert.False(await whiteBrain.IsPieceCardEnabledAsync(PieceKind.Queen));
 
-        // Black Brain sees the same six cards, but it isn't their turn, so all of them are inert
-        // regardless of which kinds would otherwise have a legal move.
-        Assert.False(await blackBrain.IsPieceCardEnabledAsync(PieceKind.Pawn));
+        // Black Brain doesn't get a card grid at all while it's White's turn — that's White's own
+        // pick, not something for the other team to watch below their own board.
+        await Expect(blackBrain.PieceKindCards).ToBeHiddenAsync();
 
         await whiteBrain.SelectPieceKindAsync(PieceKind.Pawn);
         await whiteHand.WaitForTurnTextAsync("Hand is making a move");
@@ -47,7 +47,7 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
         // Turn passed to Black — White's own seats go quiet, Black Brain lights up.
         await blackBrain.WaitForTurnTextAsync("Brain is announcing a piece");
         await Expect(blackBrain.TurnStatus).ToContainTextAsync("black");
-        Assert.False(await whiteBrain.IsPieceCardEnabledAsync(PieceKind.Pawn));
+        await Expect(whiteBrain.PieceKindCards).ToBeHiddenAsync();
         Assert.True(await blackBrain.IsPieceCardEnabledAsync(PieceKind.Knight));
 
         await blackBrain.SelectPieceKindAsync(PieceKind.Knight);
