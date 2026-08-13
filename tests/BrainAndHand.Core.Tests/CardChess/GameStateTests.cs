@@ -39,6 +39,50 @@ public class GameStateTests
     }
 
     [Fact]
+    public void NewGame_NeverDealsACardForAPieceThatCantMoveYet()
+    {
+        // At the very start only pawns and knights can move — every other piece is boxed in, so
+        // stacking non-pawn/knight cards first must get skipped rather than dealt.
+        var state = NewRealGame(whiteOrder: [CardRank.King, CardRank.Queen, CardRank.Jack, CardRank.Ace, .. Deck.AllRanks]);
+
+        Assert.DoesNotContain(CardRank.King, state.HandOf(Side.White));
+        Assert.DoesNotContain(CardRank.Queen, state.HandOf(Side.White));
+        Assert.DoesNotContain(CardRank.Jack, state.HandOf(Side.White));
+        Assert.DoesNotContain(CardRank.Ace, state.HandOf(Side.White));
+        Assert.All(state.HandOf(Side.White), c => Assert.True(c.ToPieceKind() is PieceKind.Pawn or PieceKind.Knight));
+    }
+
+    [Fact]
+    public void NewGame_NeverDealsACardForAPieceThatNoLongerExists()
+    {
+        // No white queen anywhere on the board — "Queen" stacked first in the draw order must
+        // never end up in White's hand, since it could never resolve to a move.
+        var engine = GeraChessRulesEngine.FromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w KQkq - 0 1");
+        var deck = new Deck([CardRank.Queen, .. Deck.AllRanks.Where(r => r != CardRank.Queen)]);
+        var state = new GameState(engine, new Clock(TimeSpan.FromMinutes(10), TimeSpan.Zero), deck, Deck.Shuffled());
+
+        Assert.DoesNotContain(CardRank.Queen, state.HandOf(Side.White));
+    }
+
+    [Fact]
+    public void MakeMove_RefillNeverDealsACardForAPieceThatNoLongerExists()
+    {
+        var engine = GeraChessRulesEngine.FromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w KQkq - 0 1");
+        // The initial deal must succeed without needing to skip anything (all pawn/knight cards),
+        // then "Queen" is stacked right where the post-move refill draw would land.
+        var deck = new Deck([
+            CardRank.Ten, CardRank.Two, CardRank.Three, CardRank.Four, CardRank.Five,
+            CardRank.Queen, .. Deck.AllRanks.Where(r => r != CardRank.Queen),
+        ]);
+        var state = new GameState(engine, new Clock(TimeSpan.FromMinutes(10), TimeSpan.Zero), deck, Deck.Shuffled());
+        Assert.Contains(CardRank.Ten, state.HandOf(Side.White));
+
+        state.MakeMove(Square.Parse("b1"), Square.Parse("c3"), null, TimeSpan.FromSeconds(1)); // plays the "10" (knight) card
+
+        Assert.DoesNotContain(CardRank.Queen, state.HandOf(Side.White));
+    }
+
+    [Fact]
     public void NewGame_BothSidesStartAt3Hp_NotGameOver()
     {
         var state = NewRealGame();

@@ -50,6 +50,27 @@ public sealed class Deck
         return card;
     }
 
+    /// <summary>Draws the next card that satisfies <paramref name="isPlayable"/> — e.g. a rank whose
+    /// piece kind actually has a legal move right now, so a hand never ends up holding a card for a
+    /// piece that's already gone (a captured queen) or simply can't move yet (the king at the very
+    /// start of the game). Cards that don't qualify are drawn and discarded exactly like a played
+    /// card would be, so they still cycle back in once the pile reshuffles — nothing is lost, they're
+    /// just not dealt right now. Falls back to whatever was drawn last if nothing in a full cycle of
+    /// the deck qualifies, rather than looping forever; a truly all-dead deck is an extreme edge case
+    /// already handled elsewhere (see GameState's Emergency Move / free-move fallback).</summary>
+    public CardRank Draw(Func<CardRank, bool> isPlayable)
+    {
+        CardRank card;
+        var attempts = 0;
+        do
+        {
+            card = Draw();
+            attempts++;
+        } while (!isPlayable(card) && attempts < AllRanks.Count);
+
+        return card;
+    }
+
     private static void Shuffle(List<CardRank> list, Random rng)
     {
         for (var i = list.Count - 1; i > 0; i--)

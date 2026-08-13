@@ -36,6 +36,29 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
     public IReadOnlyList<ChessMove> LegalMoves(PieceKind kind) =>
         LegalMoves().Where(m => m.Piece == kind).ToArray();
 
+    /// <summary>For the side to move, this is just <see cref="LegalMoves(PieceKind)"/>. For the
+    /// other side, there's no direct way to ask the underlying library "what if it were your turn" —
+    /// so this loads a throwaway board from the current FEN with the active color swapped (and the
+    /// en passant target cleared, since it wouldn't apply to a hypothetical turn) and asks that one
+    /// instead. The library doesn't validate that the side not moving is out of check, so this is
+    /// safe even when the real side to move is currently in check.</summary>
+    public bool HasLegalMove(Side side, PieceKind kind)
+    {
+        if (side == SideToMove)
+            return LegalMoves(kind).Count > 0;
+
+        var probe = ChessBoard.LoadFromFen(WithSideToMove(board.ToFen(), side), AutoEndgameRules.All);
+        return probe.Moves().Any(m => ToPieceKind(m.Piece.Type) == kind);
+    }
+
+    private static string WithSideToMove(string fen, Side side)
+    {
+        var fields = fen.Split(' ');
+        fields[1] = side == Side.White ? "w" : "b";
+        fields[3] = "-";
+        return string.Join(' ', fields);
+    }
+
     public void ApplyMove(ChessMove move)
     {
         var fromPosition = new Position((short)move.From.File, (short)move.From.Rank);
