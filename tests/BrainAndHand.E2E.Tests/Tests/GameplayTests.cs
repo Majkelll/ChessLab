@@ -128,6 +128,30 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
     }
 
     [Fact]
+    public async Task Each_team_sees_a_read_only_peek_at_the_opposing_teams_current_pick()
+    {
+        var game = await StartFourHumanGameAsync();
+        var whiteBrain = game[Side.White, SeatRole.Brain];
+        var blackBrain = game[Side.Black, SeatRole.Brain];
+        var blackHand = game[Side.Black, SeatRole.Hand];
+
+        // Before White has announced anything, Black hasn't got a pick to peek at yet.
+        await Expect(blackBrain.OpponentPick).ToBeHiddenAsync();
+
+        await whiteBrain.SelectPieceKindAsync(PieceKind.Pawn);
+        var whiteHand = game[Side.White, SeatRole.Hand];
+        await whiteHand.WaitForTurnTextAsync("Hand is making a move");
+
+        // Both Black seats see a read-only badge naming what White's Hand is about to move with —
+        // it lives next to White's clock on Black's screen, not mixed into Black's own card grid.
+        await Expect(blackBrain.OpponentPick).ToHaveTextAsync(new Regex("opponent:.*Pawn"));
+        await Expect(blackHand.OpponentPick).ToHaveTextAsync(new Regex("opponent:.*Pawn"));
+
+        // White's own seats don't get an "opponent" badge for their own team's pick.
+        await Expect(whiteBrain.OpponentPick).ToBeHiddenAsync();
+    }
+
+    [Fact]
     public async Task Drag_and_drop_is_a_working_alternate_way_to_make_a_move()
     {
         var game = await StartFourHumanGameAsync();

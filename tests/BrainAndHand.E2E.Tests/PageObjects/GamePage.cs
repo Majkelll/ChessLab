@@ -22,6 +22,11 @@ public sealed class GamePage(IPage page)
     public ILocator PieceKindCards => Page.GetByTestId("piece-kind-cards");
     public ILocator PromotionPicker => Page.GetByTestId("promotion-picker");
 
+    /// <summary>The read-only "opponent: Knight" badge shown next to the opposing team's clock
+    /// while it's their turn to move — only present for a seated player, and only once their
+    /// opponents' Hand has an announced piece to act on.</summary>
+    public ILocator OpponentPick => Page.GetByTestId("opponent-pick");
+
     public ILocator PieceCard(PieceKind kind) => Page.GetByTestId($"piece-card-{kind}");
     public ILocator Square(string square) => Page.GetByTestId($"square-{square}");
     public ILocator PromotionChoice(PieceKind kind) => Page.GetByTestId($"promote-{kind}");
