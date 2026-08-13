@@ -7,7 +7,7 @@
             {
                 <img src="@AvatarUrl(context)" alt="" class="h-8 w-8 rounded-full" />
             }
-            <span data-testid="logged-in-name" class="text-sm text-[#6b5843]">@context.User.Identity?.Name</span>
+            <span data-testid="logged-in-name" class="max-w-[9rem] truncate text-sm text-[#6b5843] sm:max-w-none">@context.User.Identity?.Name</span>
             <form method="post" action="Account/Logout?returnUrl=/">
                 <button data-testid="logout-btn" type="submit"
                         class="border border-[#2b201929] bg-white/40 px-3 py-1.5 font-mono text-sm hover:border-amber-600/60 transition duration-300 hover:cursor-pointer">
