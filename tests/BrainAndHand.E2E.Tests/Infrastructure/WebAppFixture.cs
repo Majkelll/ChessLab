@@ -23,8 +23,11 @@ public class WebAppFixture : IAsyncLifetime
     private WebApplication? app;
     private string? dbPath;
 
+    // Matches the app's own default (10 min, no increment) — this just seeds newly-created
+    // rooms, same as production; individual tests that need a different clock use
+    // RoomPage.SetClockSettingsAsync to change it per-room, exactly like a real host would.
     protected virtual double InitialClockSeconds => 600;
-    protected virtual double ClockIncrementSeconds => 5;
+    protected virtual double ClockIncrementSeconds => 0;
 
     public string BaseUrl { get; private set; } = "";
 

@@ -89,4 +89,59 @@ public class RoomTests
 
         Assert.True(room.IsFull);
     }
+
+    [Fact]
+    public void NewRoom_DefaultsToTenMinutesWithNoIncrement()
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid());
+
+        Assert.Equal(TimeSpan.FromMinutes(10), room.InitialClock);
+        Assert.Equal(TimeSpan.Zero, room.ClockIncrement);
+    }
+
+    [Fact]
+    public void SetClockSettings_ChangesInitialClockAndIncrement()
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid());
+
+        room.SetClockSettings(TimeSpan.FromMinutes(3), TimeSpan.FromSeconds(2));
+
+        Assert.Equal(TimeSpan.FromMinutes(3), room.InitialClock);
+        Assert.Equal(TimeSpan.FromSeconds(2), room.ClockIncrement);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void SetClockSettings_NonPositiveInitial_Throws(int seconds)
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            room.SetClockSettings(TimeSpan.FromSeconds(seconds), TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void SetClockSettings_NegativeIncrement_Throws()
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            room.SetClockSettings(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(-1)));
+    }
+
+    [Fact]
+    public void SetClockSettings_AfterGameStarted_Throws()
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid());
+        room.ClaimSeat(WhiteBrain, Guid.NewGuid(), "Ala");
+        room.ClaimSeat(WhiteHand, Guid.NewGuid(), "Bob");
+        room.SetBot(BlackBrain, BotDifficulty.Easy);
+        room.SetBot(BlackHand, BotDifficulty.Hard);
+        var session = new GameSession(room);
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, DateTimeOffset.UtcNow);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            room.SetClockSettings(TimeSpan.FromMinutes(5), TimeSpan.Zero));
+    }
 }

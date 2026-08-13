@@ -11,20 +11,22 @@ namespace BrainAndHand.Web.Hubs;
 [Authorize]
 public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfiguration configuration) : Hub
 {
-    // Configurable (not just for production tuning) so E2E tests can spin up a game with a
+    // Seeds a new room's clock (10 min / no increment by default) — the host can then change it
+    // per-room from the lobby via SetClockSettings, any time before the game starts. Also
+    // configurable at the server level (not just for production tuning) so E2E tests can seed a
     // near-instant clock to exercise the timeout path without waiting on a real 10 minutes.
-    private TimeSpan InitialClock =>
+    private TimeSpan DefaultInitialClock =>
         TimeSpan.FromSeconds(configuration.GetValue("Game:InitialClockSeconds", 600));
 
-    private TimeSpan ClockIncrement =>
-        TimeSpan.FromSeconds(configuration.GetValue("Game:ClockIncrementSeconds", 5));
+    private TimeSpan DefaultClockIncrement =>
+        TimeSpan.FromSeconds(configuration.GetValue("Game:ClockIncrementSeconds", 0));
 
     private Guid UserId => Guid.Parse(Context.User!.FindFirstValue("buid")!);
     private string DisplayName => Context.User!.Identity?.Name ?? "Gracz";
 
     public async Task<RoomStateDto> CreateRoom()
     {
-        var session = registry.CreateRoom(UserId);
+        var session = registry.CreateRoom(UserId, DefaultInitialClock, DefaultClockIncrement);
         await Groups.AddToGroupAsync(Context.ConnectionId, session.Room.Code);
         return GameDtoMapper.ToRoomDto(session);
     }
@@ -64,13 +66,23 @@ public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfigu
         return await BroadcastRoom(session);
     }
 
+    public async Task<RoomStateDto> SetClockSettings(string code, int initialSeconds, int incrementSeconds)
+    {
+        var session = registry.Get(code);
+        if (session.Room.HostUserId != UserId)
+            throw new HubException("Only the room's host can change the clock settings.");
+
+        session.Room.SetClockSettings(TimeSpan.FromSeconds(initialSeconds), TimeSpan.FromSeconds(incrementSeconds));
+        return await BroadcastRoom(session);
+    }
+
     public async Task<GameStateDto> StartGame(string code)
     {
         var session = registry.Get(code);
         if (session.Room.HostUserId != UserId)
             throw new HubException("Only the room's host can start the game.");
 
-        session.Start(InitialClock, ClockIncrement, DateTimeOffset.UtcNow);
+        session.Start(session.Room.InitialClock, session.Room.ClockIncrement, DateTimeOffset.UtcNow);
         var dto = await BroadcastGame(session, "GameStarted");
         botRunner.ScheduleBotTurns(code);
         return dto;

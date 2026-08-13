@@ -59,21 +59,25 @@ else
                                         class="border border-amber-700/40 bg-amber-700/5 px-2 py-1 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
                                     Join
                                 </button>
-                                <select data-testid="seat-bot-select"
-                                        class="border border-[#2b201929] bg-white/60 px-1 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none"
-                                        @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
-                                    <option value="">Bot…</option>
-                                    <option value="Easy">Easy</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="Hard">Hard</option>
-                                    <option value="Expert">Expert</option>
-                                </select>
+                                <button data-testid="seat-add-bot-btn"
+                                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                        @onclick="() => AddBotAsync(seatId)"
+                                        class="border border-[#2b201929] bg-white/60 px-2 py-1 font-mono text-sm hover:border-amber-600/60 transition duration-300 hover:cursor-pointer">
+                                    Add bot
+                                </button>
                             </div>
                         }
                         else if (seat.Kind == OccupantKind.Bot)
                         {
                             <span class="flex items-center gap-2 text-sm">
-                                <span data-testid="seat-bot-label" class="bg-[#e3d0b0] px-2 py-1 text-xs">Bot (@DifficultyLabel(seat.Difficulty!.Value))</span>
+                                <select data-testid="seat-bot-select"
+                                        class="border border-[#2b201929] bg-white/60 px-1 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none"
+                                        @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
+                                    <option value="Easy" selected="@(seat.Difficulty == BotDifficulty.Easy)">Easy</option>
+                                    <option value="Medium" selected="@(seat.Difficulty == BotDifficulty.Medium)">Medium</option>
+                                    <option value="Hard" selected="@(seat.Difficulty == BotDifficulty.Hard)">Hard</option>
+                                    <option value="Expert" selected="@(seat.Difficulty == BotDifficulty.Expert)">Expert</option>
+                                </select>
                                 <button data-testid="seat-remove-btn"
                                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
                                         @onclick="() => ClearSeatAsync(seatId)" class="-m-2 p-2 text-xs text-[#2b20196b] underline hover:text-amber-700">remove</button>
@@ -94,6 +98,27 @@ else
                     </div>
                 }
             </div>
+        }
+    </div>
+
+    <div class="mt-6 flex flex-wrap items-center gap-2 text-sm">
+        <span class="text-[#2b20196b]">Clock:</span>
+        @if (room.HostUserId == myUserId)
+        {
+            <input type="number" min="1" max="180" data-testid="clock-initial-minutes"
+                   value="@clockMinutes"
+                   @onchange="OnClockMinutesChangedAsync"
+                   class="w-14 border border-[#2b201929] bg-white/60 px-2 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none" />
+            <span class="text-[#2b20196b]">min +</span>
+            <input type="number" min="0" max="60" data-testid="clock-increment-seconds"
+                   value="@clockIncrementSeconds"
+                   @onchange="OnClockIncrementChangedAsync"
+                   class="w-14 border border-[#2b201929] bg-white/60 px-2 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none" />
+            <span class="text-[#2b20196b]">s increment</span>
+        }
+        else
+        {
+            <span data-testid="clock-settings-display">@(room.InitialClockSeconds / 60) min + @room.ClockIncrementSeconds s increment</span>
         }
     </div>
 
@@ -129,6 +154,13 @@ else
     private string? error;
     private bool isStarting;
 
+    // Seeded once from the room's current clock settings, then only ever changed by the host's
+    // own edits — re-syncing from every RoomUpdated broadcast (e.g. another player joining a
+    // seat) would otherwise risk clobbering an in-progress edit before it's committed.
+    private int clockMinutes = 10;
+    private int clockIncrementSeconds;
+    private bool clockSettingsInitialized;
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateTask!;
@@ -152,6 +184,7 @@ else
                 Nav.NavigateTo($"/game/{Code}");
                 return;
             }
+            InitializeClockSettingsOnce(room);
             StateHasChanged();
         }
         catch (Exception ex)
@@ -163,6 +196,40 @@ else
 
     private bool IsFull() => room is not null && room.Seats.All(s => s.Kind != OccupantKind.Empty);
 
+    private void InitializeClockSettingsOnce(RoomStateDto currentRoom)
+    {
+        if (clockSettingsInitialized)
+            return;
+
+        clockMinutes = currentRoom.InitialClockSeconds / 60;
+        clockIncrementSeconds = currentRoom.ClockIncrementSeconds;
+        clockSettingsInitialized = true;
+    }
+
+    private Task OnClockMinutesChangedAsync(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var minutes) || minutes <= 0)
+            return Task.CompletedTask;
+
+        clockMinutes = minutes;
+        return UpdateClockSettingsAsync();
+    }
+
+    private Task OnClockIncrementChangedAsync(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var seconds) || seconds < 0)
+            return Task.CompletedTask;
+
+        clockIncrementSeconds = seconds;
+        return UpdateClockSettingsAsync();
+    }
+
+    private async Task UpdateClockSettingsAsync()
+    {
+        try { room = await Game.SetClockSettingsAsync(Code, clockMinutes * 60, clockIncrementSeconds); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
     private async Task ClaimSeatAsync(SeatId seatId)
     {
         try { room = await Game.ClaimSeatAsync(Code, seatId); }
@@ -172,6 +239,12 @@ else
     private async Task LeaveSeatAsync(SeatId seatId)
     {
         try { room = await Game.LeaveSeatAsync(Code, seatId); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task AddBotAsync(SeatId seatId)
+    {
+        try { room = await Game.SetSeatBotAsync(Code, seatId, BotDifficulty.Medium); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -189,15 +262,6 @@ else
         try { room = await Game.ClearSeatAsync(Code, seatId); }
         catch (Exception ex) { error = ex.Message; }
     }
-
-    private static string DifficultyLabel(BotDifficulty difficulty) => difficulty switch
-    {
-        BotDifficulty.Easy => "easy",
-        BotDifficulty.Medium => "medium",
-        BotDifficulty.Hard => "hard",
-        BotDifficulty.Expert => "expert",
-        _ => difficulty.ToString(),
-    };
 
     private async Task StartGameAsync()
     {

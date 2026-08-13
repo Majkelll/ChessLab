@@ -15,7 +15,9 @@ internal static class GameDtoMapper
             var occupant = session.Room.Seats[id];
             return new SeatSnapshot(id, occupant.Kind, occupant.UserId, occupant.DisplayName, occupant.Difficulty);
         }).ToArray(),
-        session.Game is not null);
+        session.Game is not null,
+        (int)session.Room.InitialClock.TotalSeconds,
+        (int)session.Room.ClockIncrement.TotalSeconds);
 
     public static GameStateDto ToGameDto(GameSession session)
     {

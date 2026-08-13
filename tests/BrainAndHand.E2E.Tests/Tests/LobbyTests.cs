@@ -20,7 +20,22 @@ public sealed class LobbyTests(WebAppFixture app, PlaywrightFixture playwright)
     }
 
     [Fact]
-    public async Task Setting_and_clearing_a_bot_is_reflected_live_for_every_player_in_the_room()
+    public async Task Adding_a_bot_always_starts_it_at_medium_difficulty()
+    {
+        await using var host = await TestPlayer.SignInAsync(playwright.Browser, app.BaseUrl, "Alice");
+        var hostRoom = await host.Home.CreateRoomAsync();
+
+        await using var guest = await TestPlayer.SignInAsync(playwright.Browser, app.BaseUrl, "Bob");
+        var guestRoom = await guest.GotoRoomAsync(hostRoom.Code);
+
+        await hostRoom.AddBotAsync(Side.White, SeatRole.Hand);
+
+        await Expect(hostRoom.SeatBotSelect(Side.White, SeatRole.Hand)).ToHaveValueAsync("Medium");
+        await Expect(guestRoom.SeatBotSelect(Side.White, SeatRole.Hand)).ToHaveValueAsync("Medium");
+    }
+
+    [Fact]
+    public async Task Changing_a_bots_difficulty_and_clearing_it_is_reflected_live_for_every_player_in_the_room()
     {
         await using var host = await TestPlayer.SignInAsync(playwright.Browser, app.BaseUrl, "Alice");
         var hostRoom = await host.Home.CreateRoomAsync();
@@ -29,10 +44,28 @@ public sealed class LobbyTests(WebAppFixture app, PlaywrightFixture playwright)
         var guestRoom = await guest.GotoRoomAsync(hostRoom.Code);
 
         await hostRoom.SetBotAsync(Side.White, SeatRole.Hand, BotDifficulty.Hard);
-        await Expect(guestRoom.SeatBotLabel(Side.White, SeatRole.Hand)).ToContainTextAsync("hard");
+        await Expect(guestRoom.SeatBotSelect(Side.White, SeatRole.Hand)).ToHaveValueAsync("Hard");
 
         await hostRoom.ClearBotAsync(Side.White, SeatRole.Hand);
         await Expect(guestRoom.SeatJoinButton(Side.White, SeatRole.Hand)).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Host_changing_clock_settings_is_reflected_live_for_every_player_in_the_room()
+    {
+        await using var host = await TestPlayer.SignInAsync(playwright.Browser, app.BaseUrl, "Alice");
+        var hostRoom = await host.Home.CreateRoomAsync();
+
+        await using var guest = await TestPlayer.SignInAsync(playwright.Browser, app.BaseUrl, "Bob");
+        var guestRoom = await guest.GotoRoomAsync(hostRoom.Code);
+
+        await Expect(hostRoom.ClockMinutesInput).ToHaveValueAsync("10");
+        await Expect(hostRoom.ClockIncrementInput).ToHaveValueAsync("0");
+        await Expect(guestRoom.ClockSettingsDisplay).ToHaveTextAsync("10 min + 0 s increment");
+
+        await hostRoom.SetClockSettingsAsync(minutes: 3, incrementSeconds: 2);
+
+        await Expect(guestRoom.ClockSettingsDisplay).ToHaveTextAsync("3 min + 2 s increment");
     }
 
     [Fact]
