@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@using System.Reflection
 
 <div class="min-h-screen bg-[#f6efe4] text-[#2b2019] font-mono">
     <header class="flex flex-wrap items-center justify-between gap-3 border-b border-[#2b201929] bg-[#efe3d0] px-4 py-4 sm:px-8">
@@ -17,3 +18,14 @@
     <a href="." class="text-amber-700 underline hover:text-amber-600">Reload</a>
     <span class="cursor-pointer">🗙</span>
 </div>
+
+<span class="fixed bottom-2 right-3 font-mono text-xs text-[#2b201980] select-none">@("v" + Version)</span>
+
+@code {
+    // Set via the Docker build-arg APP_VERSION -> `dotnet publish -p:InformationalVersion=...`,
+    // which the SDK stamps onto every assembly in the build graph (including this one).
+    private static readonly string Version =
+        typeof(MainLayout).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        ?? "dev";
+}

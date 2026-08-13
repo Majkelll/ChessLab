@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.OAuth.Claims;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
 var app = Program.CreateApp(args);
@@ -112,6 +113,18 @@ public partial class Program
         }
 
         // Configure the HTTP request pipeline.
+        // Must run before anything that inspects Request.Scheme (HTTPS redirection, HSTS, the
+        // Google OAuth handler building its redirect_uri) — Render (and similar PaaS) terminate
+        // TLS at their edge and forward plain http to the container, so without this the app
+        // thinks every request is http and Google rejects the resulting redirect_uri as a mismatch.
+        // KnownNetworks/KnownProxies are cleared because the edge proxy's IP isn't fixed/known.
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+            KnownIPNetworks = { },
+            KnownProxies = { },
+        });
+
         if (app.Environment.IsDevelopment())
         {
             app.UseWebAssemblyDebugging();
