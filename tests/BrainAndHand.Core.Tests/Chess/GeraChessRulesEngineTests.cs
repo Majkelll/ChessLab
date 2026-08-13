@@ -126,4 +126,37 @@ public class GeraChessRulesEngineTests
 
         Assert.Equal(Side.White, engine.SideToMove);
     }
+
+    [Fact]
+    public void HasLegalMove_ForTheSideToMove_MatchesLegalMoves()
+    {
+        var engine = new GeraChessRulesEngine();
+
+        Assert.True(engine.HasLegalMove(Side.White, PieceKind.Pawn));
+        Assert.True(engine.HasLegalMove(Side.White, PieceKind.Knight));
+        Assert.False(engine.HasLegalMove(Side.White, PieceKind.King)); // boxed in at the start
+        Assert.False(engine.HasLegalMove(Side.White, PieceKind.Queen));
+    }
+
+    [Fact]
+    public void HasLegalMove_ForTheOtherSide_StillWorksEvenWhileTheSideToMoveIsInCheck()
+    {
+        // White to move, in check — probing Black (the side not to move) must not blow up just
+        // because the position looks "illegal" from Black's hypothetical point of view.
+        var engine = GeraChessRulesEngine.FromFen("4qk2/8/8/8/8/8/8/4K3 w - - 0 1");
+
+        Assert.True(engine.IsInCheck(Side.White));
+        Assert.True(engine.HasLegalMove(Side.Black, PieceKind.Queen));
+        Assert.True(engine.HasLegalMove(Side.Black, PieceKind.King));
+        Assert.False(engine.HasLegalMove(Side.Black, PieceKind.Rook)); // Black has no rook here
+    }
+
+    [Fact]
+    public void HasLegalMove_IsFalse_WhenThatPieceKindNoLongerExistsForThatSide()
+    {
+        var engine = GeraChessRulesEngine.FromFen("4k3/8/8/8/8/8/8/4K3 w - - 0 1"); // no queens on the board
+
+        Assert.False(engine.HasLegalMove(Side.White, PieceKind.Queen));
+        Assert.False(engine.HasLegalMove(Side.Black, PieceKind.Queen));
+    }
 }

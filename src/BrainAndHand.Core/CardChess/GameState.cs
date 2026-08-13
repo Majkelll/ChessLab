@@ -8,7 +8,11 @@ namespace BrainAndHand.Core.CardChess;
 /// hand of <see cref="HandSize"/> cards, always visible, and on its turn may move any piece of the
 /// kind represented by a hand card that currently has a legal move — there's no separate "draw"
 /// step, a move is made directly and the server works out which hand card it used. That card is
-/// then discarded and replaced with a fresh random one, keeping the hand at a constant size. If a
+/// then discarded and replaced with a fresh random one, keeping the hand at a constant size — and
+/// every card dealt, whether at the initial deal or a refill, is guaranteed to have a legal move for
+/// that side at the moment it's dealt, so a hand is never dealt a card for a piece that's already
+/// gone (a captured queen) or that simply can't move yet (the king at the very start of the game) —
+/// though a card can still go dead later as the position changes, same as before. If a
 /// hand has no playable card while in check, an Emergency Move — any legal check-escaping move, for
 /// 1 HP — becomes available instead, and running out of HP when one is needed loses the game
 /// outright (rules 7/8). If a hand has no playable card and the side *isn't* in check, that's a gap
@@ -57,14 +61,19 @@ public sealed class GameState
         hp = new Dictionary<Side, int> { [Side.White] = StartingHp, [Side.Black] = StartingHp };
         hands = new Dictionary<Side, List<CardRank>>
         {
-            [Side.White] = [.. Enumerable.Range(0, HandSize).Select(_ => whiteDeck.Draw())],
-            [Side.Black] = [.. Enumerable.Range(0, HandSize).Select(_ => blackDeck.Draw())],
+            [Side.White] = [.. Enumerable.Range(0, HandSize).Select(_ => DrawPlayable(Side.White, whiteDeck))],
+            [Side.Black] = [.. Enumerable.Range(0, HandSize).Select(_ => DrawPlayable(Side.Black, blackDeck))],
         };
 
         RefreshAvailableMoves();
     }
 
     private IReadOnlyList<ChessMove> LegalMovesFor(CardRank card) => engine.LegalMoves(card.ToPieceKind());
+
+    /// <summary>Draws a card guaranteed to have a legal move for <paramref name="side"/> right now —
+    /// so a hand is never dealt a card for a piece that's already gone (a captured queen) or that
+    /// simply can't move yet (the king at the very start of the game).</summary>
+    private CardRank DrawPlayable(Side side, Deck deck) => deck.Draw(card => engine.HasLegalMove(side, card.ToPieceKind()));
 
     /// <summary>Recomputes what the side to move is currently allowed to play — every legal move
     /// reachable through one of its hand cards, or the full-board fallback if none of them have one.</summary>
@@ -135,7 +144,7 @@ public sealed class GameState
         if (usedCardIndex >= 0)
         {
             hands[mover].RemoveAt(usedCardIndex);
-            hands[mover].Add(decks[mover].Draw());
+            hands[mover].Add(DrawPlayable(mover, decks[mover]));
         }
         else if (costsHp)
         {

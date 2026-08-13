@@ -30,6 +30,10 @@ internal sealed class FakeChessRulesEngine : IChessRulesEngine
     public IReadOnlyList<ChessMove> LegalMoves(PieceKind kind) =>
         MovesByKind.TryGetValue(kind, out var moves) ? moves : [];
 
+    // This double doesn't model the two sides independently — tests that care which side has a
+    // legal move of a given kind should use the real engine instead (see GameStateTests).
+    public bool HasLegalMove(Side side, PieceKind kind) => LegalMoves(kind).Count > 0;
+
     // Toggles sides like a real engine would — matters for tests that make several moves in a row,
     // since GameState only re-evaluates a side's own situation (e.g. "still no playable card, and
     // now 0 HP") once it's genuinely that side's turn again, not immediately after its own move.
