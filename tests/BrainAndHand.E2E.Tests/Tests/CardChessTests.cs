@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using BrainAndHand.Core.CardChess;
 
 namespace BrainAndHand.E2E.Tests.Tests;
 
@@ -39,13 +40,13 @@ public sealed class CardChessTests(WebAppFixture app, PlaywrightFixture playwrig
         await Expect(white.HpWhite).ToHaveTextAsync("♥♥♥");
         await Expect(white.HpBlack).ToHaveTextAsync("♥♥♥");
         await Expect(white.ClockWhite).ToHaveTextAsync(new Regex(@"white \d{2}:\d{2}"));
-        Assert.Equal(5, (await white.GetHandCardLabelsAsync()).Count);
+        Assert.Equal(5, (await white.GetHandCardRanksAsync()).Count);
 
         var (whiteFrom, whiteTo) = await ComputeOpeningMoveAsync(white, isWhite: true);
         await white.MoveAsync(whiteFrom, whiteTo);
         await Expect(white.MoveHistory.Locator("li")).ToHaveCountAsync(1);
         // The played card was discarded and replaced — the hand never shrinks.
-        Assert.Equal(5, (await white.GetHandCardLabelsAsync()).Count);
+        Assert.Equal(5, (await white.GetHandCardRanksAsync()).Count);
 
         await black.WaitForTurnTextAsync("black");
         var (blackFrom, blackTo) = await ComputeOpeningMoveAsync(black, isWhite: false);
@@ -132,33 +133,33 @@ public sealed class CardChessTests(WebAppFixture app, PlaywrightFixture playwrig
 
     /// <summary>Works out the one legal opening move a hand card must resolve to. Only pawn (2–9)
     /// and knight (10) cards can ever have a legal move on a side's very first turn — every other
-    /// piece is still boxed in by the starting position — and since a hand only has 4 "dead" ranks
-    /// to draw from (J/Q/K/A) but holds 5 distinct cards, at least one workable card is always
-    /// guaranteed. The deck itself is shuffled server-side, so this reads whichever card actually
+    /// piece is still boxed in by the starting position — and the server never deals a card with no
+    /// legal move in the first place, so every dealt card is workable; the filter below is just
+    /// defensive. The deck itself is shuffled server-side, so this reads whichever card actually
     /// showed up rather than trying to control it the way the Core unit tests can.</summary>
     private static async Task<(string From, string To)> ComputeOpeningMoveAsync(CardChessGamePage page, bool isWhite)
     {
-        var labels = await page.GetHandCardLabelsAsync();
-        var workable = labels.First(label => label is not ("J" or "Q" or "K" or "A"));
+        var ranks = await page.GetHandCardRanksAsync();
+        var workable = ranks.First(r => r.ToPieceKind() is PieceKind.Pawn or PieceKind.Knight);
         return OpeningMoveFor(workable, isWhite);
     }
 
-    private static (string From, string To) OpeningMoveFor(string cardLabel, bool isWhite)
+    private static (string From, string To) OpeningMoveFor(CardRank card, bool isWhite)
     {
         var homeRank = isWhite ? "2" : "7";
         var advancedRank = isWhite ? "4" : "5";
-        return cardLabel switch
+        return card switch
         {
-            "2" => ($"a{homeRank}", $"a{advancedRank}"),
-            "3" => ($"b{homeRank}", $"b{advancedRank}"),
-            "4" => ($"c{homeRank}", $"c{advancedRank}"),
-            "5" => ($"d{homeRank}", $"d{advancedRank}"),
-            "6" => ($"e{homeRank}", $"e{advancedRank}"),
-            "7" => ($"f{homeRank}", $"f{advancedRank}"),
-            "8" => ($"g{homeRank}", $"g{advancedRank}"),
-            "9" => ($"h{homeRank}", $"h{advancedRank}"),
-            "10" => isWhite ? ("b1", "c3") : ("b8", "c6"),
-            _ => throw new InvalidOperationException($"'{cardLabel}' can't have a legal move on the opening turn."),
+            CardRank.Two => ($"a{homeRank}", $"a{advancedRank}"),
+            CardRank.Three => ($"b{homeRank}", $"b{advancedRank}"),
+            CardRank.Four => ($"c{homeRank}", $"c{advancedRank}"),
+            CardRank.Five => ($"d{homeRank}", $"d{advancedRank}"),
+            CardRank.Six => ($"e{homeRank}", $"e{advancedRank}"),
+            CardRank.Seven => ($"f{homeRank}", $"f{advancedRank}"),
+            CardRank.Eight => ($"g{homeRank}", $"g{advancedRank}"),
+            CardRank.Nine => ($"h{homeRank}", $"h{advancedRank}"),
+            CardRank.Ten => isWhite ? ("b1", "c3") : ("b8", "c6"),
+            _ => throw new InvalidOperationException($"'{card}' can't have a legal move on the opening turn."),
         };
     }
 }

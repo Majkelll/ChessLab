@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using BrainAndHand.Core.CardChess;
 using BrainAndHand.Core.Chess;
 using Microsoft.Playwright;
 
@@ -46,12 +47,17 @@ public sealed class CardChessGamePage(IPage page)
 
     public Task<string> GetTurnStatusAsync() => TurnStatus.InnerTextAsync();
 
-    /// <summary>The rank label (e.g. "6", "10", "Q") of each card currently in this seat's hand —
-    /// the deck is shuffled server-side, so tests read the hand rather than controlling it directly.</summary>
-    public async Task<IReadOnlyList<string>> GetHandCardLabelsAsync()
+    /// <summary>The rank (e.g. Six, Ten, Queen) of each card currently in this seat's hand, read
+    /// from each card's <c>data-testid</c> rather than its displayed content — the hand renders
+    /// piece glyphs, not rank text, so this is the only reliable way to know which cards they are.
+    /// Uses <c>EvaluateAllAsync</c> rather than <c>Locator.AllAsync()</c>, which snapshots the DOM
+    /// immediately with no auto-waiting and can race a hand that hasn't rendered yet. The deck is
+    /// shuffled server-side, so tests read the hand rather than controlling it directly.</summary>
+    public async Task<IReadOnlyList<CardRank>> GetHandCardRanksAsync()
     {
-        var cards = await MyHand.Locator("[data-testid^='hand-card-']").AllInnerTextsAsync();
-        return cards.Select(text => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0]).ToArray();
+        var testIds = await MyHand.Locator("[data-testid^='hand-card-']")
+            .EvaluateAllAsync<string[]>("els => els.map(e => e.getAttribute('data-testid'))");
+        return testIds.Select(id => Enum.Parse<CardRank>(id["hand-card-".Length..])).ToArray();
     }
 
     /// <summary>Click-to-move — see <see cref="GamePage.MoveAsync"/> for why the short pause matters.</summary>
