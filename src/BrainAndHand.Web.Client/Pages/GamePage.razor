@@ -31,7 +31,7 @@ else
                         FlipBoard="@(mySeat?.Side == Side.Black)"
                         OnMoveSelected="MakeMoveAsync" />
 
-            @if (mySeat?.Role == SeatRole.Brain || state.SelectedPieceKind is not null)
+            @if (isMySideToMove && (mySeat?.Role == SeatRole.Brain || state.SelectedPieceKind is not null))
             {
                 <div class="mt-4" data-testid="piece-kind-cards">
                     <PieceKindCards AvailableKinds="@state.AvailablePieceKinds" Interactive="@isCardsInteractive"
@@ -143,6 +143,12 @@ else
     private bool isMyTurn =>
         mySeat is not null && state is not null &&
         mySeat.Value == new SeatId(state.SideToMove, state.Phase == TurnPhase.BrainSelecting ? SeatRole.Brain : SeatRole.Hand);
+
+    /// <summary>Whether it's my own team's turn at all (either half — Brain selecting or Hand
+    /// moving), as opposed to <see cref="isMyTurn"/> which is scoped to my own seat's half. Gates
+    /// the under-board card grid so it only ever shows my team's own pick — the opposing team's
+    /// pick has its own read-only spot next to their clock instead.</summary>
+    private bool isMySideToMove => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
 
     private bool isBoardInteractive => state is { IsGameOver: false } && isMyTurn && state.Phase == TurnPhase.HandMoving;
     private bool isCardsInteractive => state is { IsGameOver: false } && isMyTurn && state.Phase == TurnPhase.BrainSelecting;
