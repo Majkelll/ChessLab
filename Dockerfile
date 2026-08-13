@@ -12,6 +12,7 @@ RUN npm --prefix src/BrainAndHand.Web run build:css
 
 # ---- Stage 2: .NET build & publish ----
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG APP_VERSION=dev
 WORKDIR /src
 COPY BrainAndHand.slnx .
 COPY src/ src/
@@ -21,7 +22,8 @@ COPY --from=css /src/src/BrainAndHand.Web/wwwroot/css/files src/BrainAndHand.Web
 RUN dotnet restore
 RUN dotnet publish src/BrainAndHand.Web/BrainAndHand.Web.csproj \
     -c Release -o /app/publish --no-restore \
-    -p:SkipTailwindBuild=true
+    -p:SkipTailwindBuild=true -p:InformationalVersion=${APP_VERSION} \
+    -p:IncludeSourceRevisionInInformationalVersion=false
 
 # ---- Stage 3: runtime ----
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
