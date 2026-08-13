@@ -4,19 +4,29 @@
     @foreach (var kind in Kinds)
     {
         var isDisabled = !Interactive || !AvailableKinds.Contains(kind);
+        var isSelected = SelectedKind == kind;
 
         @* Soft-disable (no native `disabled`) so the button stays focusable instead of the
            browser hunting for a new focus target after the click. We also suppress the
            default mousedown-focus so a click near the bottom of the viewport doesn't trigger
            the browser's "scroll the newly focused element into view" behavior — that snap
-           was what read as the whole UI jumping every turn. Tab/keyboard focus still works. *@
+           was what read as the whole UI jumping every turn. Tab/keyboard focus still works.
+
+           The announced kind stays highlighted at full opacity even once the grid goes
+           non-interactive (i.e. during the Hand's half of the turn) — without this, neither
+           the Brain nor the Hand had any way to see which piece was actually announced once
+           selection was done, short of remembering it. *@
         <button data-testid="@($"piece-card-{kind}")"
-                class="flex w-full flex-col items-center border border-[#2b201929] bg-white/40 px-3 py-3 transition duration-300 @(isDisabled ? "cursor-not-allowed opacity-30" : "hover:border-amber-600/60 hover:cursor-pointer")"
+                class="flex w-full flex-col items-center border px-3 py-3 transition duration-300
+                       @(isSelected ? "border-amber-600 bg-amber-700/10" : "border-[#2b201929] bg-white/40")
+                       @(isDisabled && !isSelected ? "cursor-not-allowed opacity-30" : "")
+                       @(!isDisabled ? "hover:border-amber-600/60 hover:cursor-pointer" : "")"
                 aria-disabled="@(isDisabled ? "true" : "false")"
+                aria-current="@(isSelected ? "true" : "false")"
                 @onmousedown="() => { }" @onmousedown:preventDefault="true"
                 @onclick="() => { if (!isDisabled) OnKindSelected.InvokeAsync(kind); }">
-            <span class="text-3xl leading-none">@Glyph(kind)</span>
-            <span class="mt-1 text-xs font-normal text-[#2b20196b]">@Label(kind)</span>
+            <span class="text-3xl leading-none">@PieceKindDisplay.Glyph(kind)</span>
+            <span class="mt-1 text-xs font-normal text-[#2b20196b]">@PieceKindDisplay.Label(kind)</span>
         </button>
     }
 </div>
@@ -27,27 +37,10 @@
 
     [Parameter] public IReadOnlyList<PieceKind> AvailableKinds { get; set; } = [];
     [Parameter] public bool Interactive { get; set; }
+
+    /// <summary>The piece kind the Brain already announced this turn, if any — highlighted
+    /// regardless of <see cref="Interactive"/> so it stays visible once selection is done.</summary>
+    [Parameter] public PieceKind? SelectedKind { get; set; }
+
     [Parameter] public EventCallback<PieceKind> OnKindSelected { get; set; }
-
-    private static string Glyph(PieceKind kind) => kind switch
-    {
-        PieceKind.Pawn => "♟",
-        PieceKind.Knight => "♞",
-        PieceKind.Bishop => "♝",
-        PieceKind.Rook => "♜",
-        PieceKind.Queen => "♛",
-        PieceKind.King => "♚",
-        _ => "?",
-    };
-
-    private static string Label(PieceKind kind) => kind switch
-    {
-        PieceKind.Pawn => "Pawn",
-        PieceKind.Knight => "Knight",
-        PieceKind.Bishop => "Bishop",
-        PieceKind.Rook => "Rook",
-        PieceKind.Queen => "Queen",
-        PieceKind.King => "King",
-        _ => kind.ToString(),
-    };
 }

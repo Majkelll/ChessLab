@@ -33,6 +33,12 @@ public sealed class GamePage(IPage page)
     public async Task<bool> IsPieceCardEnabledAsync(PieceKind kind) =>
         await PieceCard(kind).GetAttributeAsync("aria-disabled") == "false";
 
+    /// <summary>True for whichever card is currently highlighted as the announced piece kind —
+    /// visible to both Brain and Hand, and to the Hand specifically even though their cards
+    /// aren't clickable, so they can see what they're allowed to move.</summary>
+    public async Task<bool> IsPieceCardAnnouncedAsync(PieceKind kind) =>
+        await PieceCard(kind).GetAttributeAsync("aria-current") == "true";
+
     public Task SelectPieceKindAsync(PieceKind kind) => PieceCard(kind).ClickAsync();
 
     /// <summary>Click-to-move: click the origin square, then the destination square. The short pause

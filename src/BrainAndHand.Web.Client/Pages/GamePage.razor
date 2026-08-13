@@ -31,10 +31,11 @@ else
                         FlipBoard="@(mySeat?.Side == Side.Black)"
                         OnMoveSelected="MakeMoveAsync" />
 
-            @if (mySeat?.Role == SeatRole.Brain)
+            @if (mySeat?.Role == SeatRole.Brain || state.SelectedPieceKind is not null)
             {
                 <div class="mt-4" data-testid="piece-kind-cards">
-                    <PieceKindCards AvailableKinds="@state.AvailablePieceKinds" Interactive="@isCardsInteractive" OnKindSelected="SelectPieceKindAsync" />
+                    <PieceKindCards AvailableKinds="@state.AvailablePieceKinds" Interactive="@isCardsInteractive"
+                                     SelectedKind="@state.SelectedPieceKind" OnKindSelected="SelectPieceKindAsync" />
                 </div>
             }
         </div>
@@ -66,6 +67,10 @@ else
                 <p data-testid="turn-status" class="mt-4">
                     Turn: @(state.SideToMove == Side.White ? "white" : "black")
                     — @(state.Phase == TurnPhase.BrainSelecting ? "Brain is announcing a piece" : "Hand is making a move")
+                    @if (state.Phase == TurnPhase.HandMoving && state.SelectedPieceKind is { } announced)
+                    {
+                        <text> (@PieceKindDisplay.Label(announced))</text>
+                    }
                 </p>
 
                 @if (mySeat is not null)
