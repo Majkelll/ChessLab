@@ -41,9 +41,38 @@ else
         </div>
 
         <div>
-            <div class="flex items-center gap-2 font-mono text-sm">
-                <span data-testid="clock-white" class="border border-espresso/16 bg-paper-dark px-2 py-1 text-xs @(state is { IsGameOver: false, SideToMove: Side.White } ? "border-amber-700/50" : "")">white @FormatClock(DisplayedRemainingMs(Side.White))</span>
-                <span data-testid="clock-black" class="border border-espresso/16 bg-paper-dark px-2 py-1 text-xs @(state is { IsGameOver: false, SideToMove: Side.Black } ? "border-moss/50" : "")">black @FormatClock(DisplayedRemainingMs(Side.Black))</span>
+            <div class="flex flex-col items-start gap-1.5">
+                @if (mySeat is { } seat)
+                {
+                    // Opponent's row (their clock + a read-only peek at what their team is currently
+                    // doing) comes first, mine comes second — the same top-is-them/bottom-is-me
+                    // convention the flipped board already uses for the seat you're sitting in.
+                    var opponentSide = seat.Side == Side.White ? Side.Black : Side.White;
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <span data-testid="@ClockTestId(opponentSide)" class="@ClockClasses(opponentSide)">@SideLabel(opponentSide) @FormatClock(DisplayedRemainingMs(opponentSide))</span>
+                        @if (state is { IsGameOver: false } && state.SideToMove == opponentSide)
+                        {
+                            @if (state.Phase == TurnPhase.BrainSelecting)
+                            {
+                                <span class="text-xs text-espresso-soft/60">choosing…</span>
+                            }
+                            else if (state.SelectedPieceKind is { } opponentKind)
+                            {
+                                <span data-testid="opponent-pick" class="border border-espresso/16 bg-white/40 px-2 py-0.5 text-xs">
+                                    opponent: @PieceKindDisplay.Glyph(opponentKind) @PieceKindDisplay.Label(opponentKind)
+                                </span>
+                            }
+                        }
+                    </div>
+                    <span data-testid="@ClockTestId(seat.Side)" class="font-mono @ClockClasses(seat.Side)">@SideLabel(seat.Side) @FormatClock(DisplayedRemainingMs(seat.Side))</span>
+                }
+                else
+                {
+                    <div class="flex items-center gap-2 font-mono text-sm">
+                        <span data-testid="clock-white" class="@ClockClasses(Side.White)">white @FormatClock(DisplayedRemainingMs(Side.White))</span>
+                        <span data-testid="clock-black" class="@ClockClasses(Side.Black)">black @FormatClock(DisplayedRemainingMs(Side.Black))</span>
+                    </div>
+                }
             </div>
 
             @if (state.IsGameOver)
@@ -179,6 +208,17 @@ else
     {
         var span = TimeSpan.FromMilliseconds(Math.Max(0, ms));
         return $"{(int)span.TotalMinutes:00}:{span.Seconds:00}";
+    }
+
+    private static string SideLabel(Side side) => side == Side.White ? "white" : "black";
+
+    private static string ClockTestId(Side side) => side == Side.White ? "clock-white" : "clock-black";
+
+    private string ClockClasses(Side side)
+    {
+        var isActive = state is { IsGameOver: false } && state.SideToMove == side;
+        var activeBorder = side == Side.White ? "border-amber-700/50" : "border-moss/50";
+        return $"border border-espresso/16 bg-paper-dark px-2 py-1 text-xs {(isActive ? activeBorder : "")}";
     }
 
     private static string EndReasonLabel(GameEndReason? reason) => reason switch
