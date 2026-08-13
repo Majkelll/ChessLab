@@ -2,8 +2,8 @@
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
             <NotAuthorized>
-                <p class="text-slate-400">Musisz się zalogować, żeby zobaczyć tę stronę.</p>
-                <a href="Account/Login" class="text-emerald-400 underline">Zaloguj przez Google</a>
+                <p data-testid="not-authorized-message" class="text-[#6b5843]">You need to sign in to view this page.</p>
+                <a data-testid="not-authorized-login-link" href="Account/Login" class="text-amber-700 underline hover:text-amber-600">Sign in with Google</a>
             </NotAuthorized>
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />

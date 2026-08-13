@@ -7,18 +7,19 @@
             {
                 <img src="@AvatarUrl(context)" alt="" class="h-8 w-8 rounded-full" />
             }
-            <span class="text-sm text-slate-200">@context.User.Identity?.Name</span>
+            <span data-testid="logged-in-name" class="text-sm text-[#6b5843]">@context.User.Identity?.Name</span>
             <form method="post" action="Account/Logout?returnUrl=/">
-                <button type="submit" class="rounded-md bg-slate-700 px-3 py-1.5 text-sm text-slate-100 hover:bg-slate-600">
-                    Wyloguj
+                <button data-testid="logout-btn" type="submit"
+                        class="border border-[#2b201929] bg-white/40 px-3 py-1.5 font-mono text-sm hover:border-amber-600/60 transition duration-300 hover:cursor-pointer">
+                    Log out
                 </button>
             </form>
         </div>
     </Authorized>
     <NotAuthorized>
-        <a href="Account/Login?returnUrl=/"
-           class="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500">
-            Zaloguj przez Google
+        <a data-testid="google-login-link" href="Account/Login?returnUrl=/"
+           class="border border-amber-700/40 bg-amber-700/5 px-3 py-1.5 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+            Sign in with Google
         </a>
     </NotAuthorized>
 </AuthorizeView>

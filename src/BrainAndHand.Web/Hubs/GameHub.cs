@@ -9,10 +9,15 @@ using Microsoft.AspNetCore.SignalR;
 namespace BrainAndHand.Web.Hubs;
 
 [Authorize]
-public sealed class GameHub(RoomRegistry registry, BotRunner botRunner) : Hub
+public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfiguration configuration) : Hub
 {
-    private static readonly TimeSpan InitialClock = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan ClockIncrement = TimeSpan.FromSeconds(5);
+    // Configurable (not just for production tuning) so E2E tests can spin up a game with a
+    // near-instant clock to exercise the timeout path without waiting on a real 10 minutes.
+    private TimeSpan InitialClock =>
+        TimeSpan.FromSeconds(configuration.GetValue("Game:InitialClockSeconds", 600));
+
+    private TimeSpan ClockIncrement =>
+        TimeSpan.FromSeconds(configuration.GetValue("Game:ClockIncrementSeconds", 5));
 
     private Guid UserId => Guid.Parse(Context.User!.FindFirstValue("buid")!);
     private string DisplayName => Context.User!.Identity?.Name ?? "Gracz";
