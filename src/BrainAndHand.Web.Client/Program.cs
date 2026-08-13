@@ -8,5 +8,6 @@ builder.Services.AddAuthenticationStateDeserialization();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<GameClient>();
+builder.Services.AddScoped<CurrentGameContext>();
 
 await builder.Build().RunAsync();

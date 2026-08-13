@@ -60,6 +60,7 @@ public partial class Program
         builder.Services.AddSingleton<BotRunner>();
         builder.Services.AddHostedService<ClockWatchdog>();
         builder.Services.AddScoped<BrainAndHand.Web.Client.Services.GameClient>();
+        builder.Services.AddScoped<BrainAndHand.Web.Client.Services.CurrentGameContext>();
 
         builder.Services.AddAuthorization();
         builder.Services.AddAuthentication(options =>

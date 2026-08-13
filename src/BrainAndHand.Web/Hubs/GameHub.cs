@@ -24,8 +24,15 @@ public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfigu
     private Guid UserId => Guid.Parse(Context.User!.FindFirstValue("buid")!);
     private string DisplayName => Context.User!.Identity?.Name ?? "Gracz";
 
-    public async Task<RoomStateDto> CreateRoom()
+    public async Task<RoomStateDto> CreateRoom(GameKind kind = GameKind.HandAndBrain)
     {
+        if (kind == GameKind.CardChess)
+        {
+            var cardChessSession = registry.CreateCardChessRoom(UserId, DefaultInitialClock, DefaultClockIncrement);
+            await Groups.AddToGroupAsync(Context.ConnectionId, cardChessSession.Room.Code);
+            return GameDtoMapper.ToRoomDto(cardChessSession);
+        }
+
         var session = registry.CreateRoom(UserId, DefaultInitialClock, DefaultClockIncrement);
         await Groups.AddToGroupAsync(Context.ConnectionId, session.Room.Code);
         return GameDtoMapper.ToRoomDto(session);
@@ -33,42 +40,42 @@ public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfigu
 
     public async Task<RoomStateDto> JoinRoom(string code)
     {
-        var session = registry.Get(code);
+        var session = registry.GetAny(code);
         await Groups.AddToGroupAsync(Context.ConnectionId, session.Room.Code);
         return GameDtoMapper.ToRoomDto(session);
     }
 
     public async Task<RoomStateDto> ClaimSeat(string code, SeatId seatId)
     {
-        var session = registry.Get(code);
+        var session = registry.GetAny(code);
         session.Room.ClaimSeat(seatId, UserId, DisplayName);
         return await BroadcastRoom(session);
     }
 
     public async Task<RoomStateDto> LeaveSeat(string code, SeatId seatId)
     {
-        var session = registry.Get(code);
+        var session = registry.GetAny(code);
         session.Room.LeaveSeat(seatId, UserId);
         return await BroadcastRoom(session);
     }
 
     public async Task<RoomStateDto> SetSeatBot(string code, SeatId seatId, BotDifficulty difficulty)
     {
-        var session = registry.Get(code);
+        var session = registry.GetAny(code);
         session.Room.SetBot(seatId, difficulty);
         return await BroadcastRoom(session);
     }
 
     public async Task<RoomStateDto> ClearSeat(string code, SeatId seatId)
     {
-        var session = registry.Get(code);
+        var session = registry.GetAny(code);
         session.Room.ClearSeat(seatId);
         return await BroadcastRoom(session);
     }
 
     public async Task<RoomStateDto> SetClockSettings(string code, int initialSeconds, int incrementSeconds)
     {
-        var session = registry.Get(code);
+        var session = registry.GetAny(code);
         if (session.Room.HostUserId != UserId)
             throw new HubException("Only the room's host can change the clock settings.");
 
@@ -128,7 +135,49 @@ public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfigu
         return await BroadcastGame(session, "GameUpdated");
     }
 
-    private async Task<RoomStateDto> BroadcastRoom(GameSession session)
+    public async Task<CardChessStateDto> StartCardChessGame(string code)
+    {
+        var session = registry.GetCardChess(code);
+        if (session.Room.HostUserId != UserId)
+            throw new HubException("Only the room's host can start the game.");
+
+        session.Start(session.Room.InitialClock, session.Room.ClockIncrement, DateTimeOffset.UtcNow);
+        var dto = await BroadcastCardChessGame(session, "CardChessGameStarted");
+        botRunner.ScheduleCardChessBotTurns(code);
+        return dto;
+    }
+
+    public async Task<CardChessStateDto> MakeCardChessMove(string code, Square from, Square to, PieceKind? promoteTo)
+    {
+        var session = registry.GetCardChess(code);
+        EnsureCardChessActiveSeatIsCaller(session);
+        session.MakeMove(from, to, promoteTo, DateTimeOffset.UtcNow);
+        var dto = await BroadcastCardChessGame(session, "CardChessGameUpdated");
+        botRunner.ScheduleCardChessBotTurns(code);
+        return dto;
+    }
+
+    public Task<CardChessStateDto> GetCardChessState(string code)
+    {
+        var session = registry.GetCardChess(code);
+        if (session.Game is null)
+            throw new HubException("Game has not started.");
+
+        return Task.FromResult(GameDtoMapper.ToCardChessDto(session));
+    }
+
+    public async Task<CardChessStateDto> ResignCardChess(string code)
+    {
+        var session = registry.GetCardChess(code);
+        if (session.Game is null)
+            throw new HubException("Game has not started.");
+
+        var seat = session.Room.FindSeatOf(UserId) ?? throw new HubException("You are not seated in this room.");
+        session.Game.Resign(seat.Side);
+        return await BroadcastCardChessGame(session, "CardChessGameUpdated");
+    }
+
+    private async Task<RoomStateDto> BroadcastRoom(IRoomSession session)
     {
         var dto = GameDtoMapper.ToRoomDto(session);
         await Clients.Group(session.Room.Code).SendAsync("RoomUpdated", dto);
@@ -142,7 +191,24 @@ public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfigu
         return dto;
     }
 
+    private async Task<CardChessStateDto> BroadcastCardChessGame(CardChessSession session, string eventName)
+    {
+        var dto = GameDtoMapper.ToCardChessDto(session);
+        await Clients.Group(session.Room.Code).SendAsync(eventName, dto);
+        return dto;
+    }
+
     private void EnsureActiveSeatIsCaller(GameSession session)
+    {
+        if (session.Game is null)
+            throw new HubException("Game has not started.");
+
+        var occupant = session.Room.Seats[session.ActiveSeat];
+        if (occupant.Kind != OccupantKind.Human || occupant.UserId != UserId)
+            throw new HubException("It's not your turn.");
+    }
+
+    private void EnsureCardChessActiveSeatIsCaller(CardChessSession session)
     {
         if (session.Game is null)
             throw new HubException("Game has not started.");

@@ -1,21 +1,25 @@
+using BrainAndHand.Core.CardChess;
 using BrainAndHand.Core.Chess;
 using BrainAndHand.Core.HandBrain;
+using GameState = BrainAndHand.Core.CardChess.GameState;
 
 namespace BrainAndHand.Core.Rooms;
 
-/// <summary>Ties a lobby <see cref="Room"/> to its (possibly not-yet-started) <see cref="GameState"/>.</summary>
-public sealed class GameSession(Room room, Func<IChessRulesEngine> engineFactory) : IRoomSession
+/// <summary>Ties a lobby <see cref="Room"/> to its (possibly not-yet-started) Card Chess
+/// <see cref="CardChess.GameState"/> — the Card Chess sibling of <see cref="GameSession"/>.</summary>
+public sealed class CardChessSession(Room room, Func<IChessRulesEngine> engineFactory) : IRoomSession
 {
     public Room Room { get; } = room;
     public GameState? Game { get; private set; }
     public DateTimeOffset? TurnStartedAt { get; private set; }
     public bool HasActiveGame => Game is { IsGameOver: false };
 
-    public GameSession(Room room) : this(room, static () => new GeraChessRulesEngine())
+    public CardChessSession(Room room) : this(room, static () => new GeraChessRulesEngine())
     {
     }
 
-    /// <summary>The seat whose occupant is expected to act right now (Brain to announce, or Hand to move).</summary>
+    /// <summary>The seat whose occupant is expected to act right now. Unlike Hand &amp; Brain,
+    /// Card Chess has only one role per side, so this is always <see cref="SeatRole.Player"/>.</summary>
     public SeatId ActiveSeat
     {
         get
@@ -23,18 +27,18 @@ public sealed class GameSession(Room room, Func<IChessRulesEngine> engineFactory
             if (Game is null)
                 throw new InvalidOperationException("Game has not started.");
 
-            var role = Game.Phase == TurnPhase.BrainSelecting ? SeatRole.Brain : SeatRole.Hand;
-            return new SeatId(Game.SideToMove, role);
+            return new SeatId(Game.SideToMove, SeatRole.Player);
         }
     }
 
-    public void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now)
+    public void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
     {
         if (Game is not null)
             throw new InvalidOperationException("Game has already started.");
 
         Room.Lock();
-        Game = new GameState(engineFactory(), new Clock(initial, increment));
+        var rng = random ?? Random.Shared;
+        Game = new GameState(engineFactory(), new Clock(initial, increment), Deck.Shuffled(rng), Deck.Shuffled(rng));
         TurnStartedAt = now;
     }
 
@@ -49,13 +53,7 @@ public sealed class GameSession(Room room, Func<IChessRulesEngine> engineFactory
         return move;
     }
 
-    /// <summary>
-    /// Ends the game by timeout if the side to move has used up its clock, even though nobody has
-    /// made a move (which is normally what deducts elapsed time from the clock). <see cref="Clock"/>
-    /// only holds the remaining time as of the last move, so a side that simply stops playing would
-    /// otherwise never be flagged — call this periodically (e.g. from a background timer) to catch
-    /// that case using real elapsed time since the current turn started.
-    /// </summary>
+    /// <summary>See <see cref="GameSession.DeclareTimeoutIfExpired"/> — same reasoning, same fix.</summary>
     public void DeclareTimeoutIfExpired(DateTimeOffset now)
     {
         if (Game is not { IsGameOver: false } || TurnStartedAt is not { } startedAt)

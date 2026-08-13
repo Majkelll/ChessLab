@@ -2,9 +2,13 @@ using BrainAndHand.Core.Chess;
 
 namespace BrainAndHand.Core.Rooms;
 
-/// <summary>A lobby of 4 seats (White/Black x Brain/Hand) identified by an invite code.</summary>
+/// <summary>A lobby identified by an invite code. Seat shape depends on <see cref="Kind"/>: Hand &amp;
+/// Brain uses 4 seats (White/Black x Brain/Hand), other game kinds may use fewer — see
+/// <see cref="SeatIds"/>.</summary>
 public sealed class Room
 {
+    /// <summary>The 4 Hand &amp; Brain seats — kept as the static default for backward compatibility
+    /// (existing callers/tests that never pass a <see cref="GameKind"/> get this shape).</summary>
     public static IReadOnlyList<SeatId> AllSeatIds { get; } =
     [
         new(Side.White, SeatRole.Brain),
@@ -13,11 +17,25 @@ public sealed class Room
         new(Side.Black, SeatRole.Hand),
     ];
 
-    private readonly Dictionary<SeatId, SeatOccupant> seats =
-        AllSeatIds.ToDictionary(id => id, _ => SeatOccupant.Empty);
+    /// <summary>The 2 Card Chess seats — one per side, no role split.</summary>
+    public static IReadOnlyList<SeatId> CardChessSeatIds { get; } =
+    [
+        new(Side.White, SeatRole.Player),
+        new(Side.Black, SeatRole.Player),
+    ];
+
+    private static IReadOnlyList<SeatId> SeatIdsFor(GameKind kind) =>
+        kind == GameKind.CardChess ? CardChessSeatIds : AllSeatIds;
+
+    private readonly Dictionary<SeatId, SeatOccupant> seats;
 
     public string Code { get; }
     public Guid HostUserId { get; }
+    public GameKind Kind { get; }
+
+    /// <summary>This room's seats, in a stable order — the shape depends on <see cref="Kind"/>.</summary>
+    public IReadOnlyList<SeatId> SeatIds { get; }
+
     public bool IsLocked { get; private set; }
 
     /// <summary>Defaults to 10 minutes with no increment; the host can change this from the
@@ -25,10 +43,14 @@ public sealed class Room
     public TimeSpan InitialClock { get; private set; }
     public TimeSpan ClockIncrement { get; private set; }
 
-    public Room(string code, Guid hostUserId, TimeSpan? initialClock = null, TimeSpan? clockIncrement = null)
+    public Room(string code, Guid hostUserId, GameKind kind = GameKind.HandAndBrain,
+        TimeSpan? initialClock = null, TimeSpan? clockIncrement = null)
     {
         Code = code;
         HostUserId = hostUserId;
+        Kind = kind;
+        SeatIds = SeatIdsFor(kind);
+        seats = SeatIds.ToDictionary(id => id, _ => SeatOccupant.Empty);
         InitialClock = initialClock ?? TimeSpan.FromMinutes(10);
         ClockIncrement = clockIncrement ?? TimeSpan.Zero;
     }

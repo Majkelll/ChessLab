@@ -1,12 +1,15 @@
 @inherits LayoutComponentBase
 @using System.Reflection
+@using BrainAndHand.Web.Client.Services
+@inject CurrentGameContext GameContext
+@implements IDisposable
 
 <div class="min-h-screen bg-cream text-espresso font-mono">
     <header class="grain-wood flex flex-wrap items-center justify-between gap-3 border-b border-espresso/16 bg-paper px-4 py-4 sm:px-8">
         <a href="" class="flex items-baseline gap-2 text-lg font-semibold tracking-tight">
-            <span class="hidden text-xs font-normal text-espresso-soft/70 sm:inline">~/hand-and-brain$</span>
+            <span class="hidden text-xs font-normal text-espresso-soft/70 sm:inline">~/majkel-games$</span>
             <span>
-                Hand and Brain<span aria-hidden="true"
+                @GameContext.GameName<span aria-hidden="true"
                     class="blink-cursor ml-0.5 inline-block h-[1em] w-[2px] translate-y-[3px] bg-amber-700"></span>
             </span>
         </a>
@@ -34,4 +37,10 @@
         typeof(MainLayout).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
         ?? "dev";
+
+    protected override void OnInitialized() => GameContext.Changed += OnGameContextChanged;
+
+    private void OnGameContextChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => GameContext.Changed -= OnGameContextChanged;
 }

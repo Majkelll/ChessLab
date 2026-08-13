@@ -6,9 +6,13 @@ public enum SeatRole
 {
     Brain,
     Hand,
+
+    /// <summary>The only role in games with no Brain/Hand split (e.g. Card Chess) — one seat per side.</summary>
+    Player,
 }
 
-/// <summary>One of the 4 seats in a room: a (side, role) pair.</summary>
+/// <summary>One seat in a room: a (side, role) pair. Hand &amp; Brain rooms have 4 (White/Black x
+/// Brain/Hand); other game kinds may have fewer — see <see cref="Room.SeatIds"/>.</summary>
 public readonly record struct SeatId(Side Side, SeatRole Role)
 {
     public override string ToString() => $"{Side}-{Role}";
