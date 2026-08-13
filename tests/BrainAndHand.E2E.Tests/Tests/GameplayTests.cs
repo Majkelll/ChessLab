@@ -85,6 +85,25 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
     }
 
     [Fact]
+    public async Task A_clock_configured_by_the_host_in_the_room_carries_over_to_the_started_game()
+    {
+        var game = await new GameRoomBuilder(playwright.Browser, app.BaseUrl)
+            .WithHuman(Side.White, SeatRole.Brain, "Alice")
+            .WithHuman(Side.White, SeatRole.Hand, "Bob")
+            .WithHuman(Side.Black, SeatRole.Brain, "Carol")
+            .WithHuman(Side.Black, SeatRole.Hand, "Dave")
+            .WithClock(minutes: 3, incrementSeconds: 2)
+            .StartAsync();
+
+        // Black's clock only starts ticking once it's Black's turn, so it stays exactly 03:00 —
+        // White's has been visibly counting down since the game started, so allow a little drift
+        // for however long setup + the assertion's own retries took.
+        var whiteBrain = game[Side.White, SeatRole.Brain];
+        await Expect(whiteBrain.ClockWhite).ToHaveTextAsync(new Regex(@"white 02:5\d|white 03:00"));
+        await Expect(whiteBrain.ClockBlack).ToHaveTextAsync("black 03:00");
+    }
+
+    [Fact]
     public async Task Drag_and_drop_is_a_working_alternate_way_to_make_a_move()
     {
         var game = await StartFourHumanGameAsync();

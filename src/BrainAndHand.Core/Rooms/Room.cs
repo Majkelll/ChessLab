@@ -20,10 +20,30 @@ public sealed class Room
     public Guid HostUserId { get; }
     public bool IsLocked { get; private set; }
 
-    public Room(string code, Guid hostUserId)
+    /// <summary>Defaults to 10 minutes with no increment; the host can change this from the
+    /// lobby (via <see cref="SetClockSettings"/>) any time before the game starts.</summary>
+    public TimeSpan InitialClock { get; private set; }
+    public TimeSpan ClockIncrement { get; private set; }
+
+    public Room(string code, Guid hostUserId, TimeSpan? initialClock = null, TimeSpan? clockIncrement = null)
     {
         Code = code;
         HostUserId = hostUserId;
+        InitialClock = initialClock ?? TimeSpan.FromMinutes(10);
+        ClockIncrement = clockIncrement ?? TimeSpan.Zero;
+    }
+
+    public void SetClockSettings(TimeSpan initial, TimeSpan increment)
+    {
+        EnsureNotLocked();
+
+        if (initial <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(initial), "Initial clock must be positive.");
+        if (increment < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(increment), "Increment can't be negative.");
+
+        InitialClock = initial;
+        ClockIncrement = increment;
     }
 
     public IReadOnlyDictionary<SeatId, SeatOccupant> Seats => seats;

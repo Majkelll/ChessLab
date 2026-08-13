@@ -22,6 +22,7 @@ public sealed class GameRoomBuilder(IBrowser browser, string baseUrl)
 {
     private readonly List<(Side Side, SeatRole Role, string Name)> humanSeats = [];
     private readonly List<(Side Side, SeatRole Role, BotDifficulty Difficulty)> botSeats = [];
+    private (int Minutes, int IncrementSeconds)? clockSettings;
 
     /// <summary>The first human added becomes the room host (creates the room, starts the game).</summary>
     public GameRoomBuilder WithHuman(Side side, SeatRole role, string name)
@@ -33,6 +34,14 @@ public sealed class GameRoomBuilder(IBrowser browser, string baseUrl)
     public GameRoomBuilder WithBot(Side side, SeatRole role, BotDifficulty difficulty)
     {
         botSeats.Add((side, role, difficulty));
+        return this;
+    }
+
+    /// <summary>Overrides the room's default clock (10 min, no increment) before starting — the
+    /// same host-only room setting a real player would change from the lobby.</summary>
+    public GameRoomBuilder WithClock(int minutes, int incrementSeconds)
+    {
+        clockSettings = (minutes, incrementSeconds);
         return this;
     }
 
@@ -61,6 +70,9 @@ public sealed class GameRoomBuilder(IBrowser browser, string baseUrl)
 
         foreach (var (side, role, difficulty) in botSeats)
             await hostRoom.SetBotAsync(side, role, difficulty);
+
+        if (clockSettings is { } clock)
+            await hostRoom.SetClockSettingsAsync(clock.Minutes, clock.IncrementSeconds);
 
         var games = new Dictionary<(Side, SeatRole), GamePage>();
         foreach (var (side, role, _, room) in seated)

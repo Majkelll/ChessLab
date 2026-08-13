@@ -48,6 +48,9 @@ public sealed class GameClient : IAsyncDisposable
     public Task<RoomStateDto> ClearSeatAsync(string code, SeatId seatId) =>
         Connection.InvokeAsync<RoomStateDto>("ClearSeat", code, seatId);
 
+    public Task<RoomStateDto> SetClockSettingsAsync(string code, int initialSeconds, int incrementSeconds) =>
+        Connection.InvokeAsync<RoomStateDto>("SetClockSettings", code, initialSeconds, incrementSeconds);
+
     public Task<GameStateDto> StartGameAsync(string code) => Connection.InvokeAsync<GameStateDto>("StartGame", code);
 
     public Task<GameStateDto> GetGameStateAsync(string code) => Connection.InvokeAsync<GameStateDto>("GetGameState", code);

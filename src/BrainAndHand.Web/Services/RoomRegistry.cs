@@ -12,12 +12,12 @@ public sealed class RoomRegistry
 
     private readonly ConcurrentDictionary<string, GameSession> sessions = new();
 
-    public GameSession CreateRoom(Guid hostUserId)
+    public GameSession CreateRoom(Guid hostUserId, TimeSpan? initialClock = null, TimeSpan? clockIncrement = null)
     {
         while (true)
         {
             var code = GenerateCode();
-            var session = new GameSession(new Room(code, hostUserId));
+            var session = new GameSession(new Room(code, hostUserId, initialClock, clockIncrement));
             if (sessions.TryAdd(code, session))
                 return session;
         }

@@ -28,13 +28,22 @@ public sealed class RoomPage
     public ILocator StartGameButton => Page.GetByTestId("start-game-btn");
     public ILocator WaitingForHostMessage => Page.GetByTestId("waiting-for-host");
 
+    /// <summary>Host-only editable clock inputs. Non-host seats see <see cref="ClockSettingsDisplay"/> instead.</summary>
+    public ILocator ClockMinutesInput => Page.GetByTestId("clock-initial-minutes");
+    public ILocator ClockIncrementInput => Page.GetByTestId("clock-increment-seconds");
+    public ILocator ClockSettingsDisplay => Page.GetByTestId("clock-settings-display");
+
     public ILocator Seat(Side side, SeatRole role) => Page.GetByTestId($"seat-{side}-{role}");
     public ILocator SeatJoinButton(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-join-btn");
+    public ILocator SeatAddBotButton(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-add-bot-btn");
+
+    /// <summary>Only present once the seat holds a bot — adding one always starts it at Medium
+    /// (see <see cref="AddBotAsync"/>), and this lets the difficulty be changed afterward.</summary>
     public ILocator SeatBotSelect(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-bot-select");
+
     public ILocator SeatRemoveButton(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-remove-btn");
     public ILocator SeatLeaveButton(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-leave-btn");
     public ILocator SeatOccupantName(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-occupant-name");
-    public ILocator SeatBotLabel(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-bot-label");
 
     public async Task ClaimSeatAsync(Side side, SeatRole role)
     {
@@ -42,16 +51,43 @@ public sealed class RoomPage
         await SeatOccupantName(side, role).WaitForAsync();
     }
 
+    /// <summary>Clicks "Add bot", which seats a Medium-difficulty bot — the only way to add one.</summary>
+    public async Task AddBotAsync(Side side, SeatRole role)
+    {
+        await SeatAddBotButton(side, role).ClickAsync();
+        await SeatBotSelect(side, role).WaitForAsync();
+    }
+
+    /// <summary>Adds a bot (always starts at Medium) and, if a different difficulty was asked for,
+    /// adjusts it via the seat's difficulty dropdown.</summary>
     public async Task SetBotAsync(Side side, SeatRole role, BotDifficulty difficulty)
     {
-        await SeatBotSelect(side, role).SelectOptionAsync(difficulty.ToString());
-        await SeatBotLabel(side, role).WaitForAsync();
+        await AddBotAsync(side, role);
+
+        if (difficulty != BotDifficulty.Medium)
+        {
+            await SeatBotSelect(side, role).SelectOptionAsync(difficulty.ToString());
+            await Expect(SeatBotSelect(side, role)).ToHaveValueAsync(difficulty.ToString());
+        }
     }
 
     public async Task ClearBotAsync(Side side, SeatRole role)
     {
         await SeatRemoveButton(side, role).ClickAsync();
         await SeatJoinButton(side, role).WaitForAsync();
+    }
+
+    /// <summary>Host-only: changes both the initial minutes and the per-move increment together,
+    /// matching how the two inputs are wired in the UI (each onchange sends both current values).</summary>
+    public async Task SetClockSettingsAsync(int minutes, int incrementSeconds)
+    {
+        await ClockMinutesInput.FillAsync(minutes.ToString());
+        await ClockMinutesInput.DispatchEventAsync("change");
+        await Expect(ClockMinutesInput).ToHaveValueAsync(minutes.ToString());
+
+        await ClockIncrementInput.FillAsync(incrementSeconds.ToString());
+        await ClockIncrementInput.DispatchEventAsync("change");
+        await Expect(ClockIncrementInput).ToHaveValueAsync(incrementSeconds.ToString());
     }
 
     public async Task LeaveSeatAsync(Side side, SeatRole role)
