@@ -33,6 +33,12 @@ else if (room is null)
 {
     <p class="mt-6 text-[#2b20196b]">Connecting…</p>
 }
+else if (room.IsLocked)
+{
+    <p data-testid="room-retired" class="mt-6 text-[#2b20196b]">
+        This room's game has ended. <a href="/" class="text-amber-700 underline hover:text-amber-600">Start a new room</a> to play again.
+    </p>
+}
 else
 {
     <div class="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
@@ -73,10 +79,10 @@ else
                                 <select data-testid="seat-bot-select"
                                         class="border border-[#2b201929] bg-white/60 px-1 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none"
                                         @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
-                                    <option value="Easy" selected="@(seat.Difficulty == BotDifficulty.Easy)">Easy</option>
-                                    <option value="Medium" selected="@(seat.Difficulty == BotDifficulty.Medium)">Medium</option>
-                                    <option value="Hard" selected="@(seat.Difficulty == BotDifficulty.Hard)">Hard</option>
-                                    <option value="Expert" selected="@(seat.Difficulty == BotDifficulty.Expert)">Expert</option>
+                                    <option value="Easy" selected="@(seat.Difficulty == BotDifficulty.Easy)">Easy (@EloLabel(BotDifficulty.Easy))</option>
+                                    <option value="Medium" selected="@(seat.Difficulty == BotDifficulty.Medium)">Medium (@EloLabel(BotDifficulty.Medium))</option>
+                                    <option value="Hard" selected="@(seat.Difficulty == BotDifficulty.Hard)">Hard (@EloLabel(BotDifficulty.Hard))</option>
+                                    <option value="Expert" selected="@(seat.Difficulty == BotDifficulty.Expert)">Expert (@EloLabel(BotDifficulty.Expert))</option>
                                 </select>
                                 <button data-testid="seat-remove-btn"
                                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
@@ -195,6 +201,8 @@ else
     }
 
     private bool IsFull() => room is not null && room.Seats.All(s => s.Kind != OccupantKind.Empty);
+
+    private static string EloLabel(BotDifficulty difficulty) => $"~{BotDifficultyElo.Approximate(difficulty)} Elo";
 
     private void InitializeClockSettingsOnce(RoomStateDto currentRoom)
     {
