@@ -10,69 +10,84 @@
 @inject IJSRuntime Js
 @implements IDisposable
 
-<PageTitle>Pokój @Code</PageTitle>
+<PageTitle>Room @Code</PageTitle>
 
 <div class="flex items-center justify-between">
     <div>
-        <h1 class="text-xl font-semibold">Pokój <span class="tracking-widest">@Code</span></h1>
-        <p class="mt-1 text-sm text-slate-400">Wyślij ten kod znajomym, żeby dołączyli.</p>
+        <h1 class="text-xl font-semibold">Room <span data-testid="room-code" class="tracking-widest">@Code</span></h1>
+        <p class="mt-1 text-sm text-[#2b20196b]">Send this code to friends so they can join.</p>
     </div>
-    <button @onclick="CopyLinkAsync" class="rounded-md bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600">
-        Kopiuj link
+    <button data-testid="copy-link-btn"
+            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+            @onclick="CopyLinkAsync"
+            class="border border-[#2b201929] bg-white/40 px-3 py-1.5 font-mono text-sm hover:border-amber-600/60 transition duration-300 hover:cursor-pointer">
+        Copy link
     </button>
 </div>
 
 @if (error is not null)
 {
-    <p class="mt-4 text-sm text-red-400">@error</p>
+    <p data-testid="lobby-error" class="mt-4 text-sm text-red-500">@error</p>
 }
 else if (room is null)
 {
-    <p class="mt-6 text-slate-400">Łączenie…</p>
+    <p class="mt-6 text-[#2b20196b]">Connecting…</p>
 }
 else
 {
-    <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
         @foreach (var side in new[] { Side.White, Side.Black })
         {
-            <div class="rounded-lg border border-slate-800 p-4">
-                <h2 class="mb-3 font-medium text-slate-300">@(side == Side.White ? "Biali" : "Czarni")</h2>
+            <div class="flex flex-col gap-3">
+                <div>
+                    <h2 class="text-sm font-normal text-amber-700">@(side == Side.White ? "WHITE" : "BLACK")</h2>
+                    <div class="h-1 w-full border-b border-[#2b201929]"></div>
+                </div>
                 @foreach (var role in new[] { SeatRole.Brain, SeatRole.Hand })
                 {
                     var seatId = new SeatId(side, role);
                     var seat = room.Seats.Single(s => s.Id == seatId);
-                    <div class="mb-2 flex items-center justify-between rounded-md bg-slate-800/60 px-3 py-2">
-                        <span class="text-sm text-slate-400">@(role == SeatRole.Brain ? "Mózg" : "Ręka")</span>
+                    <div data-testid="@($"seat-{side}-{role}")"
+                         class="flex items-center justify-between border border-[#2b201929] bg-white/40 px-3 py-2 hover:border-amber-600/60 transition duration-300">
+                        <span class="text-sm text-[#2b20196b]">@(role == SeatRole.Brain ? "Brain" : "Hand")</span>
                         @if (seat.Kind == OccupantKind.Empty)
                         {
                             <div class="flex items-center gap-2">
-                                <button @onclick="() => ClaimSeatAsync(seatId)" class="rounded bg-emerald-600 px-2 py-1 text-sm hover:bg-emerald-500">
-                                    Dołącz
+                                <button data-testid="seat-join-btn"
+                                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                        @onclick="() => ClaimSeatAsync(seatId)"
+                                        class="border border-amber-700/40 bg-amber-700/5 px-2 py-1 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+                                    Join
                                 </button>
-                                <select class="rounded bg-slate-700 px-1 py-1 text-xs"
+                                <select data-testid="seat-bot-select"
+                                        class="border border-[#2b201929] bg-white/60 px-1 py-1 font-mono text-xs focus:border-amber-600/60 focus:outline-none"
                                         @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
                                     <option value="">Bot…</option>
-                                    <option value="Easy">Łatwy</option>
-                                    <option value="Medium">Średni</option>
-                                    <option value="Hard">Trudny</option>
-                                    <option value="Expert">Ekspert</option>
+                                    <option value="Easy">Easy</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Hard">Hard</option>
+                                    <option value="Expert">Expert</option>
                                 </select>
                             </div>
                         }
                         else if (seat.Kind == OccupantKind.Bot)
                         {
-                            <span class="text-sm">
-                                Bot (@DifficultyLabel(seat.Difficulty!.Value))
-                                <button @onclick="() => ClearSeatAsync(seatId)" class="ml-2 text-xs text-slate-400 underline">usuń</button>
+                            <span class="flex items-center gap-2 text-sm">
+                                <span data-testid="seat-bot-label" class="bg-[#e3d0b0] px-2 py-1 text-xs">Bot (@DifficultyLabel(seat.Difficulty!.Value))</span>
+                                <button data-testid="seat-remove-btn"
+                                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                        @onclick="() => ClearSeatAsync(seatId)" class="text-xs text-[#2b20196b] underline hover:text-amber-700">remove</button>
                             </span>
                         }
                         else
                         {
-                            <span class="text-sm">
+                            <span data-testid="seat-occupant-name" class="text-sm">
                                 @seat.DisplayName
                                 @if (seat.UserId == myUserId)
                                 {
-                                    <button @onclick="() => LeaveSeatAsync(seatId)" class="ml-2 text-xs text-slate-400 underline">opuść</button>
+                                    <button data-testid="seat-leave-btn"
+                                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                            @onclick="() => LeaveSeatAsync(seatId)" class="ml-2 text-xs text-[#2b20196b] underline hover:text-amber-700">leave</button>
                                 }
                             </span>
                         }
@@ -84,21 +99,24 @@ else
 
     @if (!IsFull())
     {
-        <p class="mt-6 text-sm text-slate-400">
-            Uzupełnij wszystkie 4 miejsca (dołączeniem albo wyborem bota), żeby móc rozpocząć.
+        <p data-testid="fill-seats-hint" class="mt-6 text-sm text-[#2b20196b]">
+            Fill all 4 seats (by joining or picking a bot) before you can start.
         </p>
     }
 
     @if (room.HostUserId == myUserId)
     {
-        <button @onclick="StartGameAsync" disabled="@(!IsFull() || isStarting)"
-                class="mt-4 rounded-md bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-500 disabled:opacity-50">
-            Rozpocznij grę
+        <button data-testid="start-game-btn"
+                @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                @onclick="async () => { if (IsFull() && !isStarting) await StartGameAsync(); }"
+                aria-disabled="@((!IsFull() || isStarting) ? "true" : "false")"
+                class="mt-4 border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm transition duration-300 @(!IsFull() || isStarting ? "cursor-not-allowed opacity-40" : "hover:bg-amber-700/20 hover:cursor-pointer")">
+            Start game
         </button>
     }
     else if (IsFull())
     {
-        <p class="mt-4 text-sm text-slate-400">Czekaj, aż host rozpocznie grę.</p>
+        <p data-testid="waiting-for-host" class="mt-4 text-sm text-[#2b20196b]">Waiting for the host to start the game.</p>
     }
 }
 
@@ -174,10 +192,10 @@ else
 
     private static string DifficultyLabel(BotDifficulty difficulty) => difficulty switch
     {
-        BotDifficulty.Easy => "łatwy",
-        BotDifficulty.Medium => "średni",
-        BotDifficulty.Hard => "trudny",
-        BotDifficulty.Expert => "ekspert",
+        BotDifficulty.Easy => "easy",
+        BotDifficulty.Medium => "medium",
+        BotDifficulty.Hard => "hard",
+        BotDifficulty.Expert => "expert",
         _ => difficulty.ToString(),
     };
 

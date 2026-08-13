@@ -14,11 +14,10 @@ public sealed class ClockWatchdog(RoomRegistry registry, IHubContext<GameHub> hu
         {
             foreach (var session in registry.ActiveSessions())
             {
-                var game = session.Game!;
-                if (!game.Clock.IsFlagged(game.SideToMove))
+                session.DeclareTimeoutIfExpired(DateTimeOffset.UtcNow);
+                if (!session.Game!.IsGameOver)
                     continue;
 
-                game.DeclareTimeoutIfFlagged();
                 await hub.Clients.Group(session.Room.Code)
                     .SendAsync("GameUpdated", GameDtoMapper.ToGameDto(session), stoppingToken);
             }

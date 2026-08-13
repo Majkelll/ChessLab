@@ -4,38 +4,43 @@
 @inject GameClient Game
 @inject NavigationManager Nav
 
-<PageTitle>Ręka i Mózg</PageTitle>
+<PageTitle>Hand and Brain</PageTitle>
 
 <AuthorizeView>
     <Authorized>
-        <h1 class="text-2xl font-semibold">Witaj, @context.User.Identity?.Name!</h1>
+        <h1 data-testid="home-heading" class="text-3xl font-semibold leading-tight sm:text-4xl md:text-5xl md:leading-15">
+            Welcome, @context.User.Identity?.Name!
+        </h1>
 
         <div class="mt-6 flex flex-col gap-4 sm:flex-row">
-            <button @onclick="CreateRoomAsync"
-                    class="rounded-md bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+            <button data-testid="create-room-btn"
+                    @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                    @onclick="CreateRoomAsync"
+                    class="border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer disabled:opacity-50"
                     disabled="@isCreating">
-                Utwórz pokój
+                Create room
             </button>
 
             <form @onsubmit="JoinRoomAsync" @onsubmit:preventDefault class="flex gap-2">
-                <input @bind="joinCode" @bind:event="oninput" placeholder="KOD POKOJU" maxlength="6"
-                       class="w-40 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 uppercase tracking-widest text-slate-100 placeholder:text-slate-500" />
-                <button type="submit" class="rounded-md bg-slate-700 px-4 py-2 font-medium text-slate-100 hover:bg-slate-600">
-                    Dołącz
+                <input data-testid="join-code-input" @bind="joinCode" @bind:event="oninput" placeholder="ROOM CODE" maxlength="6"
+                       class="w-40 border border-[#2b201929] bg-white/40 px-3 py-2 font-mono uppercase tracking-widest placeholder:text-[#2b201940] focus:border-amber-600/60 focus:outline-none" />
+                <button data-testid="join-room-btn" type="submit"
+                        class="border border-[#2b201929] bg-white/40 px-4 py-2 font-mono text-sm hover:border-amber-600/60 transition duration-300 hover:cursor-pointer">
+                    Join
                 </button>
             </form>
         </div>
 
         @if (!string.IsNullOrEmpty(error))
         {
-            <p class="mt-3 text-sm text-red-400">@error</p>
+            <p data-testid="home-error" class="mt-3 text-sm text-red-500">@error</p>
         }
     </Authorized>
     <NotAuthorized>
-        <h1 class="text-2xl font-semibold">Ręka i Mózg</h1>
-        <p class="mt-2 text-slate-400">
-            Wariant szachów 2 na 2 — Mózg widzi planszę i wskazuje typ figury, Ręka wykonuje ruch.
-            Zaloguj się przez Google, żeby zacząć.
+        <h1 data-testid="home-heading-anon" class="text-3xl font-semibold leading-tight sm:text-4xl md:text-5xl md:leading-15">Hand and Brain</h1>
+        <p class="mt-2 text-base text-[#6b5843] md:text-lg">
+            A 2v2 chess variant — Brain sees the board and calls out a piece type, Hand makes the move.
+            Sign in with Google to get started.
         </p>
     </NotAuthorized>
 </AuthorizeView>

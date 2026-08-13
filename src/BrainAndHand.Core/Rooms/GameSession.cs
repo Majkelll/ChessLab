@@ -47,4 +47,23 @@ public sealed class GameSession(Room room, Func<IChessRulesEngine> engineFactory
         TurnStartedAt = now;
         return move;
     }
+
+    /// <summary>
+    /// Ends the game by timeout if the side to move has used up its clock, even though nobody has
+    /// made a move (which is normally what deducts elapsed time from the clock). <see cref="Clock"/>
+    /// only holds the remaining time as of the last move, so a side that simply stops playing would
+    /// otherwise never be flagged — call this periodically (e.g. from a background timer) to catch
+    /// that case using real elapsed time since the current turn started.
+    /// </summary>
+    public void DeclareTimeoutIfExpired(DateTimeOffset now)
+    {
+        if (Game is not { IsGameOver: false } || TurnStartedAt is not { } startedAt)
+            return;
+
+        var elapsedSinceTurnStart = now - startedAt;
+        if (elapsedSinceTurnStart >= Game.Clock.Remaining(Game.SideToMove))
+            Game.Clock.Deduct(Game.SideToMove, elapsedSinceTurnStart);
+
+        Game.DeclareTimeoutIfFlagged();
+    }
 }

@@ -6,6 +6,7 @@ obj/
 ## Node / Tailwind
 node_modules/
 **/wwwroot/css/app.css
+**/wwwroot/css/files/
 
 ## SQLite
 *.db

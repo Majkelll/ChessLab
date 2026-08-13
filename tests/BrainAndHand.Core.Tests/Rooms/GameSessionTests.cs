@@ -85,4 +85,35 @@ public class GameSessionTests
             session.Game.Clock.WhiteRemaining);
         Assert.Equal(BlackBrain, session.ActiveSeat);
     }
+
+    /// <summary>
+    /// Regression coverage for a real bug: <see cref="Clock"/> only holds the remaining time as
+    /// of the last move — nothing decrements it just from wall-clock time passing — so a side
+    /// that simply stops playing (no resignation, no move, nothing) would otherwise never be
+    /// flagged, no matter how long the background watchdog waited.
+    /// </summary>
+    [Fact]
+    public void DeclareTimeoutIfExpired_WhenNoOneEverMoves_StillEndsTheGameByTimeout()
+    {
+        var session = NewFullSession();
+        var start = DateTimeOffset.UtcNow;
+        session.Start(TimeSpan.FromSeconds(2), TimeSpan.Zero, start);
+
+        session.DeclareTimeoutIfExpired(start + TimeSpan.FromSeconds(1));
+        Assert.False(session.Game!.IsGameOver);
+
+        session.DeclareTimeoutIfExpired(start + TimeSpan.FromSeconds(3));
+
+        Assert.True(session.Game.IsGameOver);
+        Assert.Equal(GameEndReason.Timeout, session.Game.EndResult!.Value.Reason);
+        Assert.Equal(Side.Black, session.Game.EndResult.Value.Winner);
+    }
+
+    [Fact]
+    public void DeclareTimeoutIfExpired_BeforeTheGameHasStarted_DoesNothing()
+    {
+        var session = NewFullSession();
+
+        session.DeclareTimeoutIfExpired(DateTimeOffset.UtcNow);
+    }
 }

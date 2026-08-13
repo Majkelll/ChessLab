@@ -11,69 +11,75 @@
 @inject NavigationManager Nav
 @implements IDisposable
 
-<PageTitle>Gra @Code</PageTitle>
+<PageTitle>Game @Code</PageTitle>
 
 @if (error is not null)
 {
-    <p class="text-sm text-red-400">@error</p>
+    <p data-testid="game-error" class="text-sm text-red-500">@error</p>
 }
 else if (room is null || state is null)
 {
-    <p class="text-slate-400">Łączenie…</p>
+    <p class="text-[#2b20196b]">Connecting…</p>
 }
 else
 {
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-[auto_1fr]">
-        <div>
+        <div class="w-[384px] sm:w-[512px]">
             <ChessBoard Fen="@state.Fen"
                         AvailableMoves="@state.AvailableMoves"
                         Interactive="@(isBoardInteractive)"
                         FlipBoard="@(mySeat?.Side == Side.Black)"
                         OnMoveSelected="MakeMoveAsync" />
 
-            @if (isCardsInteractive)
+            @if (mySeat?.Role == SeatRole.Brain)
             {
-                <div class="mt-4">
-                    <PieceKindCards AvailableKinds="@state.AvailablePieceKinds" Interactive="true" OnKindSelected="SelectPieceKindAsync" />
+                <div class="mt-4" data-testid="piece-kind-cards">
+                    <PieceKindCards AvailableKinds="@state.AvailablePieceKinds" Interactive="@isCardsInteractive" OnKindSelected="SelectPieceKindAsync" />
                 </div>
             }
         </div>
 
         <div>
-            <p class="text-sm text-slate-400">
-                Zegar: białe @FormatClock(DisplayedRemainingMs(Side.White)) — czarne @FormatClock(DisplayedRemainingMs(Side.Black))
-            </p>
+            <div class="flex items-center gap-2 text-sm">
+                <span data-testid="clock-white" class="bg-[#e3d0b0] px-2 py-1 text-xs">white @FormatClock(DisplayedRemainingMs(Side.White))</span>
+                <span data-testid="clock-black" class="bg-[#e3d0b0] px-2 py-1 text-xs">black @FormatClock(DisplayedRemainingMs(Side.Black))</span>
+            </div>
 
             @if (state.IsGameOver)
             {
-                <p class="mt-4 text-lg font-semibold">
-                    Koniec gry: @EndReasonLabel(state.EndReason)
+                <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
+                    Game over: <span data-testid="game-over-reason">@EndReasonLabel(state.EndReason)</span>
                     @if (state.Winner is { } winner)
                     {
-                        <text> — wygrywają @(winner == Side.White ? "biali" : "czarni")</text>
+                        <text> — <span data-testid="game-over-winner">@(winner == Side.White ? "white" : "black")</span> wins</text>
                     }
                 </p>
-                <a href="/room/@Code" class="mt-4 inline-block rounded-md bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600">
-                    Wróć do pokoju
+                <a data-testid="back-to-room-link" href="/room/@Code"
+                   class="mt-4 inline-block border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+                    Back to room
                 </a>
             }
             else
             {
-                <p class="mt-4 text-slate-300">
-                    Ruch: @(state.SideToMove == Side.White ? "biali" : "czarni")
-                    — @(state.Phase == TurnPhase.BrainSelecting ? "Mózg wskazuje figurę" : "Ręka wykonuje ruch")
+                <p data-testid="turn-status" class="mt-4">
+                    Turn: @(state.SideToMove == Side.White ? "white" : "black")
+                    — @(state.Phase == TurnPhase.BrainSelecting ? "Brain is announcing a piece" : "Hand is making a move")
                 </p>
 
                 @if (mySeat is not null)
                 {
-                    <button @onclick="ResignAsync" class="mt-6 rounded-md bg-red-700 px-3 py-1.5 text-sm hover:bg-red-600">
-                        Poddaj się
+                    <button data-testid="resign-btn"
+                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                            @onclick="ResignAsync"
+                            class="mt-6 border border-red-500/40 bg-red-500/5 px-3 py-1.5 font-mono text-sm text-red-500 hover:bg-red-500/20 transition duration-300 hover:cursor-pointer">
+                        Resign
                     </button>
                 }
             }
 
-            <h3 class="mt-6 text-sm font-medium text-slate-400">Historia ruchów</h3>
-            <ol class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-300">
+            <h3 class="mt-6 text-xs font-normal text-[#2b20196b]">MOVE HISTORY</h3>
+            <div class="h-1 w-full border-b border-[#2b201929]"></div>
+            <ol data-testid="move-history" class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm">
                 @for (var i = 0; i < state.MoveHistory.Count; i++)
                 {
                     <li>@(i + 1). @state.MoveHistory[i].San</li>
@@ -167,14 +173,14 @@ else
 
     private static string EndReasonLabel(GameEndReason? reason) => reason switch
     {
-        GameEndReason.Checkmate => "mat",
-        GameEndReason.Stalemate => "pat",
-        GameEndReason.InsufficientMaterial => "niewystarczający materiał",
-        GameEndReason.FiftyMoveRule => "zasada 50 posunięć",
-        GameEndReason.Repetition => "trzykrotne powtórzenie",
-        GameEndReason.Resignation => "rezygnacja",
-        GameEndReason.Timeout => "czas",
-        GameEndReason.DrawAgreed => "remis",
+        GameEndReason.Checkmate => "checkmate",
+        GameEndReason.Stalemate => "stalemate",
+        GameEndReason.InsufficientMaterial => "insufficient material",
+        GameEndReason.FiftyMoveRule => "fifty-move rule",
+        GameEndReason.Repetition => "threefold repetition",
+        GameEndReason.Resignation => "resignation",
+        GameEndReason.Timeout => "timeout",
+        GameEndReason.DrawAgreed => "draw",
         _ => "",
     };
 

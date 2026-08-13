@@ -17,6 +17,7 @@ COPY BrainAndHand.slnx .
 COPY src/ src/
 COPY tests/ tests/
 COPY --from=css /src/src/BrainAndHand.Web/wwwroot/css/app.css src/BrainAndHand.Web/wwwroot/css/app.css
+COPY --from=css /src/src/BrainAndHand.Web/wwwroot/css/files src/BrainAndHand.Web/wwwroot/css/files
 RUN dotnet restore
 RUN dotnet publish src/BrainAndHand.Web/BrainAndHand.Web.csproj \
     -c Release -o /app/publish --no-restore \
