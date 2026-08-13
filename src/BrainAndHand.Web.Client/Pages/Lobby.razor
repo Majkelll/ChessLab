@@ -8,6 +8,7 @@
 @inject GameClient Game
 @inject NavigationManager Nav
 @inject IJSRuntime Js
+@inject CurrentGameContext GameContext
 @implements IDisposable
 
 <PageTitle>Room @Code</PageTitle>
@@ -44,30 +45,105 @@ else if (room.IsLocked)
 }
 else
 {
-    <div class="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
-        @foreach (var side in new[] { Side.White, Side.Black })
-        {
-            // The two sides get their own accent color throughout their column — amber for White,
-            // moss for Black — so the two teams read apart at a glance without adding a third color.
-            var sideAccentText = side == Side.White ? "text-amber-700" : "text-moss";
-            var sideHoverBorder = side == Side.White ? "hover:border-amber-600/60" : "hover:border-moss/60";
-            var sideJoinClasses = side == Side.White
-                ? "border-amber-700/40 bg-amber-700/5 hover:bg-amber-700/20"
-                : "border-moss/40 bg-moss/5 hover:bg-moss/20";
-            var sideFocusBorder = side == Side.White ? "focus:border-amber-600/60" : "focus:border-moss/60";
+    @if (room.Kind == GameKind.HandAndBrain)
+    {
+        <div class="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
+            @foreach (var side in new[] { Side.White, Side.Black })
+            {
+                // The two sides get their own accent color throughout their column — amber for White,
+                // moss for Black — so the two teams read apart at a glance without adding a third color.
+                var sideAccentText = side == Side.White ? "text-amber-700" : "text-moss";
+                var sideHoverBorder = side == Side.White ? "hover:border-amber-600/60" : "hover:border-moss/60";
+                var sideJoinClasses = side == Side.White
+                    ? "border-amber-700/40 bg-amber-700/5 hover:bg-amber-700/20"
+                    : "border-moss/40 bg-moss/5 hover:bg-moss/20";
+                var sideFocusBorder = side == Side.White ? "focus:border-amber-600/60" : "focus:border-moss/60";
 
-            <div class="flex flex-col gap-3">
-                <div>
-                    <h2 class="text-sm font-normal @sideAccentText">@(side == Side.White ? "WHITE" : "BLACK")</h2>
-                    <div class="h-1 w-full border-b border-espresso/16"></div>
+                <div class="flex flex-col gap-3">
+                    <div>
+                        <h2 class="text-sm font-normal @sideAccentText">@(side == Side.White ? "WHITE" : "BLACK")</h2>
+                        <div class="h-1 w-full border-b border-espresso/16"></div>
+                    </div>
+                    @foreach (var role in new[] { SeatRole.Brain, SeatRole.Hand })
+                    {
+                        var seatId = new SeatId(side, role);
+                        var seat = room.Seats.Single(s => s.Id == seatId);
+                        <div data-testid="@($"seat-{side}-{role}")"
+                             class="flex flex-wrap items-center justify-between gap-2 border border-espresso/16 bg-white/40 px-3 py-2 @sideHoverBorder transition duration-300">
+                            <span class="text-sm text-espresso-soft">@(role == SeatRole.Brain ? "Brain" : "Hand")</span>
+                            @if (seat.Kind == OccupantKind.Empty)
+                            {
+                                <div class="flex items-center gap-2">
+                                    <button data-testid="seat-join-btn"
+                                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                            @onclick="() => ClaimSeatAsync(seatId)"
+                                            class="border px-2 py-1 font-mono text-sm transition duration-300 hover:cursor-pointer @sideJoinClasses">
+                                        Join
+                                    </button>
+                                    <button data-testid="seat-add-bot-btn"
+                                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                            @onclick="() => AddBotAsync(seatId)"
+                                            class="border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-sm @sideHoverBorder transition duration-300 hover:cursor-pointer">
+                                        Add bot
+                                    </button>
+                                </div>
+                            }
+                            else if (seat.Kind == OccupantKind.Bot)
+                            {
+                                <span class="flex items-center gap-2 text-sm">
+                                    <select data-testid="seat-bot-select"
+                                            class="border border-espresso/16 bg-white/60 px-1 py-1 font-mono text-xs focus:outline-none @sideFocusBorder"
+                                            @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
+                                        <option value="Easy" selected="@(seat.Difficulty == BotDifficulty.Easy)">Easy (@EloLabel(BotDifficulty.Easy))</option>
+                                        <option value="Medium" selected="@(seat.Difficulty == BotDifficulty.Medium)">Medium (@EloLabel(BotDifficulty.Medium))</option>
+                                        <option value="Hard" selected="@(seat.Difficulty == BotDifficulty.Hard)">Hard (@EloLabel(BotDifficulty.Hard))</option>
+                                        <option value="Expert" selected="@(seat.Difficulty == BotDifficulty.Expert)">Expert (@EloLabel(BotDifficulty.Expert))</option>
+                                    </select>
+                                    <button data-testid="seat-remove-btn"
+                                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                            @onclick="() => ClearSeatAsync(seatId)" class="-m-2 p-2 text-xs text-espresso-soft underline hover:text-rust">remove</button>
+                                </span>
+                            }
+                            else
+                            {
+                                <span data-testid="seat-occupant-name" class="text-sm">
+                                    @seat.DisplayName
+                                    @if (seat.UserId == myUserId)
+                                    {
+                                        <button data-testid="seat-leave-btn"
+                                                @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                                @onclick="() => LeaveSeatAsync(seatId)" class="-m-2 ml-0 p-2 text-xs text-espresso-soft underline hover:text-rust">leave</button>
+                                    }
+                                </span>
+                            }
+                        </div>
+                    }
                 </div>
-                @foreach (var role in new[] { SeatRole.Brain, SeatRole.Hand })
-                {
-                    var seatId = new SeatId(side, role);
-                    var seat = room.Seats.Single(s => s.Id == seatId);
-                    <div data-testid="@($"seat-{side}-{role}")"
+            }
+        </div>
+    }
+    else
+    {
+        <div class="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
+            @foreach (var side in new[] { Side.White, Side.Black })
+            {
+                var sideAccentText = side == Side.White ? "text-amber-700" : "text-moss";
+                var sideHoverBorder = side == Side.White ? "hover:border-amber-600/60" : "hover:border-moss/60";
+                var sideJoinClasses = side == Side.White
+                    ? "border-amber-700/40 bg-amber-700/5 hover:bg-amber-700/20"
+                    : "border-moss/40 bg-moss/5 hover:bg-moss/20";
+                var sideFocusBorder = side == Side.White ? "focus:border-amber-600/60" : "focus:border-moss/60";
+                var seatId = new SeatId(side, SeatRole.Player);
+                var seat = room.Seats.Single(s => s.Id == seatId);
+
+                <div class="flex flex-col gap-3">
+                    <div>
+                        <h2 class="text-sm font-normal @sideAccentText">@(side == Side.White ? "WHITE" : "BLACK")</h2>
+                        <div class="h-1 w-full border-b border-espresso/16"></div>
+                    </div>
+                    <div data-testid="@($"seat-{side}-{SeatRole.Player}")"
                          class="flex flex-wrap items-center justify-between gap-2 border border-espresso/16 bg-white/40 px-3 py-2 @sideHoverBorder transition duration-300">
-                        <span class="text-sm text-espresso-soft">@(role == SeatRole.Brain ? "Brain" : "Hand")</span>
+                        <span class="text-sm text-espresso-soft">Player</span>
                         @if (seat.Kind == OccupantKind.Empty)
                         {
                             <div class="flex items-center gap-2">
@@ -114,10 +190,10 @@ else
                             </span>
                         }
                     </div>
-                }
-            </div>
-        }
-    </div>
+                </div>
+            }
+        </div>
+    }
 
     <div class="mt-6 flex flex-wrap items-center gap-2 border border-espresso/16 bg-white/30 px-3 py-2 font-mono text-sm">
         <span class="text-moss">:set</span>
@@ -141,10 +217,16 @@ else
         }
     </div>
 
-    @if (!IsFull())
+    @if (!IsFull() && room.Kind == GameKind.HandAndBrain)
     {
         <p data-testid="fill-seats-hint" class="mt-6 text-sm text-espresso/42">
             Fill all 4 seats (by joining or picking a bot) before you can start.
+        </p>
+    }
+    else if (!IsFull())
+    {
+        <p data-testid="fill-seats-hint" class="mt-6 text-sm text-espresso/42">
+            Fill both seats (by joining or picking a bot) before you can start.
         </p>
     }
 
@@ -187,6 +269,7 @@ else
 
         Game.RoomUpdated += OnRoomUpdated;
         Game.GameUpdated += OnGameUpdated;
+        Game.CardChessGameUpdated += OnCardChessGameUpdated;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -198,9 +281,10 @@ else
         {
             await Game.EnsureConnectedAsync();
             room = await Game.JoinRoomAsync(Code);
+            GameContext.Set(room.Kind == GameKind.CardChess ? "Card Chess" : "Hand and Brain");
             if (room.HasStarted)
             {
-                Nav.NavigateTo($"/game/{Code}");
+                Nav.NavigateTo(GamePageUrl(room.Kind));
                 return;
             }
             InitializeClockSettingsOnce(room);
@@ -287,9 +371,17 @@ else
     private async Task StartGameAsync()
     {
         isStarting = true;
-        try { await Game.StartGameAsync(Code); }
+        try
+        {
+            if (room!.Kind == GameKind.CardChess)
+                await Game.StartCardChessGameAsync(Code);
+            else
+                await Game.StartGameAsync(Code);
+        }
         catch (Exception ex) { error = ex.Message; isStarting = false; }
     }
+
+    private string GamePageUrl(GameKind kind) => kind == GameKind.CardChess ? $"/cardchess/{Code}" : $"/game/{Code}";
 
     private async Task CopyLinkAsync()
     {
@@ -308,9 +400,15 @@ else
         InvokeAsync(() => Nav.NavigateTo($"/game/{Code}"));
     }
 
+    private void OnCardChessGameUpdated(CardChessStateDto dto)
+    {
+        InvokeAsync(() => Nav.NavigateTo($"/cardchess/{Code}"));
+    }
+
     public void Dispose()
     {
         Game.RoomUpdated -= OnRoomUpdated;
         Game.GameUpdated -= OnGameUpdated;
+        Game.CardChessGameUpdated -= OnCardChessGameUpdated;
     }
 }

@@ -7,6 +7,7 @@ public sealed record SeatSnapshot(SeatId Id, OccupantKind Kind, Guid? UserId, st
 public sealed record RoomStateDto(
     string Code,
     Guid HostUserId,
+    GameKind Kind,
     IReadOnlyList<SeatSnapshot> Seats,
     /// <summary>True only while a game is actively in progress — false again once it ends
     /// (checkmate, resignation, timeout), not just before it ever started.</summary>

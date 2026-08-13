@@ -74,6 +74,51 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, I
         }
     }
 
+    /// <summary>Fire-and-forget: processes any pending Card Chess bot turns for the room in the background.</summary>
+    public void ScheduleCardChessBotTurns(string code) => _ = RunPendingCardChessBotTurnsAsync(code);
+
+    private async Task RunPendingCardChessBotTurnsAsync(string code)
+    {
+        var roomLock = roomLocks.GetOrAdd(code, static _ => new SemaphoreSlim(1, 1));
+        await roomLock.WaitAsync();
+        try
+        {
+            CardChessSession session;
+            try
+            {
+                session = registry.GetCardChess(code);
+            }
+            catch (HubException)
+            {
+                return;
+            }
+
+            while (session.Game is { IsGameOver: false } game)
+            {
+                var occupant = session.Room.Seats[session.ActiveSeat];
+                if (occupant.Kind != OccupantKind.Bot)
+                    return;
+
+                await Task.Delay(Random.Shared.Next((int)MinThinkDelay.TotalMilliseconds, (int)MaxThinkDelay.TotalMilliseconds));
+
+                var engine = await GetOrCreateEngineAsync(code);
+                var bot = new CardChessBot(engine);
+                var move = await bot.ChooseMoveAsync(game, occupant.Difficulty!.Value);
+                session.MakeMove(move.From, move.To, move.PromoteTo, DateTimeOffset.UtcNow);
+
+                await hub.Clients.Group(code).SendAsync("CardChessGameUpdated", GameDtoMapper.ToCardChessDto(session));
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Card Chess bot turn processing failed for room {Code}.", code);
+        }
+        finally
+        {
+            roomLock.Release();
+        }
+    }
+
     private async Task<StockfishEngine> GetOrCreateEngineAsync(string code)
     {
         if (engines.TryGetValue(code, out var existing))

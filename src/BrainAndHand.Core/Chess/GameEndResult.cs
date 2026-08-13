@@ -10,6 +10,9 @@ public enum GameEndReason
     Resignation,
     Timeout,
     DrawAgreed,
+
+    /// <summary>Card Chess only: a side needed an Emergency Move while already at 0 HP.</summary>
+    HpDepleted,
 }
 
 /// <summary>Winner is null for draws/stalemate.</summary>

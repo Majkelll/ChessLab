@@ -1,8 +1,8 @@
-@page "/game/{Code}"
+@page "/cardchess/{Code}"
 @attribute [Authorize]
+@using BrainAndHand.Core.CardChess
 @using BrainAndHand.Core.Chess
 @using BrainAndHand.Core.Contracts
-@using BrainAndHand.Core.HandBrain
 @using BrainAndHand.Core.Rooms
 @using BrainAndHand.Web.Client.Components
 @using BrainAndHand.Web.Client.Services
@@ -12,7 +12,7 @@
 @inject CurrentGameContext GameContext
 @implements IDisposable
 
-<PageTitle>Game @Code</PageTitle>
+<PageTitle>Card Chess @Code</PageTitle>
 
 @if (error is not null)
 {
@@ -28,15 +28,36 @@ else
         <div class="mx-auto w-full max-w-[512px]">
             <ChessBoard Fen="@state.Fen"
                         AvailableMoves="@state.AvailableMoves"
-                        Interactive="@(isBoardInteractive)"
+                        Interactive="@isBoardInteractive"
                         FlipBoard="@(mySeat?.Side == Side.Black)"
                         OnMoveSelected="MakeMoveAsync" />
 
-            @if (isMySideToMove && (mySeat?.Role == SeatRole.Brain || state.SelectedPieceKind is not null))
+            @if (state.EmergencyMoveAvailable && isMyTurn)
             {
-                <div class="mt-4" data-testid="piece-kind-cards">
-                    <PieceKindCards AvailableKinds="@state.AvailablePieceKinds" Interactive="@isCardsInteractive"
-                                     SelectedKind="@state.SelectedPieceKind" OnKindSelected="SelectPieceKindAsync" />
+                <p data-testid="emergency-move-banner" class="mt-4 border border-rust/40 bg-rust/5 px-3 py-2 font-mono text-sm text-rust">
+                    No card can save you — move any piece to escape check (costs 1 HP).
+                </p>
+            }
+            else if (state.HandHasNoPlayableCard && isMyTurn)
+            {
+                <p data-testid="no-playable-card-banner" class="mt-4 border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm text-espresso-soft">
+                    No card in your hand can move right now — pick any piece, free of charge.
+                </p>
+            }
+
+            @if (mySeat is { } mine)
+            {
+                <div class="mt-4" data-testid="my-hand">
+                    <p class="mb-1 font-mono text-xs text-espresso-soft/70">Your hand</p>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach (var card in HandOf(mine.Side))
+                        {
+                            <span data-testid="@($"hand-card-{card}")"
+                                  class="border border-espresso/16 bg-white/40 px-2 py-1 font-mono text-xs">
+                                @card.Label() <span class="text-espresso-soft">@PieceKindDisplay.Label(card.ToPieceKind())</span>
+                            </span>
+                        }
+                    </div>
                 </div>
             }
         </div>
@@ -45,33 +66,24 @@ else
             <div class="flex flex-col items-start gap-1.5">
                 @if (mySeat is { } seat)
                 {
-                    // Opponent's row (their clock + a read-only peek at what their team is currently
-                    // doing) comes first, mine comes second — the same top-is-them/bottom-is-me
-                    // convention the flipped board already uses for the seat you're sitting in.
                     var opponentSide = seat.Side == Side.White ? Side.Black : Side.White;
                     <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
                         <span data-testid="@ClockTestId(opponentSide)" class="@ClockClasses(opponentSide)">@SideLabel(opponentSide) @FormatClock(DisplayedRemainingMs(opponentSide))</span>
-                        @if (state is { IsGameOver: false } && state.SideToMove == opponentSide)
-                        {
-                            @if (state.Phase == TurnPhase.BrainSelecting)
-                            {
-                                <span class="text-xs text-espresso-soft/60">choosing…</span>
-                            }
-                            else if (state.SelectedPieceKind is { } opponentKind)
-                            {
-                                <span data-testid="opponent-pick" class="border border-espresso/16 bg-white/40 px-2 py-0.5 text-xs">
-                                    opponent: @PieceKindDisplay.Glyph(opponentKind) @PieceKindDisplay.Label(opponentKind)
-                                </span>
-                            }
-                        }
+                        <span data-testid="@HpTestId(opponentSide)" class="text-rust">@HpHearts(opponentSide)</span>
+                        <span data-testid="opponent-hand" class="text-xs text-espresso-soft/60">@string.Join(" ", HandOf(opponentSide).Select(c => c.Label()))</span>
                     </div>
-                    <span data-testid="@ClockTestId(seat.Side)" class="font-mono @ClockClasses(seat.Side)">@SideLabel(seat.Side) @FormatClock(DisplayedRemainingMs(seat.Side))</span>
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <span data-testid="@ClockTestId(seat.Side)" class="@ClockClasses(seat.Side)">@SideLabel(seat.Side) @FormatClock(DisplayedRemainingMs(seat.Side))</span>
+                        <span data-testid="@HpTestId(seat.Side)" class="text-rust">@HpHearts(seat.Side)</span>
+                    </div>
                 }
                 else
                 {
                     <div class="flex items-center gap-2 font-mono text-sm">
                         <span data-testid="clock-white" class="@ClockClasses(Side.White)">white @FormatClock(DisplayedRemainingMs(Side.White))</span>
+                        <span data-testid="hp-white" class="text-rust">@HpHearts(Side.White)</span>
                         <span data-testid="clock-black" class="@ClockClasses(Side.Black)">black @FormatClock(DisplayedRemainingMs(Side.Black))</span>
+                        <span data-testid="hp-black" class="text-rust">@HpHearts(Side.Black)</span>
                     </div>
                 }
             </div>
@@ -97,12 +109,8 @@ else
                 <p data-testid="turn-status" class="mt-4 flex flex-wrap items-center gap-2 font-mono text-sm">
                     <span class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
                     <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
-                    <span class="@(state.Phase == TurnPhase.BrainSelecting ? "text-moss" : "text-amber-700")">
-                        @(state.Phase == TurnPhase.BrainSelecting ? "Brain is announcing a piece" : "Hand is making a move")
-                        @if (state.Phase == TurnPhase.HandMoving && state.SelectedPieceKind is { } announced)
-                        {
-                            <text> (@PieceKindDisplay.Label(announced))</text>
-                        }
+                    <span class="text-espresso-soft">
+                        @(TurnStatusText())
                     </span>
                 </p>
 
@@ -134,34 +142,25 @@ else
     [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
 
     private RoomStateDto? room;
-    private GameStateDto? state;
+    private CardChessStateDto? state;
     private Guid myUserId;
     private SeatId? mySeat;
     private string? error;
     private DateTimeOffset lastUpdateAt;
     private CancellationTokenSource? tickCts;
 
-    private bool isMyTurn =>
-        mySeat is not null && state is not null &&
-        mySeat.Value == new SeatId(state.SideToMove, state.Phase == TurnPhase.BrainSelecting ? SeatRole.Brain : SeatRole.Hand);
+    private bool isMyTurn => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
 
-    /// <summary>Whether it's my own team's turn at all (either half — Brain selecting or Hand
-    /// moving), as opposed to <see cref="isMyTurn"/> which is scoped to my own seat's half. Gates
-    /// the under-board card grid so it only ever shows my team's own pick — the opposing team's
-    /// pick has its own read-only spot next to their clock instead.</summary>
-    private bool isMySideToMove => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
-
-    private bool isBoardInteractive => state is { IsGameOver: false } && isMyTurn && state.Phase == TurnPhase.HandMoving;
-    private bool isCardsInteractive => state is { IsGameOver: false } && isMyTurn && state.Phase == TurnPhase.BrainSelecting;
+    private bool isBoardInteractive => state is { IsGameOver: false } && isMyTurn;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateTask!;
         myUserId = Guid.Parse(authState.User.FindFirst("buid")!.Value);
 
-        GameContext.Set("Hand and Brain");
+        GameContext.Set("Card Chess");
         Game.RoomUpdated += OnRoomUpdated;
-        Game.GameUpdated += OnGameUpdated;
+        Game.CardChessGameUpdated += OnGameUpdated;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -174,7 +173,7 @@ else
             await Game.EnsureConnectedAsync();
             room = await Game.JoinRoomAsync(Code);
             mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
-            SetState(await Game.GetGameStateAsync(Code));
+            SetState(await Game.GetCardChessStateAsync(Code));
             StateHasChanged();
             StartClockTick();
         }
@@ -222,11 +221,30 @@ else
 
     private static string ClockTestId(Side side) => side == Side.White ? "clock-white" : "clock-black";
 
+    private static string HpTestId(Side side) => side == Side.White ? "hp-white" : "hp-black";
+
+    private IReadOnlyList<CardRank> HandOf(Side side) => side == Side.White ? state!.WhiteHand : state!.BlackHand;
+
+    private string HpHearts(Side side)
+    {
+        var hp = side == Side.White ? state!.WhiteHp : state!.BlackHp;
+        return string.Concat(Enumerable.Repeat("♥", Math.Max(0, hp)).Concat(Enumerable.Repeat("♡", Math.Max(0, GameState.StartingHp - hp))));
+    }
+
     private string ClockClasses(Side side)
     {
         var isActive = state is { IsGameOver: false } && state.SideToMove == side;
         var activeBorder = side == Side.White ? "border-amber-700/50" : "border-moss/50";
         return $"border border-espresso/16 bg-paper-dark px-2 py-1 text-xs {(isActive ? activeBorder : "")}";
+    }
+
+    private string TurnStatusText()
+    {
+        if (state!.EmergencyMoveAvailable)
+            return "in check, no card helps — Emergency Move (costs 1 HP)";
+        if (state.HandHasNoPlayableCard)
+            return "no hand card can move — picking freely";
+        return "choosing a move from hand";
     }
 
     private static string EndReasonLabel(GameEndReason? reason) => reason switch
@@ -239,24 +257,19 @@ else
         GameEndReason.Resignation => "resignation",
         GameEndReason.Timeout => "timeout",
         GameEndReason.DrawAgreed => "draw",
+        GameEndReason.HpDepleted => "out of HP",
         _ => "",
     };
 
-    private async Task SelectPieceKindAsync(PieceKind kind)
-    {
-        try { SetState(await Game.SelectPieceKindAsync(Code, kind)); }
-        catch (Exception ex) { error = ex.Message; }
-    }
-
     private async Task MakeMoveAsync(ChessMove move)
     {
-        try { SetState(await Game.MakeMoveAsync(Code, move.From, move.To, move.PromoteTo)); }
+        try { SetState(await Game.MakeCardChessMoveAsync(Code, move.From, move.To, move.PromoteTo)); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task ResignAsync()
     {
-        try { SetState(await Game.ResignAsync(Code)); }
+        try { SetState(await Game.ResignCardChessAsync(Code)); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -269,13 +282,13 @@ else
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnGameUpdated(GameStateDto dto)
+    private void OnGameUpdated(CardChessStateDto dto)
     {
         SetState(dto);
         InvokeAsync(StateHasChanged);
     }
 
-    private void SetState(GameStateDto dto)
+    private void SetState(CardChessStateDto dto)
     {
         state = dto;
         lastUpdateAt = DateTimeOffset.UtcNow;
@@ -284,7 +297,7 @@ else
     public void Dispose()
     {
         Game.RoomUpdated -= OnRoomUpdated;
-        Game.GameUpdated -= OnGameUpdated;
+        Game.CardChessGameUpdated -= OnGameUpdated;
         tickCts?.Cancel();
         tickCts?.Dispose();
     }

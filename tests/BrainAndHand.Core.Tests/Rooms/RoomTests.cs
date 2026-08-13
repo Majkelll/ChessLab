@@ -144,4 +144,27 @@ public class RoomTests
         Assert.Throws<InvalidOperationException>(() =>
             room.SetClockSettings(TimeSpan.FromMinutes(5), TimeSpan.Zero));
     }
+
+    [Fact]
+    public void NewCardChessRoom_HasExactlyTwoPlayerSeats()
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid(), GameKind.CardChess);
+
+        Assert.Equal(
+            [new SeatId(Side.White, SeatRole.Player), new SeatId(Side.Black, SeatRole.Player)],
+            room.SeatIds);
+        Assert.All(room.Seats.Values, o => Assert.Equal(OccupantKind.Empty, o.Kind));
+    }
+
+    [Fact]
+    public void SetBot_InACardChessRoom_Succeeds()
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid(), GameKind.CardChess);
+        var seatId = new SeatId(Side.White, SeatRole.Player);
+
+        room.SetBot(seatId, BotDifficulty.Medium);
+
+        Assert.Equal(OccupantKind.Bot, room.Seats[seatId].Kind);
+        Assert.Equal(BotDifficulty.Medium, room.Seats[seatId].Difficulty);
+    }
 }
