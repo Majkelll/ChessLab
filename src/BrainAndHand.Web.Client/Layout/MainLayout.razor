@@ -1,9 +1,15 @@
 @inherits LayoutComponentBase
 @using System.Reflection
 
-<div class="min-h-screen bg-[#f6efe4] text-[#2b2019] font-mono">
-    <header class="flex flex-wrap items-center justify-between gap-3 border-b border-[#2b201929] bg-[#efe3d0] px-4 py-4 sm:px-8">
-        <a href="" class="text-lg font-semibold tracking-tight">Hand and Brain</a>
+<div class="min-h-screen bg-cream text-espresso font-mono">
+    <header class="grain-wood flex flex-wrap items-center justify-between gap-3 border-b border-espresso/16 bg-paper px-4 py-4 sm:px-8">
+        <a href="" class="flex items-baseline gap-2 text-lg font-semibold tracking-tight">
+            <span class="hidden text-xs font-normal text-espresso-soft/70 sm:inline">~/hand-and-brain$</span>
+            <span>
+                Hand and Brain<span aria-hidden="true"
+                    class="blink-cursor ml-0.5 inline-block h-[1em] w-[2px] translate-y-[3px] bg-amber-700"></span>
+            </span>
+        </a>
         <LoginDisplay />
     </header>
 
@@ -13,13 +19,13 @@
 </div>
 
 <div id="blazor-error-ui" data-nosnippet
-     class="fixed inset-x-0 bottom-0 hidden border-t border-[#2b201929] bg-[#efe3d0] p-3 text-center font-mono text-sm">
+     class="fixed inset-x-0 bottom-0 hidden border-t border-espresso/16 bg-paper p-3 text-center font-mono text-sm">
     An unexpected error occurred.
     <a href="." class="text-amber-700 underline hover:text-amber-600">Reload</a>
     <span class="cursor-pointer">🗙</span>
 </div>
 
-<span class="fixed bottom-2 right-3 font-mono text-xs text-[#2b201980] select-none">@("v" + Version)</span>
+<span class="fixed bottom-2 right-3 font-mono text-xs text-espresso/50 select-none">@("v" + Version)</span>
 
 @code {
     // Set via the Docker build-arg APP_VERSION -> `dotnet publish -p:InformationalVersion=...`,
