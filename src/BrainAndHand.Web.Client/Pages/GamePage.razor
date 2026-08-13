@@ -54,10 +54,12 @@ else
                         <text> — <span data-testid="game-over-winner">@(winner == Side.White ? "white" : "black")</span> wins</text>
                     }
                 </p>
-                <a data-testid="back-to-room-link" href="/room/@Code"
-                   class="mt-4 inline-block border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+                <button data-testid="back-to-room-link"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="BackToRoom"
+                        class="mt-4 border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
                     Back to room
-                </a>
+                </button>
             }
             else
             {
@@ -201,6 +203,8 @@ else
         try { SetState(await Game.ResignAsync(Code)); }
         catch (Exception ex) { error = ex.Message; }
     }
+
+    private void BackToRoom() => Nav.NavigateTo($"/room/{Code}");
 
     private void OnRoomUpdated(RoomStateDto dto)
     {

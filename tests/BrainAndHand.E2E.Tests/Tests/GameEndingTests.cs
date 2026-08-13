@@ -12,7 +12,7 @@ public sealed class GameEndingTests(WebAppFixture app, PlaywrightFixture playwri
             .StartAsync();
 
     [Fact]
-    public async Task Checkmate_ends_the_game_for_every_seat_and_back_to_room_returns_to_the_lobby()
+    public async Task Checkmate_ends_the_game_for_every_seat_and_back_to_room_shows_the_room_is_retired()
     {
         var game = await StartFourHumanGameAsync();
 
@@ -25,8 +25,12 @@ public sealed class GameEndingTests(WebAppFixture app, PlaywrightFixture playwri
             Assert.Equal("black", winner);
         }
 
+        // Rooms aren't reusable for a rematch, so this just needs to land back on /room/{code}
+        // and say so plainly — it must NOT bounce straight back to /game/{code}, which is what a
+        // stale "a game exists" check (rather than "a game is in progress") used to do.
         var roomPage = await game[Side.White, SeatRole.Brain].BackToRoomAsync();
         Assert.Equal(game.Code, roomPage.Code);
+        await Expect(roomPage.RoomRetiredMessage).ToBeVisibleAsync();
     }
 
     [Fact]

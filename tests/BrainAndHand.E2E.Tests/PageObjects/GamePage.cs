@@ -72,10 +72,8 @@ public sealed class GamePage(IPage page)
     public async Task<RoomPage> BackToRoomAsync()
     {
         await BackToRoomLink.ClickAsync();
-        // Matches how every other page object waits for a Blazor client-side navigation
-        // (Regex overload) rather than the Func<string,bool> predicate one — under load the
-        // latter was occasionally not resolving even after the URL had already changed.
-        await Page.WaitForURLAsync(new Regex("/room/"), new() { Timeout = 30000 });
+        // Matches how every other page object waits for a Blazor client-side navigation.
+        await Page.WaitForURLAsync(new Regex("/room/"), new() { Timeout = 15000 });
         return new RoomPage(Page);
     }
 }

@@ -7,7 +7,7 @@ public sealed class StockfishEngine : IAsyncDisposable
 {
     private readonly Process process;
     private readonly SemaphoreSlim gate = new(1, 1);
-    private int? currentSkillLevel;
+    private int? currentElo;
 
     private StockfishEngine(Process process) => this.process = process;
 
@@ -37,7 +37,7 @@ public sealed class StockfishEngine : IAsyncDisposable
     /// <summary>Searches only among <paramref name="searchMovesUci"/> and returns the best one plus its evaluation
     /// (centipawns from the side-to-move's perspective; mate scores are mapped to large magnitudes).</summary>
     public async Task<(string BestMoveUci, int? ScoreCentipawns)> GoAsync(
-        string fen, IReadOnlyList<string> searchMovesUci, int skillLevel, int movetimeMs, CancellationToken ct = default)
+        string fen, IReadOnlyList<string> searchMovesUci, int elo, int movetimeMs, CancellationToken ct = default)
     {
         if (searchMovesUci.Count == 0)
             throw new ArgumentException("At least one candidate move is required.", nameof(searchMovesUci));
@@ -45,10 +45,14 @@ public sealed class StockfishEngine : IAsyncDisposable
         await gate.WaitAsync(ct);
         try
         {
-            if (currentSkillLevel != skillLevel)
+            if (currentElo != elo)
             {
-                await WriteLineAsync($"setoption name Skill Level value {skillLevel}");
-                currentSkillLevel = skillLevel;
+                // UCI_LimitStrength switches Stockfish from "Skill Level" (an arbitrary 0-20
+                // scale with no real-world meaning) to targeting an actual approximate Elo via
+                // UCI_Elo, which is what the difficulty labels shown to players are based on.
+                await WriteLineAsync("setoption name UCI_LimitStrength value true");
+                await WriteLineAsync($"setoption name UCI_Elo value {elo}");
+                currentElo = elo;
             }
 
             await WriteLineAsync($"position fen {fen}");

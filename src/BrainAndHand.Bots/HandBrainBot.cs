@@ -22,7 +22,7 @@ public sealed class HandBrainBot(StockfishEngine engine)
         foreach (var kind in game.AvailablePieceKinds())
         {
             var candidates = game.LegalMovesFor(kind).Select(m => m.ToUci()).Distinct().ToArray();
-            var (_, score) = await engine.GoAsync(fen, candidates, preset.SkillLevel, preset.MovetimeMs, ct);
+            var (_, score) = await engine.GoAsync(fen, candidates, preset.Elo, preset.MovetimeMs, ct);
 
             if (score is { } s && s > bestScore)
             {
@@ -40,7 +40,7 @@ public sealed class HandBrainBot(StockfishEngine engine)
         var moves = game.AvailableMoves();
         var candidates = moves.Select(m => m.ToUci()).Distinct().ToArray();
 
-        var (bestUci, _) = await engine.GoAsync(game.ToFen(), candidates, preset.SkillLevel, preset.MovetimeMs, ct);
+        var (bestUci, _) = await engine.GoAsync(game.ToFen(), candidates, preset.Elo, preset.MovetimeMs, ct);
         var (from, to, promotion) = UciNotation.ParseUciMove(bestUci);
 
         return moves.First(m => m.From == from && m.To == to && m.PromoteTo == promotion);

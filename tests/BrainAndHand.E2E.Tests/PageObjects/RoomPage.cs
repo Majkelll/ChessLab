@@ -28,6 +28,10 @@ public sealed class RoomPage
     public ILocator StartGameButton => Page.GetByTestId("start-game-btn");
     public ILocator WaitingForHostMessage => Page.GetByTestId("waiting-for-host");
 
+    /// <summary>Shown instead of the seat grid once this room's one game has already finished —
+    /// rooms aren't reusable for a rematch, so there's nothing left to configure here.</summary>
+    public ILocator RoomRetiredMessage => Page.GetByTestId("room-retired");
+
     /// <summary>Host-only editable clock inputs. Non-host seats see <see cref="ClockSettingsDisplay"/> instead.</summary>
     public ILocator ClockMinutesInput => Page.GetByTestId("clock-initial-minutes");
     public ILocator ClockIncrementInput => Page.GetByTestId("clock-increment-seconds");
