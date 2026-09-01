@@ -2,15 +2,6 @@ using ChessLab.Core.Chess;
 
 namespace ChessLab.Core.Tests.CardChess;
 
-/// <summary>
-/// A fully-controllable <see cref="IChessRulesEngine"/> test double. Some GameState scenarios (most
-/// notably Emergency Move — see GameStateTests) are hard or impossible to reach via genuinely legal
-/// chess positions, because Card Chess's 13 cards give complete piece-type/pawn-file coverage: if
-/// any piece anywhere can resolve a check, its card will find it. This double lets GameState's own
-/// orchestration (the draw/skip loop, emergency activation, HP bookkeeping) be tested in isolation
-/// from whether a given "no card works" scenario is realistic, exactly the sort of substitution
-/// <see cref="IChessRulesEngine"/> exists to allow (see its own doc comment).
-/// </summary>
 internal sealed class FakeChessRulesEngine : IChessRulesEngine
 {
     public Side SideToMove { get; set; } = Side.White;
@@ -30,13 +21,8 @@ internal sealed class FakeChessRulesEngine : IChessRulesEngine
     public IReadOnlyList<ChessMove> LegalMoves(PieceKind kind) =>
         MovesByKind.TryGetValue(kind, out var moves) ? moves : [];
 
-    // This double doesn't model the two sides independently — tests that care which side has a
-    // legal move of a given kind should use the real engine instead (see GameStateTests).
     public bool HasLegalMove(Side side, PieceKind kind) => LegalMoves(kind).Count > 0;
 
-    // Toggles sides like a real engine would — matters for tests that make several moves in a row,
-    // since GameState only re-evaluates a side's own situation (e.g. "still no playable card, and
-    // now 0 HP") once it's genuinely that side's turn again, not immediately after its own move.
     public void ApplyMove(ChessMove move)
     {
         AppliedMoves.Add(move);

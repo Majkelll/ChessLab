@@ -5,7 +5,6 @@ using Microsoft.Playwright;
 
 namespace ChessLab.E2E.Tests.Helpers;
 
-/// <summary>Every human seat's browser session plus its board once a Card Chess game has started.</summary>
 public sealed record StartedCardChessGame(
     string Code,
     IReadOnlyDictionary<Side, CardChessGamePage> Games,
@@ -14,15 +13,12 @@ public sealed record StartedCardChessGame(
     public CardChessGamePage this[Side side] => Games[side];
 }
 
-/// <summary>Fluent "N humans (+ M bots) in a Card Chess room, then start the game" setup — the Card
-/// Chess sibling of <see cref="GameRoomBuilder"/>.</summary>
 public sealed class CardChessRoomBuilder(IBrowser browser, string baseUrl)
 {
     private readonly List<(Side Side, string Name)> humanSeats = [];
     private readonly List<(Side Side, BotDifficulty Difficulty)> botSeats = [];
     private (int Minutes, int IncrementSeconds)? clockSettings;
 
-    /// <summary>The first human added becomes the room host (creates the room, starts the game).</summary>
     public CardChessRoomBuilder WithHuman(Side side, string name)
     {
         humanSeats.Add((side, name));
