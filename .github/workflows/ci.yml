@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: build-and-test
+    runs-on: [self-hosted, chesslab]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.400"
+
+      - name: Restore
+        run: dotnet restore ChessLab.slnx
+
+      - name: Build
+        run: dotnet build ChessLab.slnx --no-restore -c Release
+
+      - name: Test
+        run: dotnet test ChessLab.slnx --no-build -c Release
