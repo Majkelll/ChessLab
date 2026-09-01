@@ -47,6 +47,8 @@ internal static class GameDtoMapper
             game.SideToMove,
             game.HandOf(Side.White),
             game.HandOf(Side.Black),
+            game.PendingRerollOf(Side.White),
+            game.PendingRerollOf(Side.Black),
             game.EmergencyMoveAvailable,
             game.HandHasNoPlayableCard,
             game.AvailableMoves,

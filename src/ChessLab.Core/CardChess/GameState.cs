@@ -3,31 +3,17 @@ using ChessLab.Core.HandBrain;
 
 namespace ChessLab.Core.CardChess;
 
-/// <summary>
-/// Orchestrates a Card Chess game on top of an <see cref="IChessRulesEngine"/>: each side holds a
-/// hand of <see cref="HandSize"/> cards, always visible, and on its turn may move any piece of the
-/// kind represented by a hand card that currently has a legal move — there's no separate "draw"
-/// step, a move is made directly and the server works out which hand card it used. That card is
-/// then discarded and replaced with a fresh random one, keeping the hand at a constant size — and
-/// every card dealt, whether at the initial deal or a refill, is guaranteed to have a legal move for
-/// that side at the moment it's dealt, so a hand is never dealt a card for a piece that's already
-/// gone (a captured queen) or that simply can't move yet (the king at the very start of the game) —
-/// though a card can still go dead later as the position changes, same as before. If a
-/// hand has no playable card while in check, an Emergency Move — any legal check-escaping move, for
-/// 1 HP — becomes available instead, and running out of HP when one is needed loses the game
-/// outright (rules 7/8). If a hand has no playable card and the side *isn't* in check, that's a gap
-/// the written rules don't cover (they only ever describe Emergency Move as a check-response) —
-/// rather than soft-locking the game, the same "any legal move" fallback applies, but for free.
-/// </summary>
 public sealed class GameState
 {
     public const int StartingHp = 3;
     public const int HandSize = 5;
+    public const int MaxRerollSelection = 2;
 
     private readonly IChessRulesEngine engine;
     private readonly Dictionary<Side, Deck> decks;
     private readonly Dictionary<Side, List<CardRank>> hands;
     private readonly Dictionary<Side, int> hp;
+    private readonly Dictionary<Side, List<CardRank>> pendingRerolls;
     private readonly List<ChessMove> moveHistory = [];
     private GameEndResult? forcedResult;
 
@@ -35,13 +21,8 @@ public sealed class GameState
     public IReadOnlyList<ChessMove> MoveHistory => moveHistory;
     public IReadOnlyList<ChessMove> AvailableMoves { get; private set; } = [];
 
-    /// <summary>True only when the side to move is in check and no hand card can escape it — this
-    /// is the one case an Emergency Move actually costs HP (rules 7/8).</summary>
     public bool EmergencyMoveAvailable { get; private set; }
 
-    /// <summary>True whenever no hand card has a legal move at all, whether or not that's from
-    /// check — <see cref="AvailableMoves"/> falls back to every legal move either way, but only
-    /// <see cref="EmergencyMoveAvailable"/> costs HP.</summary>
     public bool HandHasNoPlayableCard { get; private set; }
 
     public Side SideToMove => engine.SideToMove;
@@ -50,6 +31,8 @@ public sealed class GameState
 
     public int HpOf(Side side) => hp[side];
     public IReadOnlyList<CardRank> HandOf(Side side) => hands[side];
+
+    public IReadOnlyList<CardRank> PendingRerollOf(Side side) => pendingRerolls[side];
 
     public string ToFen() => engine.ToFen();
 
@@ -64,19 +47,49 @@ public sealed class GameState
             [Side.White] = [.. Enumerable.Range(0, HandSize).Select(_ => DrawPlayable(Side.White, whiteDeck))],
             [Side.Black] = [.. Enumerable.Range(0, HandSize).Select(_ => DrawPlayable(Side.Black, blackDeck))],
         };
+        pendingRerolls = new Dictionary<Side, List<CardRank>> { [Side.White] = [], [Side.Black] = [] };
 
         RefreshAvailableMoves();
     }
 
     private IReadOnlyList<ChessMove> LegalMovesFor(CardRank card) => engine.LegalMoves(card.ToPieceKind());
 
-    /// <summary>Draws a card guaranteed to have a legal move for <paramref name="side"/> right now —
-    /// so a hand is never dealt a card for a piece that's already gone (a captured queen) or that
-    /// simply can't move yet (the king at the very start of the game).</summary>
     private CardRank DrawPlayable(Side side, Deck deck) => deck.Draw(card => engine.HasLegalMove(side, card.ToPieceKind()));
 
-    /// <summary>Recomputes what the side to move is currently allowed to play — every legal move
-    /// reachable through one of its hand cards, or the full-board fallback if none of them have one.</summary>
+    public void SelectCardsForReroll(IReadOnlyList<CardRank> cards)
+    {
+        EnsureNotOver();
+
+        var side = SideToMove;
+
+        if (cards.Count > MaxRerollSelection)
+            throw new ArgumentException($"Can only mark up to {MaxRerollSelection} cards for reroll.", nameof(cards));
+
+        if (cards.Distinct().Count() != cards.Count)
+            throw new ArgumentException("Cannot mark the same card twice.", nameof(cards));
+
+        if (cards.Any(card => !hands[side].Contains(card)))
+            throw new ArgumentException("Can only mark cards that are currently in hand.", nameof(cards));
+
+        pendingRerolls[side] = [.. cards];
+    }
+
+    private void ApplyPendingReroll(Side side)
+    {
+        var pending = pendingRerolls[side];
+        if (pending.Count == 0)
+            return;
+
+        foreach (var card in pending)
+        {
+            var index = hands[side].IndexOf(card);
+            if (index >= 0)
+                hands[side][index] = DrawPlayable(side, decks[side]);
+        }
+
+        pending.Clear();
+    }
+
     private void RefreshAvailableMoves()
     {
         EmergencyMoveAvailable = false;
@@ -89,6 +102,8 @@ public sealed class GameState
         }
 
         var mover = SideToMove;
+        ApplyPendingReroll(mover);
+
         var moves = hands[mover].SelectMany(LegalMovesFor).Distinct().ToArray();
 
         if (moves.Length > 0)
@@ -166,7 +181,6 @@ public sealed class GameState
         engine.Resign(side);
     }
 
-    /// <summary>Call periodically from outside (e.g. a server-side timer) to end the game if a side's clock hit zero.</summary>
     public void DeclareTimeoutIfFlagged()
     {
         if (IsGameOver)

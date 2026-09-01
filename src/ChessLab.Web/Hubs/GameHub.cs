@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ChessLab.Core.CardChess;
 using ChessLab.Core.Chess;
 using ChessLab.Core.Contracts;
 using ChessLab.Core.Rooms;
@@ -155,6 +156,14 @@ public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfigu
         var dto = await BroadcastCardChessGame(session, "CardChessGameUpdated");
         botRunner.ScheduleCardChessBotTurns(code);
         return dto;
+    }
+
+    public async Task<CardChessStateDto> SelectCardChessReroll(string code, IReadOnlyList<CardRank> cards)
+    {
+        var session = registry.GetCardChess(code);
+        EnsureCardChessActiveSeatIsCaller(session);
+        session.SelectCardsForReroll(cards);
+        return await BroadcastCardChessGame(session, "CardChessGameUpdated");
     }
 
     public Task<CardChessStateDto> GetCardChessState(string code)

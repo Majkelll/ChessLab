@@ -1,3 +1,4 @@
+using ChessLab.Core.CardChess;
 using ChessLab.Core.Chess;
 using ChessLab.Core.Contracts;
 using ChessLab.Core.Rooms;
@@ -78,6 +79,9 @@ public sealed class GameClient : IAsyncDisposable
 
     public Task<CardChessStateDto> ResignCardChessAsync(string code) =>
         Connection.InvokeAsync<CardChessStateDto>("ResignCardChess", code);
+
+    public Task<CardChessStateDto> SelectCardChessRerollAsync(string code, IReadOnlyList<CardRank> cards) =>
+        Connection.InvokeAsync<CardChessStateDto>("SelectCardChessReroll", code, cards);
 
     public async ValueTask DisposeAsync() => await Connection.DisposeAsync();
 }

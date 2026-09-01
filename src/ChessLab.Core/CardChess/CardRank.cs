@@ -2,7 +2,6 @@ using ChessLab.Core.Chess;
 
 namespace ChessLab.Core.CardChess;
 
-/// <summary>A standard playing-card rank, mapped to the one piece it lets you move this turn.</summary>
 public enum CardRank
 {
     Two,
@@ -22,9 +21,6 @@ public enum CardRank
 
 public static class CardRankExtensions
 {
-    /// <summary>The piece kind this card lets you move — any piece of that kind with a legal move,
-    /// same as every other rank (a pawn card is no more "the b-pawn's card" than a knight card is
-    /// "the b-knight's card").</summary>
     public static PieceKind ToPieceKind(this CardRank card) => card switch
     {
         >= CardRank.Two and <= CardRank.Nine => PieceKind.Pawn,
