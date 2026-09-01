@@ -45,19 +45,51 @@ public sealed class CardChessTests(WebAppFixture app, PlaywrightFixture playwrig
         var (whiteFrom, whiteTo) = await ComputeOpeningMoveAsync(white, isWhite: true);
         await white.MoveAsync(whiteFrom, whiteTo);
         await Expect(white.MoveHistory.Locator("li")).ToHaveCountAsync(1);
-        // The played card was discarded and replaced — the hand never shrinks.
         Assert.Equal(5, (await white.GetHandCardRanksAsync()).Count);
 
         await black.WaitForTurnTextAsync("black");
         var (blackFrom, blackTo) = await ComputeOpeningMoveAsync(black, isWhite: false);
         await black.MoveAsync(blackFrom, blackTo);
 
-        // Move history syncs to both seats via SignalR, and nobody's spent any HP yet (no
-        // Emergency Move was needed for either player's opening card).
         await Expect(white.MoveHistory.Locator("li")).ToHaveCountAsync(2);
         await Expect(black.MoveHistory.Locator("li")).ToHaveCountAsync(2);
         await Expect(white.HpWhite).ToHaveTextAsync("♥♥♥");
         await Expect(white.HpBlack).ToHaveTextAsync("♥♥♥");
+    }
+
+    [Fact]
+    public async Task Marking_cards_for_reroll_swaps_them_out_right_before_the_next_turn()
+    {
+        var game = await new CardChessRoomBuilder(playwright.Browser, app.BaseUrl)
+            .WithHuman(Side.White, "Alice")
+            .WithHuman(Side.Black, "Bob")
+            .StartAsync();
+
+        var white = game[Side.White];
+        var black = game[Side.Black];
+
+        var handBefore = await white.GetHandCardRanksAsync();
+        var toReroll = handBefore.TakeLast(2).ToArray();
+
+        await white.ToggleRerollAsync(toReroll[0]);
+        await white.ToggleRerollAsync(toReroll[1]);
+
+        Assert.True(await white.IsMarkedForRerollAsync(toReroll[0]));
+        Assert.True(await white.IsMarkedForRerollAsync(toReroll[1]));
+
+        var (whiteFrom, whiteTo) = await ComputeOpeningMoveAsync(white, isWhite: true);
+        await white.MoveAsync(whiteFrom, whiteTo);
+        Assert.Equal(5, (await white.GetHandCardRanksAsync()).Count);
+
+        await black.WaitForTurnTextAsync("black");
+        var (blackFrom, blackTo) = await ComputeOpeningMoveAsync(black, isWhite: false);
+        await black.MoveAsync(blackFrom, blackTo);
+
+        await white.WaitForTurnTextAsync("white");
+        var handAfter = await white.GetHandCardRanksAsync();
+        Assert.Equal(5, handAfter.Count);
+        Assert.DoesNotContain(toReroll[0], handAfter);
+        Assert.DoesNotContain(toReroll[1], handAfter);
     }
 
     [Fact]
@@ -95,15 +127,12 @@ public sealed class CardChessTests(WebAppFixture app, PlaywrightFixture playwrig
         await Expect(hostRoom.SeatBotSelect(Side.Black, SeatRole.Player)).ToHaveValueAsync("Medium");
         await Expect(guestRoom.SeatBotSelect(Side.Black, SeatRole.Player)).ToHaveValueAsync("Medium");
 
-        // The seat already has a bot, so change its difficulty via the select directly — unlike
-        // SetBotAsync, which assumes an empty seat and clicks "Add bot" first.
         await hostRoom.SeatBotSelect(Side.Black, SeatRole.Player).SelectOptionAsync(nameof(BotDifficulty.Hard));
         await Expect(guestRoom.SeatBotSelect(Side.Black, SeatRole.Player)).ToHaveValueAsync("Hard");
 
         await hostRoom.ClearBotAsync(Side.Black, SeatRole.Player);
         await Expect(guestRoom.SeatJoinButton(Side.Black, SeatRole.Player)).ToBeVisibleAsync();
 
-        // Filling the other seat with a human plus a bot should now be enough to start.
         await hostRoom.ClaimSeatAsync(Side.White, SeatRole.Player);
         await hostRoom.SetBotAsync(Side.Black, SeatRole.Player, BotDifficulty.Easy);
         Assert.True(await hostRoom.IsStartGameEnabledAsync());
@@ -125,18 +154,10 @@ public sealed class CardChessTests(WebAppFixture app, PlaywrightFixture playwrig
         var (from, to) = await ComputeOpeningMoveAsync(white, isWhite: true);
         await white.MoveAsync(from, to);
 
-        // The bot moves on its own turn, then control returns to the human — give the engine
-        // plenty of room to start up and think rather than pin this to a tight deadline.
         await Expect(white.MoveHistory.Locator("li")).ToHaveCountAsync(2, new() { Timeout = 30000 });
         await Expect(white.TurnStatus).ToContainTextAsync("white");
     }
 
-    /// <summary>Works out the one legal opening move a hand card must resolve to. Only pawn (2–9)
-    /// and knight (10) cards can ever have a legal move on a side's very first turn — every other
-    /// piece is still boxed in by the starting position — and the server never deals a card with no
-    /// legal move in the first place, so every dealt card is workable; the filter below is just
-    /// defensive. The deck itself is shuffled server-side, so this reads whichever card actually
-    /// showed up rather than trying to control it the way the Core unit tests can.</summary>
     private static async Task<(string From, string To)> ComputeOpeningMoveAsync(CardChessGamePage page, bool isWhite)
     {
         var ranks = await page.GetHandCardRanksAsync();

@@ -5,8 +5,6 @@ using GameState = ChessLab.Core.CardChess.GameState;
 
 namespace ChessLab.Core.Rooms;
 
-/// <summary>Ties a lobby <see cref="Room"/> to its (possibly not-yet-started) Card Chess
-/// <see cref="CardChess.GameState"/> — the Card Chess sibling of <see cref="GameSession"/>.</summary>
 public sealed class CardChessSession(Room room, Func<IChessRulesEngine> engineFactory) : IRoomSession
 {
     public Room Room { get; } = room;
@@ -18,8 +16,6 @@ public sealed class CardChessSession(Room room, Func<IChessRulesEngine> engineFa
     {
     }
 
-    /// <summary>The seat whose occupant is expected to act right now. Unlike Hand &amp; Brain,
-    /// Card Chess has only one role per side, so this is always <see cref="SeatRole.Player"/>.</summary>
     public SeatId ActiveSeat
     {
         get
@@ -53,7 +49,14 @@ public sealed class CardChessSession(Room room, Func<IChessRulesEngine> engineFa
         return move;
     }
 
-    /// <summary>See <see cref="GameSession.DeclareTimeoutIfExpired"/> — same reasoning, same fix.</summary>
+    public void SelectCardsForReroll(IReadOnlyList<CardRank> cards)
+    {
+        if (Game is null)
+            throw new InvalidOperationException("Game has not started.");
+
+        Game.SelectCardsForReroll(cards);
+    }
+
     public void DeclareTimeoutIfExpired(DateTimeOffset now)
     {
         if (Game is not { IsGameOver: false } || TurnStartedAt is not { } startedAt)

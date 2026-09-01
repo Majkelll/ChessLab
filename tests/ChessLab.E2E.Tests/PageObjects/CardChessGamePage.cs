@@ -5,7 +5,6 @@ using Microsoft.Playwright;
 
 namespace ChessLab.E2E.Tests.PageObjects;
 
-/// <summary>The "/cardchess/{code}" board: draws, moves, HP, clocks, resigning, and the game-over banner.</summary>
 public sealed class CardChessGamePage(IPage page)
 {
     public IPage Page { get; } = page;
@@ -27,8 +26,6 @@ public sealed class CardChessGamePage(IPage page)
     public ILocator MoveHistory => Page.GetByTestId("move-history");
     public ILocator ErrorMessage => Page.GetByTestId("game-error");
 
-    /// <summary>Same cm-chessboard-rendered board as the Hand &amp; Brain game page — see
-    /// <see cref="GamePage"/>'s equivalent members for why squares are located this way.</summary>
     public ILocator ChessBoardRoot => Page.GetByTestId("chess-board");
     public ILocator Square(string square) => ChessBoardRoot.Locator($"rect.square[data-square='{square}']");
     public ILocator PromotionPicker => Page.Locator(".promotion-dialog-group");
@@ -47,12 +44,6 @@ public sealed class CardChessGamePage(IPage page)
 
     public Task<string> GetTurnStatusAsync() => TurnStatus.InnerTextAsync();
 
-    /// <summary>The rank (e.g. Six, Ten, Queen) of each card currently in this seat's hand, read
-    /// from each card's <c>data-testid</c> rather than its displayed content — the hand renders
-    /// piece glyphs, not rank text, so this is the only reliable way to know which cards they are.
-    /// Uses <c>EvaluateAllAsync</c> rather than <c>Locator.AllAsync()</c>, which snapshots the DOM
-    /// immediately with no auto-waiting and can race a hand that hasn't rendered yet. The deck is
-    /// shuffled server-side, so tests read the hand rather than controlling it directly.</summary>
     public async Task<IReadOnlyList<CardRank>> GetHandCardRanksAsync()
     {
         var testIds = await MyHand.Locator("[data-testid^='hand-card-']")
@@ -60,7 +51,13 @@ public sealed class CardChessGamePage(IPage page)
         return testIds.Select(id => Enum.Parse<CardRank>(id["hand-card-".Length..])).ToArray();
     }
 
-    /// <summary>Click-to-move — see <see cref="GamePage.MoveAsync"/> for why the short pause matters.</summary>
+    public ILocator HandCard(CardRank card) => MyHand.GetByTestId($"hand-card-{card}");
+
+    public Task ToggleRerollAsync(CardRank card) => HandCard(card).ClickAsync();
+
+    public async Task<bool> IsMarkedForRerollAsync(CardRank card) =>
+        await HandCard(card).GetAttributeAsync("data-marked-for-reroll") == "true";
+
     public async Task MoveAsync(string from, string to)
     {
         await Square(from).ClickAsync();
@@ -75,7 +72,6 @@ public sealed class CardChessGamePage(IPage page)
 
     public Task ResignAsync() => ResignButton.ClickAsync();
 
-    /// <summary>Waits until this player's turn-status shows the given phase text.</summary>
     public Task WaitForTurnTextAsync(string containingText, int timeoutMs = 10000) =>
         TurnStatus.Filter(new LocatorFilterOptions { HasText = containingText }).WaitForAsync(new() { Timeout = timeoutMs });
 
