@@ -16,15 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.400"
-
       - name: Restore
-        run: dotnet restore ChessLab.slnx
+        run: mise exec dotnet@10.0.400 -- dotnet restore ChessLab.slnx
 
       - name: Build
-        run: dotnet build ChessLab.slnx --no-restore -c Release
+        run: mise exec dotnet@10.0.400 -- dotnet build ChessLab.slnx --no-restore -c Release
 
       - name: Test
-        run: dotnet test ChessLab.slnx --no-build -c Release
+        run: mise exec dotnet@10.0.400 -- dotnet test ChessLab.slnx --no-build -c Release
