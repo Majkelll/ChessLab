@@ -9,7 +9,7 @@ services:
       - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID in .env}
       - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET:?Set GOOGLE_CLIENT_SECRET in .env}
     volumes:
-      - brainandhand-data:/data
+      - chesslab-data:/data
 
 volumes:
-  brainandhand-data:
+  chesslab-data:

@@ -3,25 +3,25 @@
 # ---- Stage 1: Tailwind CSS build (kept separate so the .NET SDK image never needs Node) ----
 FROM node:22-alpine AS css
 WORKDIR /src
-COPY src/BrainAndHand.Web/package.json src/BrainAndHand.Web/package-lock.json src/BrainAndHand.Web/
-RUN npm --prefix src/BrainAndHand.Web ci
-COPY src/BrainAndHand.Web/Styles src/BrainAndHand.Web/Styles
-COPY src/BrainAndHand.Web/Components src/BrainAndHand.Web/Components
-COPY src/BrainAndHand.Web.Client src/BrainAndHand.Web.Client
-RUN npm --prefix src/BrainAndHand.Web run build:css
+COPY src/ChessLab.Web/package.json src/ChessLab.Web/package-lock.json src/ChessLab.Web/
+RUN npm --prefix src/ChessLab.Web ci
+COPY src/ChessLab.Web/Styles src/ChessLab.Web/Styles
+COPY src/ChessLab.Web/Components src/ChessLab.Web/Components
+COPY src/ChessLab.Web.Client src/ChessLab.Web.Client
+RUN npm --prefix src/ChessLab.Web run build:css
 
 # ---- Stage 2: .NET build & publish ----
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG APP_VERSION=dev
 WORKDIR /src
-COPY BrainAndHand.slnx .
+COPY ChessLab.slnx .
 COPY src/ src/
 COPY tests/ tests/
-COPY --from=css /src/src/BrainAndHand.Web/wwwroot/css/app.css src/BrainAndHand.Web/wwwroot/css/app.css
-COPY --from=css /src/src/BrainAndHand.Web/wwwroot/css/files src/BrainAndHand.Web/wwwroot/css/files
-COPY --from=css /src/src/BrainAndHand.Web/wwwroot/js/cm-chessboard src/BrainAndHand.Web/wwwroot/js/cm-chessboard
+COPY --from=css /src/src/ChessLab.Web/wwwroot/css/app.css src/ChessLab.Web/wwwroot/css/app.css
+COPY --from=css /src/src/ChessLab.Web/wwwroot/css/files src/ChessLab.Web/wwwroot/css/files
+COPY --from=css /src/src/ChessLab.Web/wwwroot/js/cm-chessboard src/ChessLab.Web/wwwroot/js/cm-chessboard
 RUN dotnet restore
-RUN dotnet publish src/BrainAndHand.Web/BrainAndHand.Web.csproj \
+RUN dotnet publish src/ChessLab.Web/ChessLab.Web.csproj \
     -c Release -o /app/publish --no-restore \
     -p:SkipTailwindBuild=true -p:InformationalVersion=${APP_VERSION} \
     -p:IncludeSourceRevisionInInformationalVersion=false
@@ -38,4 +38,4 @@ COPY --from=build /app/publish .
 VOLUME /data
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
-ENTRYPOINT ["dotnet", "BrainAndHand.Web.dll"]
+ENTRYPOINT ["dotnet", "ChessLab.Web.dll"]
