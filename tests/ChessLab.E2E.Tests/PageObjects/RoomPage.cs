@@ -130,4 +130,18 @@ public sealed class RoomPage
         await Page.WaitForURLAsync(new Regex($"/cardchess/{Regex.Escape(Code)}$"), new() { Timeout = timeoutMs });
         return new CardChessGamePage(Page);
     }
+
+    /// <summary>Host-only: clicks "Start game" for an Arcane Chess room and follows the navigation to the board.</summary>
+    public async Task<ArcaneChessGamePage> StartArcaneChessGameAsync()
+    {
+        await StartGameButton.ClickAsync();
+        return await WaitForArcaneChessGameStartedAsync();
+    }
+
+    /// <summary>Non-host seats: the room navigates them to the Arcane Chess board automatically once the host starts.</summary>
+    public async Task<ArcaneChessGamePage> WaitForArcaneChessGameStartedAsync(int timeoutMs = 15000)
+    {
+        await Page.WaitForURLAsync(new Regex($"/arcanechess/{Regex.Escape(Code)}$"), new() { Timeout = timeoutMs });
+        return new ArcaneChessGamePage(Page);
+    }
 }

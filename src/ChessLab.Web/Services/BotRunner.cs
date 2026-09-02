@@ -119,6 +119,59 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, I
         }
     }
 
+    /// <summary>Fire-and-forget: processes any pending Arcane Chess bot turns for the room in the background.</summary>
+    public void ScheduleArcaneChessBotTurns(string code) => _ = RunPendingArcaneChessBotTurnsAsync(code);
+
+    private async Task RunPendingArcaneChessBotTurnsAsync(string code)
+    {
+        var roomLock = roomLocks.GetOrAdd(code, static _ => new SemaphoreSlim(1, 1));
+        await roomLock.WaitAsync();
+        try
+        {
+            ArcaneChessSession session;
+            try
+            {
+                session = registry.GetArcaneChess(code);
+            }
+            catch (HubException)
+            {
+                return;
+            }
+
+            while (session.Game is { IsGameOver: false } game)
+            {
+                var occupant = session.Room.Seats[session.ActiveSeat];
+                if (occupant.Kind != OccupantKind.Bot)
+                    return;
+
+                await Task.Delay(Random.Shared.Next((int)MinThinkDelay.TotalMilliseconds, (int)MaxThinkDelay.TotalMilliseconds));
+
+                var engine = await GetOrCreateEngineAsync(code);
+                var bot = new ArcaneChessBot(engine);
+
+                var spellCast = bot.ChooseSpell(game, game.SideToMove);
+                if (spellCast is { } cast)
+                {
+                    try { session.CastSpell(cast.Spell, cast.Target); }
+                    catch (InvalidOperationException) { /* heuristic guessed wrong; just move instead */ }
+                }
+
+                var move = await bot.ChooseMoveAsync(game, occupant.Difficulty!.Value);
+                session.MakeMove(move.From, move.To, move.PromoteTo, DateTimeOffset.UtcNow);
+
+                await hub.Clients.Group(code).SendAsync("ArcaneChessGameUpdated", GameDtoMapper.ToArcaneChessDto(session));
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Arcane Chess bot turn processing failed for room {Code}.", code);
+        }
+        finally
+        {
+            roomLock.Release();
+        }
+    }
+
     private async Task<StockfishEngine> GetOrCreateEngineAsync(string code)
     {
         if (engines.TryGetValue(code, out var existing))

@@ -62,4 +62,34 @@ internal static class GameDtoMapper
             game.EndResult?.Reason,
             game.EndResult?.Winner);
     }
+
+    public static ArcaneChessStateDto ToArcaneChessDto(ArcaneChessSession session)
+    {
+        var game = session.Game!;
+        return new ArcaneChessStateDto(
+            game.SideToMove,
+            game.HandOf(Side.White),
+            game.HandOf(Side.Black),
+            game.PendingRerollOf(Side.White),
+            game.PendingRerollOf(Side.Black),
+            game.EmergencyMoveAvailable,
+            game.HandHasNoPlayableCard,
+            game.AvailableMoves,
+            game.MoveHistory,
+            game.ToFen(),
+            game.HpOf(Side.White),
+            game.HpOf(Side.Black),
+            (long)game.Clock.WhiteRemaining.TotalMilliseconds,
+            (long)game.Clock.BlackRemaining.TotalMilliseconds,
+            game.IsGameOver,
+            game.EndResult?.Reason,
+            game.EndResult?.Winner,
+            game.SpellHandOf(Side.White),
+            game.SpellHandOf(Side.Black),
+            game.ManaOf(Side.White),
+            game.ManaOf(Side.Black),
+            game.IsOpponentHandRevealedTo(Side.White),
+            game.IsOpponentHandRevealedTo(Side.Black),
+            game.ActiveEffects);
+    }
 }
