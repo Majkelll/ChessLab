@@ -213,6 +213,9 @@ public sealed class GameState
                 RequireDistinct(a, b);
                 RequireOwnOccupied(a, caster, excludeKing: true);
                 RequireOwnOccupied(b, caster, excludeKing: true);
+                var fenBeforeSwap = inner.ToFen();
+                RequireNotPawnOnBackRank(fenBeforeSwap, a, b);
+                RequireNotPawnOnBackRank(fenBeforeSwap, b, a);
                 inner.ApplyExternalFenEdit(fen => FenBoard.SwapPieces(fen, a, b));
                 break;
             }
@@ -222,9 +225,7 @@ public sealed class GameState
                 var to = RequireSquare(target.Secondary);
                 RequireOwnOccupied(from, caster, excludeKing: true);
                 RequireEmpty(to);
-                var piece = FenBoard.PieceAt(inner.ToFen(), from)!.Value;
-                if (char.ToLowerInvariant(piece) == 'p' && (to.Rank == 0 || to.Rank == 7))
-                    throw new InvalidOperationException("A pawn can't teleport onto the back rank.");
+                RequireNotPawnOnBackRank(inner.ToFen(), from, to);
                 inner.ApplyExternalFenEdit(fen => FenBoard.MovePiece(fen, from, to));
                 break;
             }
@@ -280,6 +281,7 @@ public sealed class GameState
                 var sq = RequireSquare(target.Primary);
                 RequireOwnOccupied(sq, caster, excludeKing: true);
                 var kingSquare = FindKing(caster);
+                RequireNotPawnOnBackRank(inner.ToFen(), sq, kingSquare);
                 inner.ApplyExternalFenEdit(fen => FenBoard.SwapPieces(fen, kingSquare, sq));
                 break;
             }
@@ -329,6 +331,18 @@ public sealed class GameState
     {
         if (FenBoard.PieceAt(inner.ToFen(), square) is not null)
             throw new InvalidOperationException($"{square} is not empty.");
+    }
+
+    // A pawn resting on the back rank isn't a state normal chess rules ever produce (it would have
+    // promoted), and the underlying chess engine can't generate moves for one — it throws deep
+    // inside third-party move-generation instead of failing gracefully. Swap/Teleport/MindSwap are
+    // the only spells that can relocate a piece outside normal move rules, so each must reject a
+    // pawn landing there before applying the edit.
+    private static void RequireNotPawnOnBackRank(string fen, Square from, Square to)
+    {
+        var piece = FenBoard.PieceAt(fen, from)!.Value;
+        if (char.ToLowerInvariant(piece) == 'p' && (to.Rank == 0 || to.Rank == 7))
+            throw new InvalidOperationException("A pawn can't end up on the back rank.");
     }
 
     private void RequireOwnOccupied(Square square, Side side, bool excludeKing)

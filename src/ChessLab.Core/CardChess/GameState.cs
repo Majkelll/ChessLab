@@ -147,7 +147,14 @@ public sealed class GameState
         var mover = SideToMove;
         ApplyPendingReroll(mover);
 
-        var moves = hands[mover].SelectMany(LegalMovesFor).Distinct().ToArray();
+        // Arcane Chess's out-of-band board edits (Swap/Teleport/MindSwap) can put a king on a square
+        // the underlying engine's incremental check/checkmate tracking doesn't reliably follow —
+        // observed via simulation as the engine occasionally still offering a move that captures the
+        // opposing king outright dozens of turns later, instead of having already ended the game by
+        // checkmate. A king must never actually be captured, so such moves are filtered out here
+        // regardless of source; see the fallback below for what happens when that was the only move.
+        var moves = hands[mover].SelectMany(LegalMovesFor).Distinct()
+            .Where(m => m.CapturedPiece != PieceKind.King).ToArray();
 
         if (moves.Length > 0)
         {
@@ -169,7 +176,20 @@ public sealed class GameState
             EmergencyMoveAvailable = true;
         }
 
-        AvailableMoves = engine.LegalMoves();
+        var legalMoves = engine.LegalMoves();
+        var nonKingCaptureMoves = legalMoves.Where(m => m.CapturedPiece != PieceKind.King).ToArray();
+
+        if (nonKingCaptureMoves.Length == 0 && legalMoves.Count > 0)
+        {
+            // Every move the engine considers legal here captures the opponent's king — the engine
+            // failed to recognize this as checkmate on its own. Call it exactly that instead of ever
+            // letting the capture happen.
+            forcedResult = new GameEndResult(GameEndReason.Checkmate, mover);
+            AvailableMoves = [];
+            return;
+        }
+
+        AvailableMoves = nonKingCaptureMoves;
     }
 
     public ChessMove MakeMove(Square from, Square to, PieceKind? promoteTo, TimeSpan elapsed)
