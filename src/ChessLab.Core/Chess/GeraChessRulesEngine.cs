@@ -5,7 +5,7 @@ namespace ChessLab.Core.Chess;
 /// <summary>IChessRulesEngine backed by the Gera.Chess library.</summary>
 public sealed class GeraChessRulesEngine : IChessRulesEngine
 {
-    private readonly ChessBoard board;
+    private ChessBoard board;
 
     public GeraChessRulesEngine() => board = new ChessBoard { AutoEndgameRules = AutoEndgameRules.All };
 
@@ -87,6 +87,8 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
     public void DeclareTimeout(Side side) => board.EndByTimeout(ToPieceColor(side));
 
     public string ToFen() => board.ToFen();
+
+    public void LoadPosition(string fen) => board = ChessBoard.LoadFromFen(fen, AutoEndgameRules.All);
 
     private static ChessMove ToChessMove(Move m) => new(
         From: ToSquare(m.OriginalPosition),

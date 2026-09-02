@@ -56,6 +56,49 @@ public sealed class GameState
 
     private CardRank DrawPlayable(Side side, Deck deck) => deck.Draw(card => engine.HasLegalMove(side, card.ToPieceKind()));
 
+    /// <summary>Changes a side's HP by <paramref name="delta"/>, clamped to [0, <see cref="StartingHp"/>].
+    /// Exposed for Arcane Chess spells (Mend, Restoration, Deep Breath) that sit on top of Card Chess's
+    /// hand/HP loop — Card Chess itself never calls this.</summary>
+    public void AdjustHp(Side side, int delta) => hp[side] = Math.Clamp(hp[side] + delta, 0, StartingHp);
+
+    /// <summary>Cancels a side's currently marked-for-reroll cards without waiting for their next
+    /// turn. Exposed for the Arcane Chess "Feint" spell — Card Chess itself never calls this.</summary>
+    public void ClearPendingReroll(Side side) => pendingRerolls[side].Clear();
+
+    /// <summary>Discards one specific card from a hand and immediately draws its replacement, with
+    /// no delay (unlike the normal reroll, which resolves at the start of that side's next turn).
+    /// Exposed for the Arcane Chess "Snap Swap" and "Reshuffle" spells — Card Chess itself never
+    /// calls this.</summary>
+    public void ReplaceHandCardNow(Side side, CardRank card)
+    {
+        var index = hands[side].IndexOf(card);
+        if (index < 0)
+            throw new ArgumentException($"{card} is not currently in {side}'s hand.", nameof(card));
+
+        hands[side][index] = DrawPlayable(side, decks[side]);
+        if (side == SideToMove)
+            RefreshAvailableMoves();
+    }
+
+    /// <summary>Replaces the whole position with the result of <paramref name="edit"/> applied to
+    /// the current FEN, then re-validates that the side to move isn't left in check and refreshes
+    /// hand-based available moves exactly as a normal turn start would. Used by Arcane Chess spells
+    /// that mutate the board outside normal move rules (teleport, swap, forced removal, granting an
+    /// extra turn) — Card Chess itself never calls this.</summary>
+    public void ApplyExternalFenEdit(Func<string, string> edit)
+    {
+        var previousFen = engine.ToFen();
+        engine.LoadPosition(edit(previousFen));
+
+        if (engine.IsInCheck(engine.SideToMove))
+        {
+            engine.LoadPosition(previousFen);
+            throw new InvalidOperationException("This would leave your own king in check.");
+        }
+
+        RefreshAvailableMoves();
+    }
+
     public void SelectCardsForReroll(IReadOnlyList<CardRank> cards)
     {
         EnsureNotOver();

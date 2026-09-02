@@ -5,4 +5,5 @@ public enum GameKind
 {
     HandAndBrain,
     CardChess,
+    ArcaneChess,
 }

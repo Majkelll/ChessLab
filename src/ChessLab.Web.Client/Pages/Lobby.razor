@@ -270,6 +270,7 @@ else
         Game.RoomUpdated += OnRoomUpdated;
         Game.GameUpdated += OnGameUpdated;
         Game.CardChessGameUpdated += OnCardChessGameUpdated;
+        Game.ArcaneChessGameUpdated += OnArcaneChessGameUpdated;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -281,7 +282,12 @@ else
         {
             await Game.EnsureConnectedAsync();
             room = await Game.JoinRoomAsync(Code);
-            GameContext.Set(room.Kind == GameKind.CardChess ? "Card Chess" : "Hand and Brain");
+            GameContext.Set(room.Kind switch
+            {
+                GameKind.CardChess => "Card Chess",
+                GameKind.ArcaneChess => "Arcane Chess",
+                _ => "Hand and Brain",
+            });
             if (room.HasStarted)
             {
                 Nav.NavigateTo(GamePageUrl(room.Kind));
@@ -373,15 +379,28 @@ else
         isStarting = true;
         try
         {
-            if (room!.Kind == GameKind.CardChess)
-                await Game.StartCardChessGameAsync(Code);
-            else
-                await Game.StartGameAsync(Code);
+            switch (room!.Kind)
+            {
+                case GameKind.CardChess:
+                    await Game.StartCardChessGameAsync(Code);
+                    break;
+                case GameKind.ArcaneChess:
+                    await Game.StartArcaneChessGameAsync(Code);
+                    break;
+                default:
+                    await Game.StartGameAsync(Code);
+                    break;
+            }
         }
         catch (Exception ex) { error = ex.Message; isStarting = false; }
     }
 
-    private string GamePageUrl(GameKind kind) => kind == GameKind.CardChess ? $"/cardchess/{Code}" : $"/game/{Code}";
+    private string GamePageUrl(GameKind kind) => kind switch
+    {
+        GameKind.CardChess => $"/cardchess/{Code}",
+        GameKind.ArcaneChess => $"/arcanechess/{Code}",
+        _ => $"/game/{Code}",
+    };
 
     private async Task CopyLinkAsync()
     {
@@ -405,10 +424,16 @@ else
         InvokeAsync(() => Nav.NavigateTo($"/cardchess/{Code}"));
     }
 
+    private void OnArcaneChessGameUpdated(ArcaneChessStateDto dto)
+    {
+        InvokeAsync(() => Nav.NavigateTo($"/arcanechess/{Code}"));
+    }
+
     public void Dispose()
     {
         Game.RoomUpdated -= OnRoomUpdated;
         Game.GameUpdated -= OnGameUpdated;
         Game.CardChessGameUpdated -= OnCardChessGameUpdated;
+        Game.ArcaneChessGameUpdated -= OnArcaneChessGameUpdated;
     }
 }
