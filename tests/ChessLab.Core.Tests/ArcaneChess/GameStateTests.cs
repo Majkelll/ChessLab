@@ -354,6 +354,24 @@ public class GameStateTests
             state.CastSpell(SpellRank.Swap, new SpellTarget(Primary: Square.Parse("a1"), Secondary: Square.Parse("e1"))));
     }
 
+    // Regression: Swap had no back-rank guard (unlike Teleport, which does) — swapping a pawn with
+    // a piece on rank 1/8 left it there, which the underlying chess engine can't generate moves for
+    // and throws deep inside third-party code instead of failing gracefully. Reproduced via a
+    // simulation test that played out full random games; this pins the exact minimal repro.
+    [Fact]
+    public void Swap_WouldLeaveAPawnOnTheBackRank_Throws()
+    {
+        var (state, engine, _) = NewFakeGame(whiteSpells: SpellOrder(SpellRank.Swap));
+        engine.Fen = "8/8/8/8/8/8/P7/R3K3 w K - 0 1";
+        AdvanceMana(state, engine, Side.White, 2);
+        var fenBefore = state.ToFen();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            state.CastSpell(SpellRank.Swap, new SpellTarget(Primary: Square.Parse("a2"), Secondary: Square.Parse("a1"))));
+
+        Assert.Equal(fenBefore, state.ToFen());
+    }
+
     [Fact]
     public void Teleport_MovesOwnPieceToAnEmptySquare()
     {
@@ -421,6 +439,23 @@ public class GameStateTests
 
         Assert.Equal('K', FenBoard.PieceAt(state.ToFen(), Square.Parse("a1")));
         Assert.Equal('N', FenBoard.PieceAt(state.ToFen(), Square.Parse("e1")));
+    }
+
+    // Regression: MindSwap had the same missing back-rank guard as Swap — swapping the king (almost
+    // always still on its rank-1/8 home square early in a game) with a pawn leaves that pawn on the
+    // back rank.
+    [Fact]
+    public void MindSwap_WouldLeaveAPawnOnTheBackRank_Throws()
+    {
+        var (state, engine, _) = NewFakeGame(whiteSpells: SpellOrder(SpellRank.MindSwap));
+        engine.Fen = "8/8/8/8/8/8/P7/4K3 w - - 0 1";
+        AdvanceMana(state, engine, Side.White, 3);
+        var fenBefore = state.ToFen();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            state.CastSpell(SpellRank.MindSwap, new SpellTarget(Primary: Square.Parse("a2"))));
+
+        Assert.Equal(fenBefore, state.ToFen());
     }
 
     [Fact]
