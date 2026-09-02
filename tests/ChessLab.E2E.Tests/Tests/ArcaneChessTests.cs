@@ -106,6 +106,26 @@ public sealed class ArcaneChessTests(WebAppFixture app, PlaywrightFixture playwr
         await Expect(black.ActiveEffects).ToContainTextAsync("d4");
     }
 
+    [SkippableFact]
+    public async Task Solo_human_completes_a_full_round_trip_against_a_bot_opponent()
+    {
+        Skip.IfNot(app.HasStockfish, "No `stockfish` binary found on PATH — install it to run bot-move tests.");
+
+        var game = await new ArcaneChessRoomBuilder(playwright.Browser, app.BaseUrl)
+            .WithHuman(Side.White, "Alice")
+            .WithBot(Side.Black, BotDifficulty.Easy)
+            .StartAsync();
+
+        var white = game[Side.White];
+
+        Assert.Equal(0, await white.MoveHistory.Locator("li").CountAsync());
+        var (from, to) = await ComputeOpeningMoveAsync(white, isWhite: true);
+        await white.MoveAsync(from, to);
+
+        await Expect(white.MoveHistory.Locator("li")).ToHaveCountAsync(2, new() { Timeout = 30000 });
+        await Expect(white.TurnStatus).ToContainTextAsync("white");
+    }
+
     private static async Task<(string From, string To)> ComputeOpeningMoveAsync(PageObjects.ArcaneChessGamePage page, bool isWhite)
     {
         var ranks = await page.GetHandCardRanksAsync();
