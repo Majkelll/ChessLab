@@ -8,8 +8,24 @@ services:
     environment:
       - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID in .env}
       - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET:?Set GOOGLE_CLIENT_SECRET in .env}
+      - ConnectionStrings__Default=Host=db;Database=chesslab;Username=chesslab;Password=chesslab
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      - POSTGRES_DB=chesslab
+      - POSTGRES_USER=chesslab
+      - POSTGRES_PASSWORD=chesslab
     volumes:
-      - chesslab-data:/data
+      - chesslab-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chesslab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   chesslab-data:
