@@ -31,6 +31,16 @@ public sealed class ClockWatchdog(RoomRegistry registry, IHubContext<GameHub> hu
                 await hub.Clients.Group(session.Room.Code)
                     .SendAsync("CardChessGameUpdated", GameDtoMapper.ToCardChessDto(session), stoppingToken);
             }
+
+            foreach (var session in registry.ActiveArcaneChessSessions())
+            {
+                session.DeclareTimeoutIfExpired(DateTimeOffset.UtcNow);
+                if (!session.Game!.IsGameOver)
+                    continue;
+
+                await hub.Clients.Group(session.Room.Code)
+                    .SendAsync("ArcaneChessGameUpdated", GameDtoMapper.ToArcaneChessDto(session), stoppingToken);
+            }
         }
     }
 }

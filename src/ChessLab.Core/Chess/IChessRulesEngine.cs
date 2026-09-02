@@ -29,4 +29,9 @@ public interface IChessRulesEngine
     void DeclareTimeout(Side side);
 
     string ToFen();
+
+    /// <summary>Replaces the entire position with the one described by <paramref name="fen"/>. Used
+    /// by Arcane Chess spells that mutate the board outside normal move rules (teleport, swap,
+    /// extra turn) — nothing else should need this.</summary>
+    void LoadPosition(string fen);
 }

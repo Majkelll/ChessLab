@@ -35,6 +35,17 @@ public sealed class RoomRegistry
         }
     }
 
+    public ArcaneChessSession CreateArcaneChessRoom(Guid hostUserId, TimeSpan? initialClock = null, TimeSpan? clockIncrement = null)
+    {
+        while (true)
+        {
+            var code = GenerateCode();
+            var session = new ArcaneChessSession(new Room(code, hostUserId, GameKind.ArcaneChess, initialClock, clockIncrement));
+            if (sessions.TryAdd(code, session))
+                return session;
+        }
+    }
+
     public GameSession Get(string code)
     {
         if (GetAny(code) is not GameSession handBrain)
@@ -49,6 +60,14 @@ public sealed class RoomRegistry
             throw new HubException($"Room '{code}' is not a Card Chess room.");
 
         return cardChess;
+    }
+
+    public ArcaneChessSession GetArcaneChess(string code)
+    {
+        if (GetAny(code) is not ArcaneChessSession arcaneChess)
+            throw new HubException($"Room '{code}' is not an Arcane Chess room.");
+
+        return arcaneChess;
     }
 
     /// <summary>Kind-agnostic lookup for room-management operations (join, seats, clock settings)
@@ -68,6 +87,10 @@ public sealed class RoomRegistry
     /// <summary>Card Chess sessions with a game currently in progress — used by the clock watchdog.</summary>
     public IEnumerable<CardChessSession> ActiveCardChessSessions() =>
         sessions.Values.OfType<CardChessSession>().Where(s => s.HasActiveGame);
+
+    /// <summary>Arcane Chess sessions with a game currently in progress — used by the clock watchdog.</summary>
+    public IEnumerable<ArcaneChessSession> ActiveArcaneChessSessions() =>
+        sessions.Values.OfType<ArcaneChessSession>().Where(s => s.HasActiveGame);
 
     private static string GenerateCode() =>
         new(Enumerable.Range(0, 6).Select(_ => CodeAlphabet[Random.Shared.Next(CodeAlphabet.Length)]).ToArray());
