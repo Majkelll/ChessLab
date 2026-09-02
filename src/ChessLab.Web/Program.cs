@@ -51,8 +51,18 @@ public partial class Program
 
         builder.Services.AddCascadingAuthenticationState();
 
+        var connectionString = builder.Configuration.GetConnectionString("Default")
+            ?? throw new InvalidOperationException("Missing configuration: ConnectionStrings:Default");
+        // SQLite is only ever used for the E2E test fixture's throwaway per-test database
+        // (WebAppFixture) — production and local dev always run against Postgres.
+        var useSqlite = connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase);
         builder.Services.AddDbContext<ChessLabDbContext>(options =>
-            options.UseSqlite(builder.Configuration.GetConnectionString("Default") ?? "Data Source=chesslab.db"));
+        {
+            if (useSqlite)
+                options.UseSqlite(connectionString);
+            else
+                options.UseNpgsql(connectionString);
+        });
         builder.Services.AddScoped<UserService>();
 
         builder.Services.AddSignalR();
@@ -110,7 +120,12 @@ public partial class Program
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ChessLabDbContext>();
-            db.Database.Migrate();
+            // The SQLite test path has no migrations of its own (see useSqlite above) — the
+            // schema is created directly from the current model instead.
+            if (useSqlite)
+                db.Database.EnsureCreated();
+            else
+                db.Database.Migrate();
         }
 
         // Configure the HTTP request pipeline.

@@ -35,7 +35,6 @@ RUN apt-get update \
 ENV PATH="${PATH}:/usr/games"
 WORKDIR /app
 COPY --from=build /app/publish .
-VOLUME /data
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
 ENTRYPOINT ["dotnet", "ChessLab.Web.dll"]
