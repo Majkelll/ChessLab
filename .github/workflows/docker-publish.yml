@@ -29,8 +29,15 @@ jobs:
         id: version
         run: echo "value=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      # driver: docker (not the default docker-container driver) builds directly against this
+      # self-hosted runner's own Docker daemon, so its image-layer cache persists on local disk
+      # between runs automatically — no cache-from/cache-to needed. type=gha caching was removed
+      # because it round-trips every layer through GitHub's cache API over the network, which on
+      # this runner cost ~18 of the ~22 minute build (one layer alone took ~13 minutes to upload).
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -57,8 +64,6 @@ jobs:
           # leak concern as the labels above, so both are switched off.
           provenance: false
           sbom: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       # Render doesn't auto-redeploy an image-runtime service just because a new image with the
       # same tag was pushed to the registry — it has to be told explicitly. `render deploys create`
