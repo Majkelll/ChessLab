@@ -146,7 +146,8 @@ public sealed class GameState
     private IReadOnlyList<ChessMove> FilterForCurrentMover()
     {
         var mover = inner.SideToMove;
-        var moves = inner.AvailableMoves.AsEnumerable();
+        var allMoves = inner.AvailableMoves;
+        var moves = allMoves.AsEnumerable();
 
         foreach (var effect in activeEffects.Where(e => e.AffectedSide == mover))
         {
@@ -160,7 +161,13 @@ public sealed class GameState
             };
         }
 
-        return moves.ToArray();
+        var filtered = moves.ToArray();
+
+        // Effects are meant to narrow the mover's options, never eliminate them entirely — the
+        // underlying chess engine doesn't know about them, so it won't declare stalemate/checkmate
+        // just because Arcane restrictions happen to cover every remaining move. Falling back to
+        // the unfiltered list keeps the mover always able to act instead of getting stuck forever.
+        return filtered.Length > 0 ? filtered : allMoves;
     }
 
     private void ApplyEffect(SpellRank spell, Side caster, Side opponent, SpellTarget target)

@@ -16,10 +16,17 @@ public sealed record StartedArcaneChessGame(
 public sealed class ArcaneChessRoomBuilder(IBrowser browser, string baseUrl)
 {
     private readonly List<(Side Side, string Name)> humanSeats = [];
+    private readonly List<(Side Side, BotDifficulty Difficulty)> botSeats = [];
 
     public ArcaneChessRoomBuilder WithHuman(Side side, string name)
     {
         humanSeats.Add((side, name));
+        return this;
+    }
+
+    public ArcaneChessRoomBuilder WithBot(Side side, BotDifficulty difficulty)
+    {
+        botSeats.Add((side, difficulty));
         return this;
     }
 
@@ -43,6 +50,9 @@ public sealed class ArcaneChessRoomBuilder(IBrowser browser, string baseUrl)
             await room.ClaimSeatAsync(side, SeatRole.Player);
             seated.Add((side, player, room));
         }
+
+        foreach (var (side, difficulty) in botSeats)
+            await hostRoom.SetBotAsync(side, SeatRole.Player, difficulty);
 
         var games = new Dictionary<Side, ArcaneChessGamePage>();
         foreach (var (side, _, room) in seated)
