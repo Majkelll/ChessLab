@@ -158,6 +158,25 @@ public class GameStateTests
         Assert.Contains(state.AvailableMoves, m => m.From == Square.Parse("e7"));
     }
 
+    // Regression: a bot (or human) stuck with zero AvailableMoves never gets to move again — the
+    // chess engine still sees legal moves so IsGameOver stays false, and BotRunner's Stockfish call
+    // throws on an empty candidate list, silently killing that room's bot loop for good (caught by
+    // BotRunner's outer catch-all, logged, never retried). Effects must never be allowed to filter
+    // the mover down to zero options.
+    [Fact]
+    public void EffectFiltering_WouldLeaveZeroMoves_FallsBackToTheUnfilteredMoves()
+    {
+        var (state, engine, _) = NewFakeGame(whiteSpells: SpellOrder(SpellRank.PinDown));
+        AdvanceMana(state, engine, Side.White, 2);
+
+        var onlyLegalMove = Move("d7", "d6", PieceKind.Pawn);
+        state.CastSpell(SpellRank.PinDown, new SpellTarget(Primary: Square.Parse("d7")));
+        PlayThenOffer(state, engine, Dummy, [onlyLegalMove]);
+
+        Assert.False(state.IsGameOver);
+        Assert.Contains(onlyLegalMove, state.AvailableMoves);
+    }
+
     [Fact]
     public void Disarm_AllowsMovementButNotCaptureForOneTurn()
     {
