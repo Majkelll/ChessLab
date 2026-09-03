@@ -49,8 +49,6 @@ class BoardController {
         this.legalMoves = moves
     }
 
-    // Idempotent: OnAfterRenderAsync calls this on every render regardless of whether Interactive
-    // actually changed, and cm-chessboard throws if enableMoveInput is called while already enabled.
     setInteractive(interactive) {
         if (interactive) {
             if (!this.board.isMoveInputEnabled()) {
