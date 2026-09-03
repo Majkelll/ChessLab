@@ -65,7 +65,7 @@ public partial class Program
         });
         builder.Services.AddScoped<UserService>();
 
-        builder.Services.AddSignalR();
+        builder.Services.AddSignalR().AddMessagePackProtocol();
         builder.Services.AddSingleton<RoomRegistry>();
         builder.Services.AddSingleton<BotRunner>();
         builder.Services.AddHostedService<ClockWatchdog>();

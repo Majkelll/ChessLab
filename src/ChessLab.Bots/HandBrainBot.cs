@@ -15,6 +15,7 @@ public sealed class HandBrainBot(StockfishEngine engine)
     {
         var preset = DifficultyPresets.For(difficulty);
         var fen = game.ToFen();
+        var probeMovetimeMs = Math.Max(50, preset.MovetimeMs / 4);
 
         PieceKind? best = null;
         var bestScore = int.MinValue;
@@ -22,7 +23,7 @@ public sealed class HandBrainBot(StockfishEngine engine)
         foreach (var kind in game.AvailablePieceKinds())
         {
             var candidates = game.LegalMovesFor(kind).Select(m => m.ToUci()).Distinct().ToArray();
-            var (_, score) = await engine.GoAsync(fen, candidates, preset.Elo, preset.MovetimeMs, ct);
+            var (_, score) = await engine.GoAsync(fen, candidates, preset.Elo, probeMovetimeMs, ct);
 
             if (score is { } s && s > bestScore)
             {

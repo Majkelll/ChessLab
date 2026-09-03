@@ -61,7 +61,7 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, I
                     session.MakeMove(move.From, move.To, move.PromoteTo, DateTimeOffset.UtcNow);
                 }
 
-                await hub.Clients.Group(code).SendAsync("GameUpdated", GameDtoMapper.ToGameDto(session));
+                await hub.Clients.Group(code).SendAsync("GameUpdated", GameDtoMapper.ToGameUpdateDto(session));
             }
         }
         catch (Exception ex)
@@ -106,7 +106,7 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, I
                 var move = await bot.ChooseMoveAsync(game, occupant.Difficulty!.Value);
                 session.MakeMove(move.From, move.To, move.PromoteTo, DateTimeOffset.UtcNow);
 
-                await hub.Clients.Group(code).SendAsync("CardChessGameUpdated", GameDtoMapper.ToCardChessDto(session));
+                await hub.Clients.Group(code).SendAsync("CardChessGameUpdated", GameDtoMapper.ToCardChessUpdateDto(session));
             }
         }
         catch (Exception ex)
@@ -159,7 +159,7 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, I
                 var move = await bot.ChooseMoveAsync(game, occupant.Difficulty!.Value);
                 session.MakeMove(move.From, move.To, move.PromoteTo, DateTimeOffset.UtcNow);
 
-                await hub.Clients.Group(code).SendAsync("ArcaneChessGameUpdated", GameDtoMapper.ToArcaneChessDto(session));
+                await hub.Clients.Group(code).SendAsync("ArcaneChessGameUpdated", GameDtoMapper.ToArcaneChessUpdateDto(session));
             }
         }
         catch (Exception ex)

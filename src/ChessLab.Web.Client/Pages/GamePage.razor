@@ -45,12 +45,11 @@ else
             <div class="flex flex-col items-start gap-1.5">
                 @if (mySeat is { } seat)
                 {
-                    // Opponent's row (their clock + a read-only peek at what their team is currently
-                    // doing) comes first, mine comes second — the same top-is-them/bottom-is-me
-                    // convention the flipped board already uses for the seat you're sitting in.
                     var opponentSide = seat.Side == Side.White ? Side.Black : Side.White;
                     <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
-                        <span data-testid="@ClockTestId(opponentSide)" class="@ClockClasses(opponentSide)">@SideLabel(opponentSide) @FormatClock(DisplayedRemainingMs(opponentSide))</span>
+                        <Clock TestId="@ClockTestId(opponentSide)" Label="@SideLabel(opponentSide)"
+                               RemainingMs="@RemainingMsOf(opponentSide)" IsActive="@IsClockActive(opponentSide)"
+                               AccentBorderClass="@AccentBorderClass(opponentSide)" />
                         @if (state is { IsGameOver: false } && state.SideToMove == opponentSide)
                         {
                             @if (state.Phase == TurnPhase.BrainSelecting)
@@ -65,13 +64,17 @@ else
                             }
                         }
                     </div>
-                    <span data-testid="@ClockTestId(seat.Side)" class="font-mono @ClockClasses(seat.Side)">@SideLabel(seat.Side) @FormatClock(DisplayedRemainingMs(seat.Side))</span>
+                    <Clock TestId="@ClockTestId(seat.Side)" Label="@SideLabel(seat.Side)"
+                           RemainingMs="@RemainingMsOf(seat.Side)" IsActive="@IsClockActive(seat.Side)"
+                           AccentBorderClass="@AccentBorderClass(seat.Side)" />
                 }
                 else
                 {
                     <div class="flex items-center gap-2 font-mono text-sm">
-                        <span data-testid="clock-white" class="@ClockClasses(Side.White)">white @FormatClock(DisplayedRemainingMs(Side.White))</span>
-                        <span data-testid="clock-black" class="@ClockClasses(Side.Black)">black @FormatClock(DisplayedRemainingMs(Side.Black))</span>
+                        <Clock TestId="clock-white" Label="white" RemainingMs="@RemainingMsOf(Side.White)"
+                               IsActive="@IsClockActive(Side.White)" AccentBorderClass="@AccentBorderClass(Side.White)" />
+                        <Clock TestId="clock-black" Label="black" RemainingMs="@RemainingMsOf(Side.Black)"
+                               IsActive="@IsClockActive(Side.Black)" AccentBorderClass="@AccentBorderClass(Side.Black)" />
                     </div>
                 }
             </div>
@@ -135,20 +138,15 @@ else
 
     private RoomStateDto? room;
     private GameStateDto? state;
+    private List<ChessMove> moveHistory = [];
     private Guid myUserId;
     private SeatId? mySeat;
     private string? error;
-    private DateTimeOffset lastUpdateAt;
-    private CancellationTokenSource? tickCts;
 
     private bool isMyTurn =>
         mySeat is not null && state is not null &&
         mySeat.Value == new SeatId(state.SideToMove, state.Phase == TurnPhase.BrainSelecting ? SeatRole.Brain : SeatRole.Hand);
 
-    /// <summary>Whether it's my own team's turn at all (either half — Brain selecting or Hand
-    /// moving), as opposed to <see cref="isMyTurn"/> which is scoped to my own seat's half. Gates
-    /// the under-board card grid so it only ever shows my team's own pick — the opposing team's
-    /// pick has its own read-only spot next to their clock instead.</summary>
     private bool isMySideToMove => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
 
     private bool isBoardInteractive => state is { IsGameOver: false } && isMyTurn && state.Phase == TurnPhase.HandMoving;
@@ -174,9 +172,8 @@ else
             await Game.EnsureConnectedAsync();
             room = await Game.JoinRoomAsync(Code);
             mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
-            SetState(await Game.GetGameStateAsync(Code));
+            SetFullState(await Game.GetGameStateAsync(Code));
             StateHasChanged();
-            StartClockTick();
         }
         catch (Exception ex)
         {
@@ -185,49 +182,15 @@ else
         }
     }
 
-    private void StartClockTick()
-    {
-        tickCts = new CancellationTokenSource();
-        _ = TickLoopAsync(tickCts.Token);
-    }
+    private long RemainingMsOf(Side side) => side == Side.White ? state!.WhiteRemainingMs : state!.BlackRemainingMs;
 
-    private async Task TickLoopAsync(CancellationToken ct)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
-        while (!ct.IsCancellationRequested && await timer.WaitForNextTickAsync(ct))
-        {
-            if (state is { IsGameOver: false })
-                await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    private long DisplayedRemainingMs(Side side)
-    {
-        var currentState = state!;
-        var snapshot = side == Side.White ? currentState.WhiteRemainingMs : currentState.BlackRemainingMs;
-        if (currentState.IsGameOver || side != currentState.SideToMove)
-            return snapshot;
-
-        var elapsed = (DateTimeOffset.UtcNow - lastUpdateAt).TotalMilliseconds;
-        return Math.Max(0, snapshot - (long)elapsed);
-    }
-
-    private static string FormatClock(long ms)
-    {
-        var span = TimeSpan.FromMilliseconds(Math.Max(0, ms));
-        return $"{(int)span.TotalMinutes:00}:{span.Seconds:00}";
-    }
+    private bool IsClockActive(Side side) => state is { IsGameOver: false } && state.SideToMove == side;
 
     private static string SideLabel(Side side) => side == Side.White ? "white" : "black";
 
     private static string ClockTestId(Side side) => side == Side.White ? "clock-white" : "clock-black";
 
-    private string ClockClasses(Side side)
-    {
-        var isActive = state is { IsGameOver: false } && state.SideToMove == side;
-        var activeBorder = side == Side.White ? "border-amber-700/50" : "border-moss/50";
-        return $"border border-espresso/16 bg-paper-dark px-2 py-1 text-xs {(isActive ? activeBorder : "")}";
-    }
+    private static string AccentBorderClass(Side side) => side == Side.White ? "border-amber-700/50" : "border-moss/50";
 
     private static string EndReasonLabel(GameEndReason? reason) => reason switch
     {
@@ -244,19 +207,19 @@ else
 
     private async Task SelectPieceKindAsync(PieceKind kind)
     {
-        try { SetState(await Game.SelectPieceKindAsync(Code, kind)); }
+        try { await Game.SelectPieceKindAsync(Code, kind); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task MakeMoveAsync(ChessMove move)
     {
-        try { SetState(await Game.MakeMoveAsync(Code, move.From, move.To, move.PromoteTo)); }
+        try { await Game.MakeMoveAsync(Code, move.From, move.To, move.PromoteTo); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task ResignAsync()
     {
-        try { SetState(await Game.ResignAsync(Code)); }
+        try { await Game.ResignAsync(Code); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -269,23 +232,46 @@ else
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnGameUpdated(GameStateDto dto)
+    private void OnGameUpdated(GameUpdateDto dto)
     {
-        SetState(dto);
+        if (dto.MoveHistoryCount == moveHistory.Count + 1 && dto.LatestMove is { } move)
+            moveHistory.Add(move);
+        else if (dto.MoveHistoryCount != moveHistory.Count)
+            _ = ResyncFullStateAsync();
+
+        ApplyUpdate(dto);
         InvokeAsync(StateHasChanged);
     }
 
-    private void SetState(GameStateDto dto)
+    private async Task ResyncFullStateAsync()
+    {
+        try
+        {
+            SetFullState(await Game.GetGameStateAsync(Code));
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplyUpdate(GameUpdateDto dto)
+    {
+        state = new GameStateDto(
+            dto.SideToMove, dto.Phase, dto.SelectedPieceKind, dto.AvailablePieceKinds, dto.AvailableMoves,
+            moveHistory, dto.Fen, dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner);
+    }
+
+    private void SetFullState(GameStateDto dto)
     {
         state = dto;
-        lastUpdateAt = DateTimeOffset.UtcNow;
+        moveHistory = [.. dto.MoveHistory];
     }
 
     public void Dispose()
     {
         Game.RoomUpdated -= OnRoomUpdated;
         Game.GameUpdated -= OnGameUpdated;
-        tickCts?.Cancel();
-        tickCts?.Dispose();
     }
 }

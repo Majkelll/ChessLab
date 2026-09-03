@@ -21,6 +21,8 @@
     private DotNetObjectReference<ChessBoard>? dotNetRef;
     private string? syncedFen;
     private bool syncedFlip;
+    private IReadOnlyList<ChessMove>? syncedMoves;
+    private bool syncedInteractive;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -48,16 +50,23 @@
             await board.InvokeVoidAsync("setOrientation", FlipBoard);
         }
 
-        // Cheap either way (just refreshes an array / toggles the input listener), so no need to
-        // track whether these actually changed since the last render.
-        var movesForJs = AvailableMoves.Select(m => new
+        if (firstRender || !AvailableMoves.SequenceEqual(syncedMoves ?? []))
         {
-            from = m.From.ToString(),
-            to = m.To.ToString(),
-            promotion = PromotionChar(m.PromoteTo),
-        });
-        await board.InvokeVoidAsync("setLegalMoves", movesForJs);
-        await board.InvokeVoidAsync("setInteractive", Interactive);
+            syncedMoves = AvailableMoves;
+            var movesForJs = AvailableMoves.Select(m => new
+            {
+                from = m.From.ToString(),
+                to = m.To.ToString(),
+                promotion = PromotionChar(m.PromoteTo),
+            });
+            await board.InvokeVoidAsync("setLegalMoves", movesForJs);
+        }
+
+        if (firstRender || Interactive != syncedInteractive)
+        {
+            syncedInteractive = Interactive;
+            await board.InvokeVoidAsync("setInteractive", Interactive);
+        }
     }
 
     /// <summary>Called from chessboardInterop.js once a move (including, for a promotion, the

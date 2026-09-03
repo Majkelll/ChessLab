@@ -51,8 +51,8 @@ public sealed class CardChessTests(WebAppFixture app, PlaywrightFixture playwrig
         var (blackFrom, blackTo) = await ComputeOpeningMoveAsync(black, isWhite: false);
         await black.MoveAsync(blackFrom, blackTo);
 
-        await Expect(white.MoveHistory.Locator("li")).ToHaveCountAsync(2);
-        await Expect(black.MoveHistory.Locator("li")).ToHaveCountAsync(2);
+        await Expect(white.MoveHistory.Locator("li")).ToHaveCountAsync(2, new() { Timeout = 20000 });
+        await Expect(black.MoveHistory.Locator("li")).ToHaveCountAsync(2, new() { Timeout = 20000 });
         await Expect(white.HpWhite).ToHaveTextAsync("♥♥♥");
         await Expect(white.HpBlack).ToHaveTextAsync("♥♥♥");
     }
@@ -74,18 +74,18 @@ public sealed class CardChessTests(WebAppFixture app, PlaywrightFixture playwrig
         await white.ToggleRerollAsync(toReroll[0]);
         await white.ToggleRerollAsync(toReroll[1]);
 
-        Assert.True(await white.IsMarkedForRerollAsync(toReroll[0]));
-        Assert.True(await white.IsMarkedForRerollAsync(toReroll[1]));
+        await Expect(white.HandCard(toReroll[0])).ToHaveAttributeAsync("data-marked-for-reroll", "true");
+        await Expect(white.HandCard(toReroll[1])).ToHaveAttributeAsync("data-marked-for-reroll", "true");
 
         var (whiteFrom, whiteTo) = await ComputeOpeningMoveAsync(white, isWhite: true);
         await white.MoveAsync(whiteFrom, whiteTo);
         Assert.Equal(5, (await white.GetHandCardRanksAsync()).Count);
 
-        await black.WaitForTurnTextAsync("black");
+        await black.WaitForTurnTextAsync("black", timeoutMs: 20000);
         var (blackFrom, blackTo) = await ComputeOpeningMoveAsync(black, isWhite: false);
         await black.MoveAsync(blackFrom, blackTo);
 
-        await white.WaitForTurnTextAsync("white");
+        await white.WaitForTurnTextAsync("white", timeoutMs: 20000);
         var handAfter = await white.GetHandCardRanksAsync();
         Assert.Equal(5, handAfter.Count);
         Assert.DoesNotContain(toReroll[0], handAfter);

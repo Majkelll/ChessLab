@@ -14,24 +14,25 @@ public sealed class GameClient : IAsyncDisposable
     public HubConnection Connection { get; }
 
     public event Action<RoomStateDto>? RoomUpdated;
-    public event Action<GameStateDto>? GameUpdated;
-    public event Action<CardChessStateDto>? CardChessGameUpdated;
-    public event Action<ArcaneChessStateDto>? ArcaneChessGameUpdated;
+    public event Action<GameUpdateDto>? GameUpdated;
+    public event Action<CardChessUpdateDto>? CardChessGameUpdated;
+    public event Action<ArcaneChessUpdateDto>? ArcaneChessGameUpdated;
 
     public GameClient(NavigationManager navigationManager)
     {
         Connection = new HubConnectionBuilder()
             .WithUrl(navigationManager.ToAbsoluteUri("/hubs/game"))
             .WithAutomaticReconnect()
+            .AddMessagePackProtocol()
             .Build();
 
         Connection.On<RoomStateDto>("RoomUpdated", dto => RoomUpdated?.Invoke(dto));
-        Connection.On<GameStateDto>("GameStarted", dto => GameUpdated?.Invoke(dto));
-        Connection.On<GameStateDto>("GameUpdated", dto => GameUpdated?.Invoke(dto));
-        Connection.On<CardChessStateDto>("CardChessGameStarted", dto => CardChessGameUpdated?.Invoke(dto));
-        Connection.On<CardChessStateDto>("CardChessGameUpdated", dto => CardChessGameUpdated?.Invoke(dto));
-        Connection.On<ArcaneChessStateDto>("ArcaneChessGameStarted", dto => ArcaneChessGameUpdated?.Invoke(dto));
-        Connection.On<ArcaneChessStateDto>("ArcaneChessGameUpdated", dto => ArcaneChessGameUpdated?.Invoke(dto));
+        Connection.On<GameUpdateDto>("GameStarted", dto => GameUpdated?.Invoke(dto));
+        Connection.On<GameUpdateDto>("GameUpdated", dto => GameUpdated?.Invoke(dto));
+        Connection.On<CardChessUpdateDto>("CardChessGameStarted", dto => CardChessGameUpdated?.Invoke(dto));
+        Connection.On<CardChessUpdateDto>("CardChessGameUpdated", dto => CardChessGameUpdated?.Invoke(dto));
+        Connection.On<ArcaneChessUpdateDto>("ArcaneChessGameStarted", dto => ArcaneChessGameUpdated?.Invoke(dto));
+        Connection.On<ArcaneChessUpdateDto>("ArcaneChessGameUpdated", dto => ArcaneChessGameUpdated?.Invoke(dto));
     }
 
     public async Task EnsureConnectedAsync()
@@ -45,65 +46,57 @@ public sealed class GameClient : IAsyncDisposable
 
     public Task<RoomStateDto> JoinRoomAsync(string code) => Connection.InvokeAsync<RoomStateDto>("JoinRoom", code);
 
-    public Task<RoomStateDto> ClaimSeatAsync(string code, SeatId seatId) =>
-        Connection.InvokeAsync<RoomStateDto>("ClaimSeat", code, seatId);
+    public Task ClaimSeatAsync(string code, SeatId seatId) => Connection.InvokeAsync("ClaimSeat", code, seatId);
 
-    public Task<RoomStateDto> LeaveSeatAsync(string code, SeatId seatId) =>
-        Connection.InvokeAsync<RoomStateDto>("LeaveSeat", code, seatId);
+    public Task LeaveSeatAsync(string code, SeatId seatId) => Connection.InvokeAsync("LeaveSeat", code, seatId);
 
-    public Task<RoomStateDto> SetSeatBotAsync(string code, SeatId seatId, BotDifficulty difficulty) =>
-        Connection.InvokeAsync<RoomStateDto>("SetSeatBot", code, seatId, difficulty);
+    public Task SetSeatBotAsync(string code, SeatId seatId, BotDifficulty difficulty) =>
+        Connection.InvokeAsync("SetSeatBot", code, seatId, difficulty);
 
-    public Task<RoomStateDto> ClearSeatAsync(string code, SeatId seatId) =>
-        Connection.InvokeAsync<RoomStateDto>("ClearSeat", code, seatId);
+    public Task ClearSeatAsync(string code, SeatId seatId) => Connection.InvokeAsync("ClearSeat", code, seatId);
 
-    public Task<RoomStateDto> SetClockSettingsAsync(string code, int initialSeconds, int incrementSeconds) =>
-        Connection.InvokeAsync<RoomStateDto>("SetClockSettings", code, initialSeconds, incrementSeconds);
+    public Task SetClockSettingsAsync(string code, int initialSeconds, int incrementSeconds) =>
+        Connection.InvokeAsync("SetClockSettings", code, initialSeconds, incrementSeconds);
 
-    public Task<GameStateDto> StartGameAsync(string code) => Connection.InvokeAsync<GameStateDto>("StartGame", code);
+    public Task StartGameAsync(string code) => Connection.InvokeAsync("StartGame", code);
 
     public Task<GameStateDto> GetGameStateAsync(string code) => Connection.InvokeAsync<GameStateDto>("GetGameState", code);
 
-    public Task<GameStateDto> SelectPieceKindAsync(string code, PieceKind kind) =>
-        Connection.InvokeAsync<GameStateDto>("SelectPieceKind", code, kind);
+    public Task SelectPieceKindAsync(string code, PieceKind kind) => Connection.InvokeAsync("SelectPieceKind", code, kind);
 
-    public Task<GameStateDto> MakeMoveAsync(string code, Square from, Square to, PieceKind? promoteTo) =>
-        Connection.InvokeAsync<GameStateDto>("MakeMove", code, from, to, promoteTo);
+    public Task MakeMoveAsync(string code, Square from, Square to, PieceKind? promoteTo) =>
+        Connection.InvokeAsync("MakeMove", code, from, to, promoteTo);
 
-    public Task<GameStateDto> ResignAsync(string code) => Connection.InvokeAsync<GameStateDto>("Resign", code);
+    public Task ResignAsync(string code) => Connection.InvokeAsync("Resign", code);
 
-    public Task<CardChessStateDto> StartCardChessGameAsync(string code) =>
-        Connection.InvokeAsync<CardChessStateDto>("StartCardChessGame", code);
+    public Task StartCardChessGameAsync(string code) => Connection.InvokeAsync("StartCardChessGame", code);
 
-    public Task<CardChessStateDto> MakeCardChessMoveAsync(string code, Square from, Square to, PieceKind? promoteTo) =>
-        Connection.InvokeAsync<CardChessStateDto>("MakeCardChessMove", code, from, to, promoteTo);
+    public Task MakeCardChessMoveAsync(string code, Square from, Square to, PieceKind? promoteTo) =>
+        Connection.InvokeAsync("MakeCardChessMove", code, from, to, promoteTo);
 
     public Task<CardChessStateDto> GetCardChessStateAsync(string code) =>
         Connection.InvokeAsync<CardChessStateDto>("GetCardChessState", code);
 
-    public Task<CardChessStateDto> ResignCardChessAsync(string code) =>
-        Connection.InvokeAsync<CardChessStateDto>("ResignCardChess", code);
+    public Task ResignCardChessAsync(string code) => Connection.InvokeAsync("ResignCardChess", code);
 
-    public Task<CardChessStateDto> SelectCardChessRerollAsync(string code, IReadOnlyList<CardRank> cards) =>
-        Connection.InvokeAsync<CardChessStateDto>("SelectCardChessReroll", code, cards);
+    public Task SelectCardChessRerollAsync(string code, IReadOnlyList<CardRank> cards) =>
+        Connection.InvokeAsync("SelectCardChessReroll", code, cards);
 
-    public Task<ArcaneChessStateDto> StartArcaneChessGameAsync(string code) =>
-        Connection.InvokeAsync<ArcaneChessStateDto>("StartArcaneChessGame", code);
+    public Task StartArcaneChessGameAsync(string code) => Connection.InvokeAsync("StartArcaneChessGame", code);
 
-    public Task<ArcaneChessStateDto> MakeArcaneChessMoveAsync(string code, Square from, Square to, PieceKind? promoteTo) =>
-        Connection.InvokeAsync<ArcaneChessStateDto>("MakeArcaneChessMove", code, from, to, promoteTo);
+    public Task MakeArcaneChessMoveAsync(string code, Square from, Square to, PieceKind? promoteTo) =>
+        Connection.InvokeAsync("MakeArcaneChessMove", code, from, to, promoteTo);
 
-    public Task<ArcaneChessStateDto> CastArcaneSpellAsync(string code, SpellRank spell, SpellTarget target) =>
-        Connection.InvokeAsync<ArcaneChessStateDto>("CastArcaneSpell", code, spell, target);
+    public Task CastArcaneSpellAsync(string code, SpellRank spell, SpellTarget target) =>
+        Connection.InvokeAsync("CastArcaneSpell", code, spell, target);
 
     public Task<ArcaneChessStateDto> GetArcaneChessStateAsync(string code) =>
         Connection.InvokeAsync<ArcaneChessStateDto>("GetArcaneChessState", code);
 
-    public Task<ArcaneChessStateDto> ResignArcaneChessAsync(string code) =>
-        Connection.InvokeAsync<ArcaneChessStateDto>("ResignArcaneChess", code);
+    public Task ResignArcaneChessAsync(string code) => Connection.InvokeAsync("ResignArcaneChess", code);
 
-    public Task<ArcaneChessStateDto> SelectArcaneChessRerollAsync(string code, IReadOnlyList<CardRank> cards) =>
-        Connection.InvokeAsync<ArcaneChessStateDto>("SelectArcaneChessReroll", code, cards);
+    public Task SelectArcaneChessRerollAsync(string code, IReadOnlyList<CardRank> cards) =>
+        Connection.InvokeAsync("SelectArcaneChessReroll", code, cards);
 
     public async ValueTask DisposeAsync() => await Connection.DisposeAsync();
 }
