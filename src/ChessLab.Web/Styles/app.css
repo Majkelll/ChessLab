@@ -3,6 +3,14 @@
 @import "@fontsource/jetbrains-mono/500.css";
 @import "@fontsource/jetbrains-mono/600.css";
 @import "@fontsource/jetbrains-mono/700.css";
+/* JetBrains Mono has no glyphs in the U+2600-27BF range, which is where every icon-ish character
+   this app uses lives — chess pieces (♚♛♜♝♞♟), hearts (♥♡), mana pips (✦✧), effect icons (⛓❄).
+   Without an explicit fallback that actually covers that range, rendering falls through to
+   whatever symbol font (if any) happens to be installed on the visitor's OS, which is inconsistent
+   across browsers/platforms — some glyphs show as tofu boxes, others render from a font whose
+   metrics don't match the surrounding monospace text (the "misaligned hearts" look). Bundling this
+   symbol font makes it deterministic for every visitor instead of a gamble on system fonts. */
+@import "@fontsource/noto-sans-symbols-2/400.css";
 
 @source "../Components/**/*.razor";
 @source "../../ChessLab.Web.Client/**/*.razor";
@@ -12,7 +20,7 @@
    opposite amber (Hand role, primary actions), and rust stands in for alarm red so errors stay in
    the same muted family instead of reading as a generic app warning color. */
 @theme {
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, "Noto Sans Symbols 2", monospace;
 
   --color-cream: #f6efe4;
   --color-paper: #efe3d0;
