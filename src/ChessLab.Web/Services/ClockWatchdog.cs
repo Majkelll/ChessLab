@@ -19,7 +19,7 @@ public sealed class ClockWatchdog(RoomRegistry registry, IHubContext<GameHub> hu
                     continue;
 
                 await hub.Clients.Group(session.Room.Code)
-                    .SendAsync("GameUpdated", GameDtoMapper.ToGameDto(session), stoppingToken);
+                    .SendAsync("GameUpdated", GameDtoMapper.ToGameUpdateDto(session), stoppingToken);
             }
 
             foreach (var session in registry.ActiveCardChessSessions())
@@ -29,7 +29,7 @@ public sealed class ClockWatchdog(RoomRegistry registry, IHubContext<GameHub> hu
                     continue;
 
                 await hub.Clients.Group(session.Room.Code)
-                    .SendAsync("CardChessGameUpdated", GameDtoMapper.ToCardChessDto(session), stoppingToken);
+                    .SendAsync("CardChessGameUpdated", GameDtoMapper.ToCardChessUpdateDto(session), stoppingToken);
             }
 
             foreach (var session in registry.ActiveArcaneChessSessions())
@@ -39,7 +39,7 @@ public sealed class ClockWatchdog(RoomRegistry registry, IHubContext<GameHub> hu
                     continue;
 
                 await hub.Clients.Group(session.Room.Code)
-                    .SendAsync("ArcaneChessGameUpdated", GameDtoMapper.ToArcaneChessDto(session), stoppingToken);
+                    .SendAsync("ArcaneChessGameUpdated", GameDtoMapper.ToArcaneChessUpdateDto(session), stoppingToken);
             }
         }
     }

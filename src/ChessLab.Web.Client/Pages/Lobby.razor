@@ -337,25 +337,25 @@ else
 
     private async Task UpdateClockSettingsAsync()
     {
-        try { room = await Game.SetClockSettingsAsync(Code, clockMinutes * 60, clockIncrementSeconds); }
+        try { await Game.SetClockSettingsAsync(Code, clockMinutes * 60, clockIncrementSeconds); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task ClaimSeatAsync(SeatId seatId)
     {
-        try { room = await Game.ClaimSeatAsync(Code, seatId); }
+        try { await Game.ClaimSeatAsync(Code, seatId); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task LeaveSeatAsync(SeatId seatId)
     {
-        try { room = await Game.LeaveSeatAsync(Code, seatId); }
+        try { await Game.LeaveSeatAsync(Code, seatId); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task AddBotAsync(SeatId seatId)
     {
-        try { room = await Game.SetSeatBotAsync(Code, seatId, BotDifficulty.Medium); }
+        try { await Game.SetSeatBotAsync(Code, seatId, BotDifficulty.Medium); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -364,13 +364,13 @@ else
         if (string.IsNullOrEmpty(difficultyValue) || !Enum.TryParse<BotDifficulty>(difficultyValue, out var difficulty))
             return;
 
-        try { room = await Game.SetSeatBotAsync(Code, seatId, difficulty); }
+        try { await Game.SetSeatBotAsync(Code, seatId, difficulty); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task ClearSeatAsync(SeatId seatId)
     {
-        try { room = await Game.ClearSeatAsync(Code, seatId); }
+        try { await Game.ClearSeatAsync(Code, seatId); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -414,17 +414,17 @@ else
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnGameUpdated(GameStateDto dto)
+    private void OnGameUpdated(GameUpdateDto dto)
     {
         InvokeAsync(() => Nav.NavigateTo($"/game/{Code}"));
     }
 
-    private void OnCardChessGameUpdated(CardChessStateDto dto)
+    private void OnCardChessGameUpdated(CardChessUpdateDto dto)
     {
         InvokeAsync(() => Nav.NavigateTo($"/cardchess/{Code}"));
     }
 
-    private void OnArcaneChessGameUpdated(ArcaneChessStateDto dto)
+    private void OnArcaneChessGameUpdated(ArcaneChessUpdateDto dto)
     {
         InvokeAsync(() => Nav.NavigateTo($"/arcanechess/{Code}"));
     }

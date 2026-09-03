@@ -250,6 +250,7 @@ else
 
     private RoomStateDto? room;
     private ArcaneChessStateDto? state;
+    private List<ChessMove> moveHistory = [];
     private Guid myUserId;
     private SeatId? mySeat;
     private string? error;
@@ -295,7 +296,7 @@ else
             await Game.EnsureConnectedAsync();
             room = await Game.JoinRoomAsync(Code);
             mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
-            SetState(await Game.GetArcaneChessStateAsync(Code));
+            SetFullState(await Game.GetArcaneChessStateAsync(Code));
             StateHasChanged();
             StartClockTick();
         }
@@ -443,7 +444,7 @@ else
                 _ => default,
             };
 
-            SetState(await Game.CastArcaneSpellAsync(Code, spell, target));
+            await Game.CastArcaneSpellAsync(Code, spell, target);
             if (mySeat is { } mine)
             {
                 if (mine.Side == Side.White) whiteCastSpellThisTurn = true;
@@ -462,7 +463,7 @@ else
 
     private async Task MakeMoveAsync(ChessMove move)
     {
-        try { SetState(await Game.MakeArcaneChessMoveAsync(Code, move.From, move.To, move.PromoteTo)); }
+        try { await Game.MakeArcaneChessMoveAsync(Code, move.From, move.To, move.PromoteTo); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -484,13 +485,13 @@ else
             current.Add(card);
         }
 
-        try { SetState(await Game.SelectArcaneChessRerollAsync(Code, current)); }
+        try { await Game.SelectArcaneChessRerollAsync(Code, current); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task ResignAsync()
     {
-        try { SetState(await Game.ResignArcaneChessAsync(Code)); }
+        try { await Game.ResignArcaneChessAsync(Code); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -503,23 +504,58 @@ else
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnGameUpdated(ArcaneChessStateDto dto)
+    private void OnGameUpdated(ArcaneChessUpdateDto dto)
     {
-        SetState(dto);
+        if (dto.MoveHistoryCount == moveHistory.Count + 1 && dto.LatestMove is { } move)
+            moveHistory.Add(move);
+        else if (dto.MoveHistoryCount != moveHistory.Count)
+            _ = ResyncFullStateAsync(); // gap: reconnect, missed frame, or joined mid-game
+
+        ApplyUpdate(dto);
         InvokeAsync(StateHasChanged);
     }
 
-    private void SetState(ArcaneChessStateDto dto)
+    private async Task ResyncFullStateAsync()
+    {
+        try
+        {
+            SetFullState(await Game.GetArcaneChessStateAsync(Code));
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplyUpdate(ArcaneChessUpdateDto dto)
+    {
+        state = new ArcaneChessStateDto(
+            dto.SideToMove, dto.WhiteHand, dto.BlackHand, dto.WhitePendingReroll, dto.BlackPendingReroll,
+            dto.EmergencyMoveAvailable, dto.HandHasNoPlayableCard, dto.AvailableMoves, moveHistory, dto.Fen,
+            dto.WhiteHp, dto.BlackHp, dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
+            dto.WhiteSpellHand, dto.BlackSpellHand, dto.WhiteMana, dto.BlackMana,
+            dto.WhiteSeesBlackHand, dto.BlackSeesWhiteHand, dto.ActiveEffects);
+        lastUpdateAt = DateTimeOffset.UtcNow;
+        TrackSpellCastTurn(dto.SideToMove);
+    }
+
+    private void SetFullState(ArcaneChessStateDto dto)
     {
         state = dto;
+        moveHistory = [.. dto.MoveHistory];
         lastUpdateAt = DateTimeOffset.UtcNow;
+        TrackSpellCastTurn(dto.SideToMove);
+    }
 
-        if (lastSeenSideToMove != dto.SideToMove)
-        {
-            lastSeenSideToMove = dto.SideToMove;
-            whiteCastSpellThisTurn = false;
-            blackCastSpellThisTurn = false;
-        }
+    private void TrackSpellCastTurn(Side sideToMove)
+    {
+        if (lastSeenSideToMove == sideToMove)
+            return;
+
+        lastSeenSideToMove = sideToMove;
+        whiteCastSpellThisTurn = false;
+        blackCastSpellThisTurn = false;
     }
 
     public void Dispose()

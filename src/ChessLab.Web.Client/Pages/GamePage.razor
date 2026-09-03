@@ -135,6 +135,7 @@ else
 
     private RoomStateDto? room;
     private GameStateDto? state;
+    private List<ChessMove> moveHistory = [];
     private Guid myUserId;
     private SeatId? mySeat;
     private string? error;
@@ -174,7 +175,7 @@ else
             await Game.EnsureConnectedAsync();
             room = await Game.JoinRoomAsync(Code);
             mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
-            SetState(await Game.GetGameStateAsync(Code));
+            SetFullState(await Game.GetGameStateAsync(Code));
             StateHasChanged();
             StartClockTick();
         }
@@ -244,19 +245,19 @@ else
 
     private async Task SelectPieceKindAsync(PieceKind kind)
     {
-        try { SetState(await Game.SelectPieceKindAsync(Code, kind)); }
+        try { await Game.SelectPieceKindAsync(Code, kind); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task MakeMoveAsync(ChessMove move)
     {
-        try { SetState(await Game.MakeMoveAsync(Code, move.From, move.To, move.PromoteTo)); }
+        try { await Game.MakeMoveAsync(Code, move.From, move.To, move.PromoteTo); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task ResignAsync()
     {
-        try { SetState(await Game.ResignAsync(Code)); }
+        try { await Game.ResignAsync(Code); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -269,15 +270,42 @@ else
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnGameUpdated(GameStateDto dto)
+    private void OnGameUpdated(GameUpdateDto dto)
     {
-        SetState(dto);
+        if (dto.MoveHistoryCount == moveHistory.Count + 1 && dto.LatestMove is { } move)
+            moveHistory.Add(move);
+        else if (dto.MoveHistoryCount != moveHistory.Count)
+            _ = ResyncFullStateAsync(); // gap: reconnect, missed frame, or joined mid-game
+
+        ApplyUpdate(dto);
         InvokeAsync(StateHasChanged);
     }
 
-    private void SetState(GameStateDto dto)
+    private async Task ResyncFullStateAsync()
+    {
+        try
+        {
+            SetFullState(await Game.GetGameStateAsync(Code));
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplyUpdate(GameUpdateDto dto)
+    {
+        state = new GameStateDto(
+            dto.SideToMove, dto.Phase, dto.SelectedPieceKind, dto.AvailablePieceKinds, dto.AvailableMoves,
+            moveHistory, dto.Fen, dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner);
+        lastUpdateAt = DateTimeOffset.UtcNow;
+    }
+
+    private void SetFullState(GameStateDto dto)
     {
         state = dto;
+        moveHistory = [.. dto.MoveHistory];
         lastUpdateAt = DateTimeOffset.UtcNow;
     }
 
