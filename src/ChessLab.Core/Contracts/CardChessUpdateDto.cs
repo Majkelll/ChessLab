@@ -3,8 +3,6 @@ using ChessLab.Core.Chess;
 
 namespace ChessLab.Core.Contracts;
 
-/// <summary>Lighter-weight sibling of <see cref="CardChessStateDto"/> used for the SignalR push
-/// broadcast on every move/update — see <see cref="GameUpdateDto"/> for why.</summary>
 public sealed record CardChessUpdateDto(
     Side SideToMove,
     IReadOnlyList<CardRank> WhiteHand,

@@ -147,8 +147,6 @@ public sealed class GameState
         var mover = SideToMove;
         ApplyPendingReroll(mover);
 
-        // Computed once and reused below for both the hand-card union and the emergency
-        // fallback — cheap either way since GeraChessRulesEngine caches this per position.
         var allLegal = engine.LegalMoves();
 
         // Arcane Chess's out-of-band board edits (Swap/Teleport/MindSwap) can put a king on a square

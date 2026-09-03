@@ -4,8 +4,6 @@ using ChessLab.Core.Chess;
 
 namespace ChessLab.Core.Contracts;
 
-/// <summary>Lighter-weight sibling of <see cref="ArcaneChessStateDto"/> used for the SignalR push
-/// broadcast on every move/update — see <see cref="GameUpdateDto"/> for why.</summary>
 public sealed record ArcaneChessUpdateDto(
     Side SideToMove,
     IReadOnlyList<CardRank> WhiteHand,
