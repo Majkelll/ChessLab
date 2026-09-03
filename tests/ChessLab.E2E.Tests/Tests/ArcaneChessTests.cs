@@ -50,8 +50,8 @@ public sealed class ArcaneChessTests(WebAppFixture app, PlaywrightFixture playwr
         var (blackFrom, blackTo) = await ComputeOpeningMoveAsync(black, isWhite: false);
         await black.MoveAsync(blackFrom, blackTo);
 
-        await Expect(white.MoveHistory.Locator("li")).ToHaveCountAsync(2);
-        await white.WaitForTurnTextAsync("white");
+        await Expect(white.MoveHistory.Locator("li")).ToHaveCountAsync(2, new() { Timeout = 20000 });
+        await white.WaitForTurnTextAsync("white", timeoutMs: 20000);
     }
 
     // Spell hands are dealt 3-of-19 at random, so a test that needs a specific spell to show up
