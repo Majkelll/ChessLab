@@ -23,6 +23,7 @@ public sealed class GameClient : IAsyncDisposable
         Connection = new HubConnectionBuilder()
             .WithUrl(navigationManager.ToAbsoluteUri("/hubs/game"))
             .WithAutomaticReconnect()
+            .AddMessagePackProtocol()
             .Build();
 
         Connection.On<RoomStateDto>("RoomUpdated", dto => RoomUpdated?.Invoke(dto));
