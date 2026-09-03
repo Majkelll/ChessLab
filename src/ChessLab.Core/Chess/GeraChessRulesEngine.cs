@@ -6,6 +6,8 @@ namespace ChessLab.Core.Chess;
 public sealed class GeraChessRulesEngine : IChessRulesEngine
 {
     private ChessBoard board;
+    private IReadOnlyList<ChessMove>? cachedLegalMoves;
+    private (string Fen, IReadOnlyList<ChessMove> Moves)? cachedOpponentProbe;
 
     public GeraChessRulesEngine() => board = new ChessBoard { AutoEndgameRules = AutoEndgameRules.All };
 
@@ -31,7 +33,8 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
         }
     }
 
-    public IReadOnlyList<ChessMove> LegalMoves() => board.Moves().Select(ToChessMove).ToArray();
+    public IReadOnlyList<ChessMove> LegalMoves() =>
+        cachedLegalMoves ??= board.Moves().Select(ToChessMove).ToArray();
 
     public IReadOnlyList<ChessMove> LegalMoves(PieceKind kind) =>
         LegalMoves().Where(m => m.Piece == kind).ToArray();
@@ -47,8 +50,15 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
         if (side == SideToMove)
             return LegalMoves(kind).Count > 0;
 
-        var probe = ChessBoard.LoadFromFen(WithSideToMove(board.ToFen(), side), AutoEndgameRules.All);
-        return probe.Moves().Any(m => ToPieceKind(m.Piece.Type) == kind);
+        var probeFen = WithSideToMove(board.ToFen(), side);
+        if (cachedOpponentProbe is not { } cached || cached.Fen != probeFen)
+        {
+            var probe = ChessBoard.LoadFromFen(probeFen, AutoEndgameRules.All);
+            cached = (probeFen, probe.Moves().Select(ToChessMove).ToArray());
+            cachedOpponentProbe = cached;
+        }
+
+        return cached.Moves.Any(m => m.Piece == kind);
     }
 
     private static string WithSideToMove(string fen, Side side)
@@ -80,15 +90,35 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
 
         if (match is null || !board.Move(match))
             throw new InvalidOperationException($"Move {move} is not legal in the current position.");
+
+        InvalidateCaches();
     }
 
-    public void Resign(Side side) => board.Resign(ToPieceColor(side));
+    public void Resign(Side side)
+    {
+        board.Resign(ToPieceColor(side));
+        InvalidateCaches();
+    }
 
-    public void DeclareTimeout(Side side) => board.EndByTimeout(ToPieceColor(side));
+    public void DeclareTimeout(Side side)
+    {
+        board.EndByTimeout(ToPieceColor(side));
+        InvalidateCaches();
+    }
 
     public string ToFen() => board.ToFen();
 
-    public void LoadPosition(string fen) => board = ChessBoard.LoadFromFen(fen, AutoEndgameRules.All);
+    public void LoadPosition(string fen)
+    {
+        board = ChessBoard.LoadFromFen(fen, AutoEndgameRules.All);
+        InvalidateCaches();
+    }
+
+    private void InvalidateCaches()
+    {
+        cachedLegalMoves = null;
+        cachedOpponentProbe = null;
+    }
 
     private static ChessMove ToChessMove(Move m) => new(
         From: ToSquare(m.OriginalPosition),

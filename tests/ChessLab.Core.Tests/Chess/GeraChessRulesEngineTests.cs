@@ -159,4 +159,52 @@ public class GeraChessRulesEngineTests
         Assert.False(engine.HasLegalMove(Side.White, PieceKind.Queen));
         Assert.False(engine.HasLegalMove(Side.Black, PieceKind.Queen));
     }
+
+    [Fact]
+    public void LegalMoves_ReflectsPositionAfterLoadPosition_NotAStalePriorCache()
+    {
+        var engine = new GeraChessRulesEngine();
+        _ = engine.LegalMoves(); // populate the cache for the starting position
+
+        engine.LoadPosition("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1"); // stalemate for black
+
+        Assert.Empty(engine.LegalMoves());
+    }
+
+    [Fact]
+    public void HasLegalMove_ForOtherSide_ReflectsChangedPosition_NotAStalePriorProbe()
+    {
+        var engine = GeraChessRulesEngine.FromFen("4k3/8/8/8/8/8/8/4K3 w - - 0 1"); // no queens
+        Assert.False(engine.HasLegalMove(Side.Black, PieceKind.Queen)); // populates the probe cache
+
+        engine.LoadPosition("4qk2/8/8/8/8/8/8/4K3 w - - 0 1"); // now black has a queen
+
+        Assert.True(engine.HasLegalMove(Side.Black, PieceKind.Queen));
+    }
+
+    [Fact]
+    public void Resign_CachedLegalMovesQueriedBeforehand_DoesNotSuppressEndResult()
+    {
+        var engine = new GeraChessRulesEngine();
+        _ = engine.LegalMoves(); // populate the cache before the resignation
+
+        engine.Resign(Side.White);
+
+        Assert.NotNull(engine.EndResult);
+        Assert.Equal(GameEndReason.Resignation, engine.EndResult!.Value.Reason);
+        Assert.Equal(Side.Black, engine.EndResult!.Value.Winner);
+    }
+
+    [Fact]
+    public void DeclareTimeout_CachedLegalMovesQueriedBeforehand_DoesNotSuppressEndResult()
+    {
+        var engine = new GeraChessRulesEngine();
+        _ = engine.LegalMoves(); // populate the cache before the timeout
+
+        engine.DeclareTimeout(Side.White);
+
+        Assert.NotNull(engine.EndResult);
+        Assert.Equal(GameEndReason.Timeout, engine.EndResult!.Value.Reason);
+        Assert.Equal(Side.Black, engine.EndResult!.Value.Winner);
+    }
 }

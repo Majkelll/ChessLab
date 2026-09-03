@@ -147,6 +147,10 @@ public sealed class GameState
         var mover = SideToMove;
         ApplyPendingReroll(mover);
 
+        // Computed once and reused below for both the hand-card union and the emergency
+        // fallback — cheap either way since GeraChessRulesEngine caches this per position.
+        var allLegal = engine.LegalMoves();
+
         // Arcane Chess's out-of-band board edits (Swap/Teleport/MindSwap) can put a king on a square
         // the underlying engine's incremental check/checkmate tracking doesn't reliably follow —
         // observed via simulation as the engine occasionally still offering a move that captures the
@@ -176,10 +180,9 @@ public sealed class GameState
             EmergencyMoveAvailable = true;
         }
 
-        var legalMoves = engine.LegalMoves();
-        var nonKingCaptureMoves = legalMoves.Where(m => m.CapturedPiece != PieceKind.King).ToArray();
+        var nonKingCaptureMoves = allLegal.Where(m => m.CapturedPiece != PieceKind.King).ToArray();
 
-        if (nonKingCaptureMoves.Length == 0 && legalMoves.Count > 0)
+        if (nonKingCaptureMoves.Length == 0 && allLegal.Count > 0)
         {
             // Every move the engine considers legal here captures the opponent's king — the engine
             // failed to recognize this as checkmate on its own. Call it exactly that instead of ever
