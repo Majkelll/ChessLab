@@ -1,0 +1,11 @@
+﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                <p data-testid="not-authorized-message" class="text-espresso-soft">You need to sign in to view this page.</p>
+                <a data-testid="not-authorized-login-link" href="Account/Login" class="text-amber-700 underline hover:text-amber-600">Sign in with Google</a>
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

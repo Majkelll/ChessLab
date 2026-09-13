@@ -1,0 +1,31 @@
+@using ChessLab.Core.Chess
+
+<div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+    @foreach (var kind in Kinds)
+    {
+        var isDisabled = !Interactive || !AvailableKinds.Contains(kind);
+        var isSelected = SelectedKind == kind;
+
+        <HandCard TestId="@($"piece-card-{kind}")"
+                  Glyph="@PieceKindDisplay.Glyph(kind)"
+                  Label="@PieceKindDisplay.Label(kind)"
+                  Selected="isSelected"
+                  SoftDisabled="isDisabled"
+                  SuppressMouseDownFocus="true"
+                  OnClick="() => OnKindSelected.InvokeAsync(kind)" />
+    }
+</div>
+
+@code {
+    private static readonly PieceKind[] Kinds =
+        [PieceKind.Pawn, PieceKind.Knight, PieceKind.Bishop, PieceKind.Rook, PieceKind.Queen, PieceKind.King];
+
+    [Parameter] public IReadOnlyList<PieceKind> AvailableKinds { get; set; } = [];
+    [Parameter] public bool Interactive { get; set; }
+
+    /// <summary>The piece kind the Brain already announced this turn, if any — highlighted
+    /// regardless of <see cref="Interactive"/> so it stays visible once selection is done.</summary>
+    [Parameter] public PieceKind? SelectedKind { get; set; }
+
+    [Parameter] public EventCallback<PieceKind> OnKindSelected { get; set; }
+}

@@ -1,0 +1,112 @@
+@using System.Globalization
+
+@if (Interactive)
+{
+    <button type="button"
+            data-testid="@TestId"
+            data-marked-for-reroll="@(Marked ? "true" : "false")"
+            title="@Title"
+            aria-current="@(Selected ? "true" : "false")"
+            aria-disabled="@(SoftDisabled ? "true" : "false")"
+            disabled="@Disabled"
+            style="@Style"
+            class="@CssClass"
+            @onmousedown="() => { }" @onmousedown:preventDefault="SuppressMouseDownFocus"
+            @onclick="() => { if (!SoftDisabled) OnClick.InvokeAsync(); }">
+        @Body
+    </button>
+}
+else
+{
+    <div data-testid="@TestId"
+         data-marked-for-reroll="@(Marked ? "true" : "false")"
+         title="@Title"
+         style="@Style"
+         class="@CssClass">
+        @Body
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Glyph { get; set; } = "";
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public string? Sublabel { get; set; }
+    [Parameter] public string? TestId { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool SoftDisabled { get; set; }
+    [Parameter] public bool SuppressMouseDownFocus { get; set; }
+    [Parameter] public bool Marked { get; set; }
+    [Parameter] public bool Interactive { get; set; } = true;
+    [Parameter] public string Size { get; set; } = "normal";
+    [Parameter] public string Accent { get; set; } = "amber";
+    [Parameter] public int Index { get; set; }
+    [Parameter] public int Count { get; set; } = 1;
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private double Offset => Index - (Count - 1) / 2.0;
+    private double RotDeg => Count > 1 ? Offset * 6 : 0;
+    private double LiftPx => Count > 1 ? Math.Abs(Offset) * 10 : 0;
+
+    private bool IsMini => Size == "mini";
+
+    private bool IsDisabledLook => (Disabled && !Marked) || (SoftDisabled && !Selected);
+
+    private string AccentBorderClass => Accent switch
+    {
+        "moss" => "border-moss-soft",
+        "rust" => "border-rust/60",
+        _ => "border-amber-600",
+    };
+
+    private string Style => string.Create(CultureInfo.InvariantCulture,
+        $"--rot:{RotDeg}deg; --lift:{LiftPx}px; --i:{Index};");
+
+    private string CssClass
+    {
+        get
+        {
+            var classes = new List<string> { "hand-card", "hand-card-deal" };
+
+            if (IsMini)
+                classes.Add("hand-card-mini flex flex-col items-center justify-center px-1 py-1 text-espresso-soft/70");
+            else
+                classes.Add("flex flex-col items-center justify-center gap-0.5 px-2 py-2 text-left");
+
+            classes.Add(Marked ? "hand-card-marked" : "");
+
+            if (Selected)
+                classes.Add($"border-2 {AccentBorderClass}");
+            else
+                classes.Add(Marked ? "border-2 border-rust/60" : "border border-espresso/16");
+
+            if (IsDisabledLook && !IsMini)
+                classes.Add("opacity-40");
+
+            if (Interactive && !IsDisabledLook)
+                classes.Add("hover:cursor-pointer");
+
+            if (!Interactive)
+                classes.Add("select-none");
+
+            return string.Join(' ', classes.Where(c => !string.IsNullOrEmpty(c)));
+        }
+    }
+
+    private RenderFragment Body => @<text>
+        @if (Marked && !IsMini)
+        {
+            <span class="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rust text-[11px] leading-none text-cream" aria-hidden="true">↻</span>
+        }
+        <span class="@(IsMini ? "text-base" : "text-2xl") leading-none">@Glyph</span>
+        @if (!IsMini)
+        {
+            <span class="mt-0.5 text-[10px] font-mono text-espresso-soft/70">@Label</span>
+            @if (Sublabel is not null)
+            {
+                <span class="text-[9px] font-mono text-espresso-soft/60">@Sublabel</span>
+            }
+        }
+    </text>;
+}

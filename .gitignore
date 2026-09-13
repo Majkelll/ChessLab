@@ -1,0 +1,31 @@
+## .NET
+bin/
+obj/
+*.user
+
+## Node / Tailwind
+node_modules/
+**/wwwroot/css/app.css
+**/wwwroot/css/files/
+**/wwwroot/js/cm-chessboard/
+
+## SQLite
+*.db
+*.db-shm
+*.db-wal
+
+## IDE
+.vs/
+.idea/
+*.swp
+
+## OS
+.DS_Store
+
+## Secrets
+appsettings.*.local.json
+.env
+
+## Playwright
+tests/e2e/test-results/
+tests/e2e/playwright-report/
