@@ -193,7 +193,7 @@ button.hand-card:hover .hand-card-visual::after {
 }
 
 .hand-shelf {
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-espresso) 10%, transparent), transparent 70%);
+  background: radial-gradient(70% 100% at 50% 0%, color-mix(in srgb, var(--color-espresso) 7%, transparent), transparent 72%);
   padding-block: 0.25rem 0.25rem;
 }
 
