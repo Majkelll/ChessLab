@@ -45,7 +45,7 @@ else
             </div>
         </div>
 
-        <div class="flex min-h-0 flex-col overflow-y-auto">
+        <div class="flex min-h-0 flex-col">
             <div class="flex flex-col items-start gap-1.5">
                 @if (mySeat is { } seat)
                 {
@@ -126,7 +126,7 @@ else
 
             <h3 class="mt-4 shrink-0 text-xs font-normal text-espresso/42">MOVE HISTORY</h3>
             <div class="h-1 w-full shrink-0 border-b border-espresso/16"></div>
-            <ol data-testid="move-history" class="mt-2 flex min-h-0 flex-wrap gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
+            <ol data-testid="move-history" class="mt-2 flex min-h-0 flex-1 flex-wrap content-start gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
                 @for (var i = 0; i < state.MoveHistory.Count; i++)
                 {
                     <li><span class="text-espresso-soft/70">@(i + 1).</span> @state.MoveHistory[i].San</li>
