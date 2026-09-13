@@ -44,7 +44,7 @@ public sealed class GameClient : IAsyncDisposable
     public Task<RoomStateDto> CreateRoomAsync(GameKind kind = GameKind.HandAndBrain) =>
         Connection.InvokeAsync<RoomStateDto>("CreateRoom", kind);
 
-    public Task<RoomStateDto> JoinRoomAsync(string code) => Connection.InvokeAsync<RoomStateDto>("JoinRoom", code);
+    public Task<RoomStateDto?> JoinRoomAsync(string code) => Connection.InvokeAsync<RoomStateDto?>("JoinRoom", code);
 
     public Task ClaimSeatAsync(string code, SeatId seatId) => Connection.InvokeAsync("ClaimSeat", code, seatId);
 

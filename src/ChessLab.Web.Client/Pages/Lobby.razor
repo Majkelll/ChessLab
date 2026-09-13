@@ -32,6 +32,9 @@
 @if (error is not null)
 {
     <p data-testid="lobby-error" class="mt-4 text-sm text-rust">@error</p>
+    <a href="" class="mt-4 inline-block border border-amber-700/40 bg-amber-700/5 px-4 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+        Back to games
+    </a>
 }
 else if (room is null)
 {
@@ -281,7 +284,14 @@ else
         try
         {
             await Game.EnsureConnectedAsync();
-            room = await Game.JoinRoomAsync(Code);
+            if (await Game.JoinRoomAsync(Code) is not { } joined)
+            {
+                error = $"Room '{Code}' was not found. Rooms only live while the server is running, so it is gone if the game ended or the server restarted.";
+                StateHasChanged();
+                return;
+            }
+
+            room = joined;
             GameContext.Set(room.Kind switch
             {
                 GameKind.CardChess => "Card Chess",
