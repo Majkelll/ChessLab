@@ -113,7 +113,7 @@ body::before {
   transform-origin: bottom center;
   transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px));
   z-index: calc(10 + var(--i, 0));
-  width: clamp(3.25rem, 14vw, 4.25rem);
+  width: clamp(2.5rem, min(14vw, 9vh), 4.25rem);
 }
 
 button.hand-card:hover,
@@ -122,19 +122,39 @@ button.hand-card:hover,
 }
 
 .hand-card.hand-card-mini {
-  width: clamp(1.75rem, 6vw, 2.25rem);
+  width: clamp(1.5rem, min(6vw, 4vh), 2.25rem);
 }
 
 .hand-row {
   display: flex;
   justify-content: center;
-  padding-top: 1.5rem;
-  padding-bottom: 1.75rem;
+  padding-top: 0.5rem;
+  padding-bottom: clamp(0.75rem, 2.5vh, 1.75rem);
 }
 
 .hand-row-mini {
   padding-top: 0.25rem;
-  padding-bottom: 1.5rem;
+  padding-bottom: clamp(0.5rem, 2vh, 1.5rem);
+}
+
+.hand-row-spells .hand-card {
+  width: 5.5rem;
+}
+
+.board-frame {
+  width: 100%;
+}
+
+.board-fit {
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.board-fit > .board-frame {
+  width: min(100cqw, 100cqh);
+  height: min(100cqw, 100cqh);
 }
 
 .hand-card-visual {
@@ -174,7 +194,7 @@ button.hand-card:hover .hand-card-visual::after {
 
 .hand-shelf {
   background: linear-gradient(to bottom, color-mix(in srgb, var(--color-espresso) 10%, transparent), transparent 70%);
-  padding-block: 1rem 0.25rem;
+  padding-block: 0.25rem 0.25rem;
 }
 
 @keyframes card-sheen {

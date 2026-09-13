@@ -24,24 +24,28 @@ else if (room is null || state is null)
 }
 else
 {
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(280px,512px)_1fr]">
-        <div class="mx-auto w-full max-w-[512px]">
-            <ChessBoard Fen="@state.Fen"
-                        AvailableMoves="@state.AvailableMoves"
-                        Interactive="@(isBoardInteractive)"
-                        FlipBoard="@(mySeat?.Side == Side.Black)"
-                        OnMoveSelected="MakeMoveAsync" />
+    <div class="flex h-full min-h-0 flex-col gap-4 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
+        <div class="flex min-h-0 w-full flex-col">
+            <div class="board-fit min-h-0 w-full flex-1">
+                <ChessBoard Fen="@state.Fen"
+                            AvailableMoves="@state.AvailableMoves"
+                            Interactive="@(isBoardInteractive)"
+                            FlipBoard="@(mySeat?.Side == Side.Black)"
+                            OnMoveSelected="MakeMoveAsync" />
+            </div>
 
-            @if (isMySideToMove && (mySeat?.Role == SeatRole.Brain || state.SelectedPieceKind is not null))
-            {
-                <div class="mt-4" data-testid="piece-kind-cards">
-                    <PieceKindCards AvailableKinds="@state.AvailablePieceKinds" Interactive="@isCardsInteractive"
-                                     SelectedKind="@state.SelectedPieceKind" OnKindSelected="SelectPieceKindAsync" />
-                </div>
-            }
+            <div class="mt-3 min-h-24 shrink-0" data-testid="piece-kind-cards-slot">
+                @if (isMySideToMove && (mySeat?.Role == SeatRole.Brain || state.SelectedPieceKind is not null))
+                {
+                    <div data-testid="piece-kind-cards">
+                        <PieceKindCards AvailableKinds="@state.AvailablePieceKinds" Interactive="@isCardsInteractive"
+                                         SelectedKind="@state.SelectedPieceKind" OnKindSelected="SelectPieceKindAsync" />
+                    </div>
+                }
+            </div>
         </div>
 
-        <div>
+        <div class="flex min-h-0 flex-col overflow-y-auto">
             <div class="flex flex-col items-start gap-1.5">
                 @if (mySeat is { } seat)
                 {
@@ -91,7 +95,7 @@ else
                 <button data-testid="back-to-room-link"
                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
                         @onclick="BackToRoom"
-                        class="mt-4 border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+                        class="mt-4 w-fit shrink-0 self-start border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
                     Back to room
                 </button>
             }
@@ -114,15 +118,15 @@ else
                     <button data-testid="resign-btn"
                             @onmousedown="() => { }" @onmousedown:preventDefault="true"
                             @onclick="ResignAsync"
-                            class="mt-6 border border-rust/40 bg-rust/5 px-3 py-1.5 font-mono text-sm text-rust hover:bg-rust/20 transition duration-300 hover:cursor-pointer">
+                            class="mt-4 w-fit shrink-0 self-start border border-rust/40 bg-rust/5 px-3 py-1.5 font-mono text-sm text-rust hover:bg-rust/20 transition duration-300 hover:cursor-pointer">
                         Resign
                     </button>
                 }
             }
 
-            <h3 class="mt-6 text-xs font-normal text-espresso/42">MOVE HISTORY</h3>
-            <div class="h-1 w-full border-b border-espresso/16"></div>
-            <ol data-testid="move-history" class="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-sm">
+            <h3 class="mt-4 shrink-0 text-xs font-normal text-espresso/42">MOVE HISTORY</h3>
+            <div class="h-1 w-full shrink-0 border-b border-espresso/16"></div>
+            <ol data-testid="move-history" class="mt-2 flex min-h-0 flex-wrap gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
                 @for (var i = 0; i < state.MoveHistory.Count; i++)
                 {
                     <li><span class="text-espresso-soft/70">@(i + 1).</span> @state.MoveHistory[i].San</li>
