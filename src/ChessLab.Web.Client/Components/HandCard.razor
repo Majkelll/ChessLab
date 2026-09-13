@@ -10,10 +10,12 @@
             aria-disabled="@(SoftDisabled ? "true" : "false")"
             disabled="@Disabled"
             style="@Style"
-            class="@CssClass"
+            class="@SlotCssClass"
             @onmousedown="() => { }" @onmousedown:preventDefault="SuppressMouseDownFocus"
             @onclick="() => { if (!SoftDisabled) OnClick.InvokeAsync(); }">
-        @Body
+        <span class="@VisualCssClass">
+            @Body
+        </span>
     </button>
 }
 else
@@ -22,8 +24,10 @@ else
          data-marked-for-reroll="@(Marked ? "true" : "false")"
          title="@Title"
          style="@Style"
-         class="@CssClass">
-        @Body
+         class="@SlotCssClass">
+        <span class="@VisualCssClass">
+            @Body
+        </span>
     </div>
 }
 
@@ -63,11 +67,30 @@ else
     private string Style => string.Create(CultureInfo.InvariantCulture,
         $"--rot:{RotDeg}deg; --lift:{LiftPx}px; --i:{Index};");
 
-    private string CssClass
+    private string SlotCssClass
     {
         get
         {
             var classes = new List<string> { "hand-card", "hand-card-deal" };
+
+            if (IsMini)
+                classes.Add("hand-card-mini");
+
+            if (Interactive && !IsDisabledLook)
+                classes.Add("hover:cursor-pointer");
+
+            if (!Interactive)
+                classes.Add("select-none");
+
+            return string.Join(' ', classes);
+        }
+    }
+
+    private string VisualCssClass
+    {
+        get
+        {
+            var classes = new List<string> { "hand-card-visual" };
 
             if (IsMini)
                 classes.Add("hand-card-mini flex flex-col items-center justify-center px-1 py-1 text-espresso-soft/70");
@@ -83,12 +106,6 @@ else
 
             if (IsDisabledLook && !IsMini)
                 classes.Add("opacity-40");
-
-            if (Interactive && !IsDisabledLook)
-                classes.Add("hover:cursor-pointer");
-
-            if (!Interactive)
-                classes.Add("select-none");
 
             return string.Join(' ', classes.Where(c => !string.IsNullOrEmpty(c)));
         }
