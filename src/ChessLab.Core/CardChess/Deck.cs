@@ -25,6 +25,8 @@ public sealed class Deck
     public int DrawPileCount => drawPile.Count;
     public int DiscardPileCount => discardPile.Count;
 
+    public void Discard(CardRank card) => discardPile.Add(card);
+
     public CardRank Draw()
     {
         if (drawPile.Count == 0)

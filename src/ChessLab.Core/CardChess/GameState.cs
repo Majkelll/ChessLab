@@ -44,8 +44,8 @@ public sealed class GameState
         hp = new Dictionary<Side, int> { [Side.White] = StartingHp, [Side.Black] = StartingHp };
         hands = new Dictionary<Side, List<CardRank>>
         {
-            [Side.White] = [.. Enumerable.Range(0, HandSize).Select(_ => DrawPlayable(Side.White, whiteDeck))],
-            [Side.Black] = [.. Enumerable.Range(0, HandSize).Select(_ => DrawPlayable(Side.Black, blackDeck))],
+            [Side.White] = DealHand(Side.White, whiteDeck),
+            [Side.Black] = DealHand(Side.Black, blackDeck),
         };
         pendingRerolls = new Dictionary<Side, List<CardRank>> { [Side.White] = [], [Side.Black] = [] };
 
@@ -54,7 +54,17 @@ public sealed class GameState
 
     private IReadOnlyList<ChessMove> LegalMovesFor(CardRank card) => engine.LegalMoves(card.ToPieceKind());
 
-    private CardRank DrawPlayable(Side side, Deck deck) => deck.Draw(card => engine.HasLegalMove(side, card.ToPieceKind()));
+    private List<CardRank> DealHand(Side side, Deck deck)
+    {
+        var hand = new List<CardRank>();
+        for (var i = 0; i < HandSize; i++)
+            hand.Add(DrawPlayable(side, deck, hand));
+
+        return hand;
+    }
+
+    private CardRank DrawPlayable(Side side, Deck deck, IReadOnlyCollection<CardRank> currentHand) =>
+        deck.Draw(card => engine.HasLegalMove(side, card.ToPieceKind()) && !currentHand.Contains(card));
 
     /// <summary>Changes a side's HP by <paramref name="delta"/>, clamped to [0, <see cref="StartingHp"/>].
     /// Exposed for Arcane Chess spells (Mend, Restoration, Deep Breath) that sit on top of Card Chess's
@@ -75,7 +85,8 @@ public sealed class GameState
         if (index < 0)
             throw new ArgumentException($"{card} is not currently in {side}'s hand.", nameof(card));
 
-        hands[side][index] = DrawPlayable(side, decks[side]);
+        hands[side][index] = DrawPlayable(side, decks[side], hands[side]);
+        decks[side].Discard(card);
         if (side == SideToMove)
             RefreshAvailableMoves();
     }
@@ -127,7 +138,10 @@ public sealed class GameState
         {
             var index = hands[side].IndexOf(card);
             if (index >= 0)
-                hands[side][index] = DrawPlayable(side, decks[side]);
+            {
+                hands[side][index] = DrawPlayable(side, decks[side], hands[side]);
+                decks[side].Discard(card);
+            }
         }
 
         pending.Clear();
@@ -222,8 +236,10 @@ public sealed class GameState
 
         if (usedCardIndex >= 0)
         {
+            var usedCard = hands[mover][usedCardIndex];
             hands[mover].RemoveAt(usedCardIndex);
-            hands[mover].Add(DrawPlayable(mover, decks[mover]));
+            hands[mover].Add(DrawPlayable(mover, decks[mover], hands[mover]));
+            decks[mover].Discard(usedCard);
         }
         else if (costsHp)
         {

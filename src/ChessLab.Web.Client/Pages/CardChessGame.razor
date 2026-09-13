@@ -26,11 +26,51 @@ else
 {
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(280px,512px)_1fr]">
         <div class="mx-auto w-full max-w-[512px]">
-            <ChessBoard Fen="@state.Fen"
-                        AvailableMoves="@state.AvailableMoves"
-                        Interactive="@isBoardInteractive"
-                        FlipBoard="@(mySeat?.Side == Side.Black)"
-                        OnMoveSelected="MakeMoveAsync" />
+            <div class="relative">
+                <ChessBoard Fen="@state.Fen"
+                            AvailableMoves="@state.AvailableMoves"
+                            Interactive="@isBoardInteractive"
+                            FlipBoard="@(mySeat?.Side == Side.Black)"
+                            OnMoveSelected="MakeMoveAsync" />
+
+                @if (mySeat is { } mine)
+                {
+                    var canToggle = isMyTurn && !state.IsGameOver;
+                    var hand = HandOf(mine.Side);
+                    <div class="hand-shelf relative z-10 -mt-3 flex flex-col items-center" data-testid="my-hand">
+                        <p class="mb-1 flex flex-wrap items-center gap-2 font-mono text-xs text-espresso-soft/70" data-testid="hand-hint">
+                            <span>Your hand</span>
+                            @if (canToggle)
+                            {
+                                <span>— click a card to mark it for reroll (swapped in at the start of your next turn)</span>
+                                @if (PendingRerollOf(mine.Side).Count > 0)
+                                {
+                                    <span class="border border-rust/50 bg-rust/10 px-1.5 py-0.5 text-[10px] text-rust" data-testid="reroll-marked-count">
+                                        @PendingRerollOf(mine.Side).Count / @GameState.MaxRerollSelection marked ↻
+                                    </span>
+                                }
+                            }
+                        </p>
+                        <div class="flex justify-center">
+                            @for (var i = 0; i < hand.Count; i++)
+                            {
+                                var card = hand[i];
+                                var marked = PendingRerollOf(mine.Side).Contains(card);
+                                <HandCard @key="card"
+                                          TestId="@($"hand-card-{card}")"
+                                          Glyph="@PieceKindDisplay.Glyph(card.ToPieceKind())"
+                                          Label="@PieceKindDisplay.Label(card.ToPieceKind())"
+                                          Marked="marked"
+                                          Disabled="!canToggle"
+                                          Index="i"
+                                          Count="hand.Count"
+                                          Title="@(marked ? $"{PieceKindDisplay.Label(card.ToPieceKind())} — marked for reroll next turn" : PieceKindDisplay.Label(card.ToPieceKind()))"
+                                          OnClick="() => ToggleRerollAsync(card)" />
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
 
             @if (state.EmergencyMoveAvailable && isMyTurn)
             {
@@ -44,40 +84,6 @@ else
                     No card in your hand can move right now — pick any piece, free of charge.
                 </p>
             }
-
-            @if (mySeat is { } mine)
-            {
-                <div class="mt-4" data-testid="my-hand">
-                    <p class="mb-1 font-mono text-xs text-espresso-soft/70">
-                        Your hand
-                        @if (isMyTurn && !state.IsGameOver)
-                        {
-                            <text> — click up to @GameState.MaxRerollSelection to reroll next turn</text>
-                        }
-                    </p>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach (var card in HandOf(mine.Side))
-                        {
-                            var marked = PendingRerollOf(mine.Side).Contains(card);
-                            var canToggle = isMyTurn && !state.IsGameOver;
-                            <button type="button"
-                                    data-testid="@($"hand-card-{card}")"
-                                    data-marked-for-reroll="@(marked ? "true" : "false")"
-                                    title="@(marked ? $"{PieceKindDisplay.Label(card.ToPieceKind())} — marked for reroll next turn" : PieceKindDisplay.Label(card.ToPieceKind()))"
-                                    disabled="@(!canToggle)"
-                                    @onclick="() => ToggleRerollAsync(card)"
-                                    class="flex flex-col items-center border px-3 py-1.5 transition duration-150 @(marked ? "border-rust/60 bg-rust/10" : "border-espresso/16 bg-white/40") @(canToggle ? "hover:cursor-pointer hover:border-espresso/40" : "")">
-                                <span class="text-2xl leading-none">@PieceKindDisplay.Glyph(card.ToPieceKind())</span>
-                                <span class="mt-0.5 text-[10px] font-mono text-espresso-soft/70">@PieceKindDisplay.Label(card.ToPieceKind())</span>
-                                @if (marked)
-                                {
-                                    <span class="mt-0.5 text-[9px] font-mono text-rust" aria-hidden="true">↻</span>
-                                }
-                            </button>
-                        }
-                    </div>
-                </div>
-            }
         </div>
 
         <div>
@@ -89,13 +95,22 @@ else
                         <Clock TestId="@ClockTestId(opponentSide)" Label="@SideLabel(opponentSide)"
                                RemainingMs="@RemainingMsOf(opponentSide)" IsActive="@IsClockActive(opponentSide)"
                                AccentBorderClass="@AccentBorderClass(opponentSide)" />
-                        <span data-testid="@HpTestId(opponentSide)" class="text-rust">@HpHearts(opponentSide)</span>
-                        <span data-testid="opponent-hand" class="flex gap-1 text-base text-espresso-soft/60">
-                            @foreach (var card in HandOf(opponentSide))
+                        <span data-testid="@HpTestId(opponentSide)" class="text-rust @HpHitClass(opponentSide)">@HpHearts(opponentSide)</span>
+                        <span data-testid="opponent-hand" class="flex -space-x-1">
+                            @{ var opponentHand = HandOf(opponentSide); }
+                            @for (var i = 0; i < opponentHand.Count; i++)
                             {
+                                var card = opponentHand[i];
                                 var marked = PendingRerollOf(opponentSide).Contains(card);
-                                <span title="@(marked ? $"{PieceKindDisplay.Label(card.ToPieceKind())} — marked for reroll" : PieceKindDisplay.Label(card.ToPieceKind()))"
-                                      class="@(marked ? "text-rust" : "")">@PieceKindDisplay.Glyph(card.ToPieceKind())</span>
+                                <HandCard @key="card"
+                                          Interactive="false"
+                                          Size="mini"
+                                          Glyph="@PieceKindDisplay.Glyph(card.ToPieceKind())"
+                                          Label="@PieceKindDisplay.Label(card.ToPieceKind())"
+                                          Marked="marked"
+                                          Index="i"
+                                          Count="opponentHand.Count"
+                                          Title="@(marked ? $"{PieceKindDisplay.Label(card.ToPieceKind())} — marked for reroll" : PieceKindDisplay.Label(card.ToPieceKind()))" />
                             }
                         </span>
                     </div>
@@ -103,7 +118,7 @@ else
                         <Clock TestId="@ClockTestId(seat.Side)" Label="@SideLabel(seat.Side)"
                                RemainingMs="@RemainingMsOf(seat.Side)" IsActive="@IsClockActive(seat.Side)"
                                AccentBorderClass="@AccentBorderClass(seat.Side)" />
-                        <span data-testid="@HpTestId(seat.Side)" class="text-rust">@HpHearts(seat.Side)</span>
+                        <span data-testid="@HpTestId(seat.Side)" class="text-rust @HpHitClass(seat.Side)">@HpHearts(seat.Side)</span>
                     </div>
                 }
                 else
@@ -111,10 +126,10 @@ else
                     <div class="flex items-center gap-2 font-mono text-sm">
                         <Clock TestId="clock-white" Label="white" RemainingMs="@RemainingMsOf(Side.White)"
                                IsActive="@IsClockActive(Side.White)" AccentBorderClass="@AccentBorderClass(Side.White)" />
-                        <span data-testid="hp-white" class="text-rust">@HpHearts(Side.White)</span>
+                        <span data-testid="hp-white" class="text-rust @HpHitClass(Side.White)">@HpHearts(Side.White)</span>
                         <Clock TestId="clock-black" Label="black" RemainingMs="@RemainingMsOf(Side.Black)"
                                IsActive="@IsClockActive(Side.Black)" AccentBorderClass="@AccentBorderClass(Side.Black)" />
-                        <span data-testid="hp-black" class="text-rust">@HpHearts(Side.Black)</span>
+                        <span data-testid="hp-black" class="text-rust @HpHitClass(Side.Black)">@HpHearts(Side.Black)</span>
                     </div>
                 }
             </div>
@@ -137,8 +152,8 @@ else
             }
             else
             {
-                <p data-testid="turn-status" class="mt-4 flex flex-wrap items-center gap-2 font-mono text-sm">
-                    <span class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
+                <p data-testid="turn-status" class="mt-4 flex flex-wrap items-center gap-2 font-mono text-sm" @key="state.SideToMove">
+                    <span data-turn-indicator class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
                     <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
                     <span class="text-espresso-soft">
                         @(TurnStatusText())
@@ -183,6 +198,8 @@ else
     private Guid myUserId;
     private SeatId? mySeat;
     private string? error;
+    private bool whiteHpJustDropped;
+    private bool blackHpJustDropped;
 
     private bool isMyTurn => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
 
@@ -240,6 +257,8 @@ else
     }
 
     private static string AccentBorderClass(Side side) => side == Side.White ? "border-amber-700/50" : "border-moss/50";
+
+    private string HpHitClass(Side side) => (side == Side.White ? whiteHpJustDropped : blackHpJustDropped) ? "hp-hit" : "";
 
     private string TurnStatusText()
     {
@@ -333,10 +352,37 @@ else
 
     private void ApplyUpdate(CardChessUpdateDto dto)
     {
+        if (state is not null && dto.WhiteHp < state.WhiteHp)
+            TriggerHpHit(Side.White);
+        if (state is not null && dto.BlackHp < state.BlackHp)
+            TriggerHpHit(Side.Black);
+
         state = new CardChessStateDto(
             dto.SideToMove, dto.WhiteHand, dto.BlackHand, dto.WhitePendingReroll, dto.BlackPendingReroll,
             dto.EmergencyMoveAvailable, dto.HandHasNoPlayableCard, dto.AvailableMoves, moveHistory, dto.Fen,
             dto.WhiteHp, dto.BlackHp, dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner);
+    }
+
+    private void TriggerHpHit(Side side)
+    {
+        if (side == Side.White)
+            whiteHpJustDropped = true;
+        else
+            blackHpJustDropped = true;
+
+        _ = ClearHpHitAsync(side);
+    }
+
+    private async Task ClearHpHitAsync(Side side)
+    {
+        await Task.Delay(400);
+
+        if (side == Side.White)
+            whiteHpJustDropped = false;
+        else
+            blackHpJustDropped = false;
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private void SetFullState(CardChessStateDto dto)

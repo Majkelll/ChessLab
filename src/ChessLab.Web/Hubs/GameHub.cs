@@ -13,6 +13,8 @@ namespace ChessLab.Web.Hubs;
 [Authorize]
 public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfiguration configuration) : Hub
 {
+    private const string CurrentRoomGroupKey = "CurrentRoomGroup";
+
     // Seeds a new room's clock (10 min / no increment by default) — the host can then change it
     // per-room from the lobby via SetClockSettings, any time before the game starts. Also
     // configurable at the server level (not just for production tuning) so E2E tests can seed a
@@ -31,27 +33,36 @@ public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfigu
         if (kind == GameKind.CardChess)
         {
             var cardChessSession = registry.CreateCardChessRoom(UserId, DefaultInitialClock, DefaultClockIncrement);
-            await Groups.AddToGroupAsync(Context.ConnectionId, cardChessSession.Room.Code);
+            await SwitchToRoomGroupAsync(cardChessSession.Room.Code);
             return GameDtoMapper.ToRoomDto(cardChessSession);
         }
 
         if (kind == GameKind.ArcaneChess)
         {
             var arcaneChessSession = registry.CreateArcaneChessRoom(UserId, DefaultInitialClock, DefaultClockIncrement);
-            await Groups.AddToGroupAsync(Context.ConnectionId, arcaneChessSession.Room.Code);
+            await SwitchToRoomGroupAsync(arcaneChessSession.Room.Code);
             return GameDtoMapper.ToRoomDto(arcaneChessSession);
         }
 
         var session = registry.CreateRoom(UserId, DefaultInitialClock, DefaultClockIncrement);
-        await Groups.AddToGroupAsync(Context.ConnectionId, session.Room.Code);
+        await SwitchToRoomGroupAsync(session.Room.Code);
         return GameDtoMapper.ToRoomDto(session);
     }
 
     public async Task<RoomStateDto> JoinRoom(string code)
     {
         var session = registry.GetAny(code);
-        await Groups.AddToGroupAsync(Context.ConnectionId, session.Room.Code);
+        await SwitchToRoomGroupAsync(session.Room.Code);
         return GameDtoMapper.ToRoomDto(session);
+    }
+
+    private async Task SwitchToRoomGroupAsync(string code)
+    {
+        if (Context.Items.TryGetValue(CurrentRoomGroupKey, out var previous) && previous is string previousCode && previousCode != code)
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, previousCode);
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, code);
+        Context.Items[CurrentRoomGroupKey] = code;
     }
 
     public async Task ClaimSeat(string code, SeatId seatId)

@@ -34,6 +34,13 @@
   /* Maple/walnut club-board tones, in place of stock Tailwind amber-50/amber-200 squares. */
   --color-board-light: #ead9b8;
   --color-board-dark: #8a6a45;
+
+  --radius-card: 0.75rem;
+  --shadow-card: 0 2px 6px color-mix(in srgb, var(--color-espresso) 25%, transparent),
+    0 1px 2px color-mix(in srgb, var(--color-espresso) 15%, transparent);
+  --shadow-card-lift: 0 14px 24px color-mix(in srgb, var(--color-espresso) 35%, transparent),
+    0 4px 8px color-mix(in srgb, var(--color-espresso) 20%, transparent);
+  --duration-card: 220ms;
 }
 
 /* Real interactive elements only. Blazor's <FocusOnNavigate> programmatically focuses the page's
@@ -99,6 +106,105 @@ body::before {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.hand-card {
+  transform-origin: bottom center;
+  transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px));
+  z-index: calc(10 + var(--i, 0));
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  background: linear-gradient(155deg, color-mix(in srgb, white 55%, var(--color-cream)) 0%, var(--color-cream) 60%);
+  transition: transform var(--duration-card) cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow var(--duration-card) ease;
+  width: clamp(3.25rem, 14vw, 4.25rem);
+}
+
+.hand-card:hover,
+.hand-card[aria-current="true"] {
+  transform: translateY(-0.75rem) scale(1.08) rotate(0deg);
+  box-shadow: var(--shadow-card-lift);
+  z-index: 50;
+}
+
+.hand-card.hand-card-mini {
+  width: clamp(1.75rem, 6vw, 2.25rem);
+  box-shadow: none;
+}
+
+.hand-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.hand-card::after {
+  content: "";
+  position: absolute;
+  inset: -50% -20%;
+  background: linear-gradient(115deg, transparent 35%, color-mix(in srgb, white 70%, transparent) 48%, transparent 60%);
+  opacity: 0;
+  transform: translateX(-60%);
+  pointer-events: none;
+}
+
+.hand-card:hover::after {
+  opacity: 1;
+  animation: card-sheen var(--duration-card) ease-out;
+}
+
+.hand-shelf {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-espresso) 10%, transparent), transparent 70%);
+  padding-block: 1rem 0.25rem;
+}
+
+@keyframes card-sheen {
+  from { transform: translateX(-60%); }
+  to { transform: translateX(60%); }
+}
+
+@keyframes card-deal {
+  from {
+    opacity: 0;
+    transform: translateY(2.5rem) rotate(var(--rot, 0deg)) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px));
+  }
+}
+
+.hand-card.hand-card-deal {
+  animation: card-deal 320ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes card-flip {
+  0% { transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px)) rotateY(0deg); }
+  50% { transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px)) rotateY(90deg); }
+  100% { transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px)) rotateY(0deg); }
+}
+
+.hand-card.hand-card-marked {
+  animation: card-flip 360ms ease-in-out;
+  background: linear-gradient(155deg, color-mix(in srgb, white 55%, var(--color-rust) 8%) 0%, color-mix(in srgb, var(--color-cream) 85%, var(--color-rust) 15%) 60%);
+}
+
+@keyframes hp-hit {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-3px); }
+  40%, 80% { transform: translateX(3px); }
+}
+
+.hp-hit {
+  animation: hp-hit 400ms ease-in-out;
+}
+
+@keyframes turn-slide {
+  from { opacity: 0; transform: translateX(-0.5rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+[data-turn-indicator] {
+  animation: turn-slide 260ms ease-out;
 }
 
 /* cm-chessboard theme ("hand-and-brain"): a from-scratch skin (not one of the library's bundled

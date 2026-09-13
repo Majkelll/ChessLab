@@ -351,6 +351,29 @@ public class GameStateTests
         Assert.DoesNotContain(CardRank.Two, state.HandOf(Side.White));
     }
 
+    [Fact]
+    public void Reroll_NeverProducesADuplicateRankInHand_EvenAfterTheDeckCyclesRepeatedly()
+    {
+        var (state, _) = NewFakeGame(configure: engine =>
+        {
+            engine.AlwaysHasLegalMove = true;
+            foreach (var kind in new[] { PieceKind.Pawn, PieceKind.Knight, PieceKind.Bishop, PieceKind.Rook, PieceKind.Queen, PieceKind.King })
+                engine.MovesByKind[kind] = [Move("a1", "a2", kind)];
+        });
+
+        for (var i = 0; i < 30; i++)
+        {
+            var hand = state.HandOf(state.SideToMove);
+            state.SelectCardsForReroll([.. hand.Take(GameState.MaxRerollSelection)]);
+
+            var move = state.AvailableMoves.First();
+            state.MakeMove(move.From, move.To, move.PromoteTo, TimeSpan.FromSeconds(1));
+
+            Assert.Equal(state.HandOf(Side.White).Distinct().Count(), state.HandOf(Side.White).Count);
+            Assert.Equal(state.HandOf(Side.Black).Distinct().Count(), state.HandOf(Side.Black).Count);
+        }
+    }
+
     private static void PlayTurn(GameState state, string from, string to)
     {
         var move = state.AvailableMoves.Single(m => m.From == Square.Parse(from) && m.To == Square.Parse(to));
