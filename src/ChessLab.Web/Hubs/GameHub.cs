@@ -49,9 +49,11 @@ public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfigu
         return GameDtoMapper.ToRoomDto(session);
     }
 
-    public async Task<RoomStateDto> JoinRoom(string code)
+    public async Task<RoomStateDto?> JoinRoom(string code)
     {
-        var session = registry.GetAny(code);
+        if (registry.FindAny(code) is not { } session)
+            return null;
+
         await SwitchToRoomGroupAsync(session.Room.Code);
         return GameDtoMapper.ToRoomDto(session);
     }

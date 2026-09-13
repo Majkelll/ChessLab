@@ -80,6 +80,12 @@ public sealed class RoomRegistry
         return session;
     }
 
+    /// <summary>Lookup that treats a missing room as an expected answer rather than a failure:
+    /// rooms only live in memory, so any code a player still has stops resolving once the server
+    /// restarts, and the client turns that into a "this room is gone" screen instead of an error.</summary>
+    public IRoomSession? FindAny(string code) =>
+        sessions.TryGetValue(code, out var session) ? session : null;
+
     /// <summary>Hand &amp; Brain sessions with a game currently in progress — used by the clock watchdog.</summary>
     public IEnumerable<GameSession> ActiveSessions() =>
         sessions.Values.OfType<GameSession>().Where(s => s.HasActiveGame);

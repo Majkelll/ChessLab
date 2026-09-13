@@ -14,7 +14,19 @@
 
 <PageTitle>Game @Code</PageTitle>
 
-@if (error is not null)
+@if (roomIsGone)
+{
+    <div data-testid="room-gone" class="max-w-xl">
+        <p class="text-sm text-rust">Room '@Code' was not found.</p>
+        <p class="mt-2 text-sm text-espresso-soft">
+            Rooms only live while the server is running, so this one is gone if the game ended or the server restarted.
+        </p>
+        <a href="" class="mt-4 inline-block border border-amber-700/40 bg-amber-700/5 px-4 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+            Back to games
+        </a>
+    </div>
+}
+else if (error is not null)
 {
     <p data-testid="game-error" class="text-sm text-rust">@error</p>
 }
@@ -146,6 +158,7 @@ else
     private Guid myUserId;
     private SeatId? mySeat;
     private string? error;
+    private bool roomIsGone;
 
     private bool isMyTurn =>
         mySeat is not null && state is not null &&
@@ -174,7 +187,14 @@ else
         try
         {
             await Game.EnsureConnectedAsync();
-            room = await Game.JoinRoomAsync(Code);
+            if (await Game.JoinRoomAsync(Code) is not { } joined)
+            {
+                roomIsGone = true;
+                StateHasChanged();
+                return;
+            }
+
+            room = joined;
             mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
             SetFullState(await Game.GetGameStateAsync(Code));
             StateHasChanged();
