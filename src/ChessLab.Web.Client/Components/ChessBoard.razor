@@ -2,9 +2,9 @@
 @inject IJSRuntime Js
 @implements IAsyncDisposable
 
-<div class="w-full select-none">
-    <div class="border-4 border-espresso bg-espresso p-1.5 shadow-[inset_0_0_0_1px_rgba(246,239,228,0.08)]">
-        <div @ref="boardContainer" data-testid="chess-board" class="w-full"></div>
+<div class="board-frame select-none">
+    <div class="h-full w-full border-4 border-espresso bg-espresso p-1.5 shadow-[inset_0_0_0_1px_rgba(246,239,228,0.08)]">
+        <div @ref="boardContainer" data-testid="chess-board" class="h-full w-full"></div>
     </div>
 </div>
 

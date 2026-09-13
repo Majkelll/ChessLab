@@ -25,13 +25,13 @@ else if (room is null || state is null)
 }
 else
 {
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(280px,512px)_1fr]">
-        <div class="mx-auto w-full max-w-[512px]">
+    <div class="flex h-full min-h-0 flex-col gap-4 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
+        <div class="flex min-h-0 w-full flex-col">
             @if (mySeat is { } opponentSeat)
             {
                 var handOwnerSide = opponentSeat.Side == Side.White ? Side.Black : Side.White;
                 var opponentHand = HandOf(handOwnerSide);
-                <div class="mb-2 flex flex-col items-center" data-testid="opponent-hand">
+                <div class="flex shrink-0 flex-col items-center" data-testid="opponent-hand">
                     <div class="hand-row hand-row-mini -space-x-1">
                         @for (var i = 0; i < opponentHand.Count; i++)
                         {
@@ -55,13 +55,15 @@ else
                 </div>
             }
 
-            <div class="relative">
+            <div class="board-fit min-h-0 w-full flex-1">
                 <ChessBoard Fen="@state.Fen"
                             AvailableMoves="@state.AvailableMoves"
                             Interactive="@isBoardInteractive"
                             FlipBoard="@(mySeat?.Side == Side.Black)"
                             OnMoveSelected="MakeMoveAsync" />
+            </div>
 
+            <div class="relative shrink-0">
                 @if (mySeat is { } mine)
                 {
                     var canToggle = isMyTurn && !state.IsGameOver;
@@ -96,7 +98,7 @@ else
                 }
             </div>
 
-            <div class="mt-3 min-h-10">
+            <div class="mt-2 min-h-10 shrink-0">
                 @if (state.EmergencyMoveAvailable && isMyTurn)
                 {
                     <p data-testid="emergency-move-banner" class="border border-rust/40 bg-rust/5 px-3 py-2 font-mono text-sm text-rust">
@@ -110,10 +112,90 @@ else
                     </p>
                 }
             </div>
+        </div>
+
+        <div class="flex min-h-0 flex-col overflow-y-auto">
+            <div class="flex shrink-0 flex-col items-start gap-1.5">
+                @if (mySeat is { } seat)
+                {
+                    var opponentSide = seat.Side == Side.White ? Side.Black : Side.White;
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <Clock TestId="@ClockTestId(opponentSide)" Label="@SideLabel(opponentSide)"
+                               RemainingMs="@RemainingMsOf(opponentSide)" IsActive="@IsClockActive(opponentSide)"
+                               AccentBorderClass="@AccentBorderClass(opponentSide)" />
+                        <span data-testid="@HpTestId(opponentSide)" class="text-rust @HpHitClass(opponentSide)">@HpHearts(opponentSide)</span>
+                        <span class="text-espresso-soft/60 @ManaHitClass(opponentSide)">@ManaPips(opponentSide)</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <Clock TestId="@ClockTestId(seat.Side)" Label="@SideLabel(seat.Side)"
+                               RemainingMs="@RemainingMsOf(seat.Side)" IsActive="@IsClockActive(seat.Side)"
+                               AccentBorderClass="@AccentBorderClass(seat.Side)" />
+                        <span data-testid="@HpTestId(seat.Side)" class="text-rust @HpHitClass(seat.Side)">@HpHearts(seat.Side)</span>
+                        <span class="text-espresso-soft/60 @ManaHitClass(seat.Side)">@ManaPips(seat.Side)</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <Clock TestId="clock-white" Label="white" RemainingMs="@RemainingMsOf(Side.White)"
+                               IsActive="@IsClockActive(Side.White)" AccentBorderClass="@AccentBorderClass(Side.White)" />
+                        <span data-testid="hp-white" class="text-rust @HpHitClass(Side.White)">@HpHearts(Side.White)</span>
+                        <Clock TestId="clock-black" Label="black" RemainingMs="@RemainingMsOf(Side.Black)"
+                               IsActive="@IsClockActive(Side.Black)" AccentBorderClass="@AccentBorderClass(Side.Black)" />
+                        <span data-testid="hp-black" class="text-rust @HpHitClass(Side.Black)">@HpHearts(Side.Black)</span>
+                    </div>
+                }
+            </div>
+
+            @if (state.IsGameOver)
+            {
+                <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
+                    <span class="text-espresso-soft">Game over:</span> <span data-testid="game-over-reason">@EndReasonLabel(state.EndReason)</span>
+                    @if (state.Winner is { } winner)
+                    {
+                        <text> — <span data-testid="game-over-winner">@(winner == Side.White ? "white" : "black")</span> wins</text>
+                    }
+                </p>
+                <button data-testid="back-to-room-link"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="BackToRoom"
+                        class="mt-4 w-fit shrink-0 self-start border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+                    Back to room
+                </button>
+            }
+            else
+            {
+                <p data-testid="turn-status" class="mt-4 flex flex-wrap items-center gap-2 font-mono text-sm" @key="state.SideToMove">
+                    <span data-turn-indicator class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
+                    <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
+                    <span class="text-espresso-soft">
+                        @(TurnStatusText())
+                    </span>
+                </p>
+
+                @if (mySeat is not null)
+                {
+                    <button data-testid="resign-btn"
+                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                            @onclick="ResignAsync"
+                            class="mt-4 w-fit shrink-0 self-start border border-rust/40 bg-rust/5 px-3 py-1.5 font-mono text-sm text-rust hover:bg-rust/20 transition duration-300 hover:cursor-pointer">
+                        Resign
+                    </button>
+                }
+            }
+
+            <h3 class="mt-4 shrink-0 text-xs font-normal text-espresso/42">MOVE HISTORY</h3>
+            <div class="h-1 w-full shrink-0 border-b border-espresso/16"></div>
+            <ol data-testid="move-history" class="mt-2 flex max-h-24 min-h-0 flex-wrap gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
+                @for (var i = 0; i < state.MoveHistory.Count; i++)
+                {
+                    <li><span class="text-espresso-soft/70">@(i + 1).</span> @state.MoveHistory[i].San</li>
+                }
+            </ol>
 
             @if (mySeat is { } mySpellSeat)
             {
-                <div class="mt-2 mb-4 border-t border-espresso/16 pt-3" data-testid="my-spell-hand">
+                <div class="mt-3 shrink-0 border-t border-espresso/16 pt-2" data-testid="my-spell-hand">
                     <div class="mb-1 flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-espresso-soft/70">
                         <span class="uppercase tracking-wide">Your spells</span>
                         <span class="flex items-center gap-1">
@@ -121,7 +203,7 @@ else
                             <span>mana</span>
                         </span>
                     </div>
-                    <div class="hand-row flex-wrap gap-1">
+                    <div class="hand-row hand-row-spells flex-wrap gap-1">
                         @{ var spellHand = SpellHandOf(mySpellSeat.Side); }
                         @for (var i = 0; i < spellHand.Count; i++)
                         {
@@ -194,86 +276,6 @@ else
                     }
                 </div>
             }
-        </div>
-
-        <div>
-            <div class="flex flex-col items-start gap-1.5">
-                @if (mySeat is { } seat)
-                {
-                    var opponentSide = seat.Side == Side.White ? Side.Black : Side.White;
-                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
-                        <Clock TestId="@ClockTestId(opponentSide)" Label="@SideLabel(opponentSide)"
-                               RemainingMs="@RemainingMsOf(opponentSide)" IsActive="@IsClockActive(opponentSide)"
-                               AccentBorderClass="@AccentBorderClass(opponentSide)" />
-                        <span data-testid="@HpTestId(opponentSide)" class="text-rust @HpHitClass(opponentSide)">@HpHearts(opponentSide)</span>
-                        <span class="text-espresso-soft/60 @ManaHitClass(opponentSide)">@ManaPips(opponentSide)</span>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
-                        <Clock TestId="@ClockTestId(seat.Side)" Label="@SideLabel(seat.Side)"
-                               RemainingMs="@RemainingMsOf(seat.Side)" IsActive="@IsClockActive(seat.Side)"
-                               AccentBorderClass="@AccentBorderClass(seat.Side)" />
-                        <span data-testid="@HpTestId(seat.Side)" class="text-rust @HpHitClass(seat.Side)">@HpHearts(seat.Side)</span>
-                        <span class="text-espresso-soft/60 @ManaHitClass(seat.Side)">@ManaPips(seat.Side)</span>
-                    </div>
-                }
-                else
-                {
-                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
-                        <Clock TestId="clock-white" Label="white" RemainingMs="@RemainingMsOf(Side.White)"
-                               IsActive="@IsClockActive(Side.White)" AccentBorderClass="@AccentBorderClass(Side.White)" />
-                        <span data-testid="hp-white" class="text-rust @HpHitClass(Side.White)">@HpHearts(Side.White)</span>
-                        <Clock TestId="clock-black" Label="black" RemainingMs="@RemainingMsOf(Side.Black)"
-                               IsActive="@IsClockActive(Side.Black)" AccentBorderClass="@AccentBorderClass(Side.Black)" />
-                        <span data-testid="hp-black" class="text-rust @HpHitClass(Side.Black)">@HpHearts(Side.Black)</span>
-                    </div>
-                }
-            </div>
-
-            @if (state.IsGameOver)
-            {
-                <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
-                    <span class="text-espresso-soft">Game over:</span> <span data-testid="game-over-reason">@EndReasonLabel(state.EndReason)</span>
-                    @if (state.Winner is { } winner)
-                    {
-                        <text> — <span data-testid="game-over-winner">@(winner == Side.White ? "white" : "black")</span> wins</text>
-                    }
-                </p>
-                <button data-testid="back-to-room-link"
-                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                        @onclick="BackToRoom"
-                        class="mt-4 border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
-                    Back to room
-                </button>
-            }
-            else
-            {
-                <p data-testid="turn-status" class="mt-4 flex flex-wrap items-center gap-2 font-mono text-sm" @key="state.SideToMove">
-                    <span data-turn-indicator class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
-                    <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
-                    <span class="text-espresso-soft">
-                        @(TurnStatusText())
-                    </span>
-                </p>
-
-                @if (mySeat is not null)
-                {
-                    <button data-testid="resign-btn"
-                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                            @onclick="ResignAsync"
-                            class="mt-6 border border-rust/40 bg-rust/5 px-3 py-1.5 font-mono text-sm text-rust hover:bg-rust/20 transition duration-300 hover:cursor-pointer">
-                        Resign
-                    </button>
-                }
-            }
-
-            <h3 class="mt-6 text-xs font-normal text-espresso/42">MOVE HISTORY</h3>
-            <div class="h-1 w-full border-b border-espresso/16"></div>
-            <ol data-testid="move-history" class="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-sm">
-                @for (var i = 0; i < state.MoveHistory.Count; i++)
-                {
-                    <li><span class="text-espresso-soft/70">@(i + 1).</span> @state.MoveHistory[i].San</li>
-                }
-            </ol>
         </div>
     </div>
 

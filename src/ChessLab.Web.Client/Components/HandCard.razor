@@ -119,10 +119,10 @@ else
         <span class="@(IsMini ? "text-base" : "text-2xl") leading-none">@Glyph</span>
         @if (!IsMini)
         {
-            <span class="mt-0.5 text-[10px] font-mono text-espresso-soft/70">@Label</span>
+            <span class="mt-0.5 w-full text-center text-[10px] leading-tight break-words font-mono text-espresso-soft/70">@Label</span>
             @if (Sublabel is not null)
             {
-                <span class="text-[9px] font-mono text-espresso-soft/60">@Sublabel</span>
+                <span class="w-full text-center text-[9px] leading-tight font-mono text-espresso-soft/60">@Sublabel</span>
             }
         }
     </text>;
