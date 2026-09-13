@@ -286,6 +286,12 @@ else
             await Game.EnsureConnectedAsync();
             if (await Game.JoinRoomAsync(Code) is not { } joined)
             {
+                if (await Game.GetGameHistoryByRoomCodeAsync(Code) is { } finished)
+                {
+                    Nav.NavigateTo($"history/{finished.Summary.Id}");
+                    return;
+                }
+
                 error = $"Room '{Code}' was not found. Rooms only live while the server is running, so it is gone if the game ended or the server restarted.";
                 StateHasChanged();
                 return;

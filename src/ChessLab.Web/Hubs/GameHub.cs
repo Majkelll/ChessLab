@@ -11,7 +11,12 @@ using Microsoft.AspNetCore.SignalR;
 namespace ChessLab.Web.Hubs;
 
 [Authorize]
-public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfiguration configuration) : Hub
+public sealed class GameHub(
+    RoomRegistry registry,
+    BotRunner botRunner,
+    GameArchive archive,
+    GameHistoryService history,
+    IConfiguration configuration) : Hub
 {
     private const string CurrentRoomGroupKey = "CurrentRoomGroup";
 
@@ -48,6 +53,15 @@ public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfigu
         await SwitchToRoomGroupAsync(session.Room.Code);
         return GameDtoMapper.ToRoomDto(session);
     }
+
+    public Task<IReadOnlyList<GameHistoryEntryDto>> GetMyGameHistory(int limit = 50) =>
+        history.ForUserAsync(UserId, Math.Clamp(limit, 1, 200));
+
+    public Task<GameHistoryDetailDto?> GetGameHistoryEntry(Guid id) => history.ByIdAsync(id);
+
+    /// <summary>Lets a stale room link land on the finished game it used to be, now that the room
+    /// itself is gone — the record outlives the in-memory room.</summary>
+    public Task<GameHistoryDetailDto?> GetGameHistoryByRoomCode(string code) => history.ByRoomCodeAsync(code);
 
     public async Task<RoomStateDto?> JoinRoom(string code)
     {
@@ -261,14 +275,23 @@ public sealed class GameHub(RoomRegistry registry, BotRunner botRunner, IConfigu
     private Task BroadcastRoom(IRoomSession session) =>
         Clients.Group(session.Room.Code).SendAsync("RoomUpdated", GameDtoMapper.ToRoomDto(session));
 
-    private Task BroadcastGame(GameSession session, string eventName) =>
-        Clients.Group(session.Room.Code).SendAsync(eventName, GameDtoMapper.ToGameUpdateDto(session));
+    private async Task BroadcastGame(GameSession session, string eventName)
+    {
+        await Clients.Group(session.Room.Code).SendAsync(eventName, GameDtoMapper.ToGameUpdateDto(session));
+        await archive.RecordIfFinishedAsync(session);
+    }
 
-    private Task BroadcastCardChessGame(CardChessSession session, string eventName) =>
-        Clients.Group(session.Room.Code).SendAsync(eventName, GameDtoMapper.ToCardChessUpdateDto(session));
+    private async Task BroadcastCardChessGame(CardChessSession session, string eventName)
+    {
+        await Clients.Group(session.Room.Code).SendAsync(eventName, GameDtoMapper.ToCardChessUpdateDto(session));
+        await archive.RecordIfFinishedAsync(session);
+    }
 
-    private Task BroadcastArcaneChessGame(ArcaneChessSession session, string eventName) =>
-        Clients.Group(session.Room.Code).SendAsync(eventName, GameDtoMapper.ToArcaneChessUpdateDto(session));
+    private async Task BroadcastArcaneChessGame(ArcaneChessSession session, string eventName)
+    {
+        await Clients.Group(session.Room.Code).SendAsync(eventName, GameDtoMapper.ToArcaneChessUpdateDto(session));
+        await archive.RecordIfFinishedAsync(session);
+    }
 
     private void EnsureActiveSeatIsCaller(GameSession session)
     {
