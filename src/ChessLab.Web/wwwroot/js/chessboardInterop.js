@@ -32,6 +32,35 @@ class BoardController {
         })
 
         this.inputHandler = this.inputHandler.bind(this)
+        this.squareSelectHandler = this.squareSelectHandler.bind(this)
+        this.squareSelectEnabled = false
+    }
+
+    // Spell targeting: the board stops being a move surface and becomes a square picker, so a
+    // target is chosen by clicking the board rather than typing coordinates.
+    setSquareSelect(enabled) {
+        if (enabled === this.squareSelectEnabled) {
+            return
+        }
+        if (enabled) {
+            this.board.enableSquareSelect("pointerdown", this.squareSelectHandler)
+        } else {
+            this.board.disableSquareSelect("pointerdown")
+        }
+        this.squareSelectEnabled = enabled
+    }
+
+    squareSelectHandler(event) {
+        if (event.square) {
+            this.dotNetRef.invokeMethodAsync("OnSquareInput", event.square)
+        }
+    }
+
+    setSelectedSquares(squares) {
+        this.board.removeMarkers(MARKER_TYPE.framePrimary)
+        for (const square of squares) {
+            this.board.addMarker(MARKER_TYPE.framePrimary, square)
+        }
     }
 
     setPosition(fen, animated) {

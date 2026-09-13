@@ -240,7 +240,18 @@ public sealed class GameHub(
     {
         var session = registry.GetArcaneChess(code);
         EnsureArcaneChessActiveSeatIsCaller(session);
-        session.CastSpell(spell, target);
+
+        try
+        {
+            session.CastSpell(spell, target);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // An illegal target is the player picking the wrong square, not a server fault — send
+            // the rule that rejected it so the UI can show it next to the spell.
+            throw new HubException(ex.Message);
+        }
+
         await BroadcastArcaneChessGame(session, "ArcaneChessGameUpdated");
     }
 

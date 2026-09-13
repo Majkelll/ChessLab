@@ -15,6 +15,11 @@
     [Parameter] public bool FlipBoard { get; set; }
     [Parameter] public EventCallback<ChessMove> OnMoveSelected { get; set; }
 
+    /// <summary>Turns the board into a square picker (spell targeting) instead of a move surface.</summary>
+    [Parameter] public bool SquareSelect { get; set; }
+    [Parameter] public IReadOnlyList<Square> SelectedSquares { get; set; } = [];
+    [Parameter] public EventCallback<Square> OnSquareSelected { get; set; }
+
     private ElementReference boardContainer;
     private IJSObjectReference? jsModule;
     private IJSObjectReference? board;
@@ -23,6 +28,8 @@
     private bool syncedFlip;
     private IReadOnlyList<ChessMove>? syncedMoves;
     private bool syncedInteractive;
+    private bool syncedSquareSelect;
+    private IReadOnlyList<Square>? syncedSelectedSquares;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -67,7 +74,24 @@
             syncedInteractive = Interactive;
             await board.InvokeVoidAsync("setInteractive", Interactive);
         }
+
+        if (firstRender || SquareSelect != syncedSquareSelect)
+        {
+            syncedSquareSelect = SquareSelect;
+            await board.InvokeVoidAsync("setSquareSelect", SquareSelect);
+        }
+
+        if (firstRender || !SelectedSquares.SequenceEqual(syncedSelectedSquares ?? []))
+        {
+            // Copy: the caller hands over a list it keeps mutating, so holding the same instance
+            // would compare it against itself and never see a change.
+            syncedSelectedSquares = SelectedSquares.ToArray();
+            await board.InvokeVoidAsync("setSelectedSquares", SelectedSquares.Select(s => s.ToString()));
+        }
     }
+
+    [JSInvokable]
+    public Task OnSquareInput(string square) => OnSquareSelected.InvokeAsync(Square.Parse(square));
 
     /// <summary>Called from chessboardInterop.js once a move (including, for a promotion, the
     /// chosen piece) has been fully decided client-side — never a rules decision of its own, just
