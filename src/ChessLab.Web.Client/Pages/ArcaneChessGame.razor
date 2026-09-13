@@ -355,6 +355,12 @@ else
             await Game.EnsureConnectedAsync();
             if (await Game.JoinRoomAsync(Code) is not { } joined)
             {
+                if (await Game.GetGameHistoryByRoomCodeAsync(Code) is { } finished)
+                {
+                    Nav.NavigateTo($"history/{finished.Summary.Id}");
+                    return;
+                }
+
                 roomIsGone = true;
                 StateHasChanged();
                 return;

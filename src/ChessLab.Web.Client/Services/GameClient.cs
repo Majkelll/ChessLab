@@ -46,6 +46,15 @@ public sealed class GameClient : IAsyncDisposable
 
     public Task<RoomStateDto?> JoinRoomAsync(string code) => Connection.InvokeAsync<RoomStateDto?>("JoinRoom", code);
 
+    public Task<IReadOnlyList<GameHistoryEntryDto>> GetMyGameHistoryAsync(int limit = 50) =>
+        Connection.InvokeAsync<IReadOnlyList<GameHistoryEntryDto>>("GetMyGameHistory", limit);
+
+    public Task<GameHistoryDetailDto?> GetGameHistoryEntryAsync(Guid id) =>
+        Connection.InvokeAsync<GameHistoryDetailDto?>("GetGameHistoryEntry", id);
+
+    public Task<GameHistoryDetailDto?> GetGameHistoryByRoomCodeAsync(string code) =>
+        Connection.InvokeAsync<GameHistoryDetailDto?>("GetGameHistoryByRoomCode", code);
+
     public Task ClaimSeatAsync(string code, SeatId seatId) => Connection.InvokeAsync("ClaimSeat", code, seatId);
 
     public Task LeaveSeatAsync(string code, SeatId seatId) => Connection.InvokeAsync("LeaveSeat", code, seatId);

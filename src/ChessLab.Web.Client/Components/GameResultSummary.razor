@@ -1,0 +1,73 @@
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Contracts
+@using ChessLab.Core.Rooms
+
+<div class="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-sm">
+    <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs">@KindLabel(Entry.Kind)</span>
+    <span class="text-espresso-soft">@Opponents()</span>
+    <span class="@ResultClass()">@ResultLabel()</span>
+    <span class="text-espresso-soft/60 text-xs">@Entry.MoveCount moves · @ReasonLabel(Entry.EndReason)</span>
+    <span class="text-espresso-soft/60 text-xs">@Entry.FinishedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public GameHistoryEntryDto Entry { get; set; } = default!;
+    [Parameter] public Guid? ViewerUserId { get; set; }
+
+    private Side? ViewerSide => Entry.Players.FirstOrDefault(p => p.UserId is { } id && id == ViewerUserId)?.Side;
+
+    private string ResultLabel()
+    {
+        if (Entry.Winner is not { } winner)
+            return "draw";
+
+        if (ViewerSide is { } side)
+            return side == winner ? "won" : "lost";
+
+        return winner == Side.White ? "white won" : "black won";
+    }
+
+    private string ResultClass() => ResultLabel() switch
+    {
+        "won" => "text-moss",
+        "lost" => "text-rust",
+        _ => "text-espresso-soft",
+    };
+
+    private string Opponents()
+    {
+        var names = Entry.Players
+            .Where(p => p.UserId != ViewerUserId || ViewerUserId is null)
+            .Select(NameOf)
+            .Distinct()
+            .ToList();
+
+        return names.Count == 0 ? "solo" : string.Join(", ", names);
+    }
+
+    private static string NameOf(GameHistoryPlayerDto player) =>
+        player.BotDifficulty is { } difficulty
+            ? $"bot ({BotDifficultyElo.Approximate(difficulty)} Elo)"
+            : player.DisplayName ?? "unknown";
+
+    private static string KindLabel(GameKind kind) => kind switch
+    {
+        GameKind.CardChess => "Card Chess",
+        GameKind.ArcaneChess => "Arcane Chess",
+        _ => "Hand and Brain",
+    };
+
+    private static string ReasonLabel(GameEndReason reason) => reason switch
+    {
+        GameEndReason.Checkmate => "checkmate",
+        GameEndReason.Stalemate => "stalemate",
+        GameEndReason.InsufficientMaterial => "insufficient material",
+        GameEndReason.FiftyMoveRule => "fifty-move rule",
+        GameEndReason.Repetition => "repetition",
+        GameEndReason.Resignation => "resignation",
+        GameEndReason.Timeout => "timeout",
+        GameEndReason.DrawAgreed => "draw agreed",
+        GameEndReason.HpDepleted => "HP depleted",
+        _ => reason.ToString().ToLowerInvariant(),
+    };
+}

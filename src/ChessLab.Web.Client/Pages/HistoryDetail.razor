@@ -1,0 +1,89 @@
+@page "/history/{Id:guid}"
+@attribute [Authorize]
+@using ChessLab.Core.Contracts
+@using ChessLab.Web.Client.Components
+@using ChessLab.Web.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GameClient Game
+@inject CurrentGameContext GameContext
+
+<PageTitle>Finished game</PageTitle>
+
+@if (error is not null)
+{
+    <p data-testid="history-error" class="text-sm text-rust">@error</p>
+}
+else if (notFound)
+{
+    <div data-testid="history-not-found">
+        <p class="text-sm text-rust">That game was not found.</p>
+        <a href="history" class="mt-4 inline-block border border-amber-700/40 bg-amber-700/5 px-4 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+            Back to history
+        </a>
+    </div>
+}
+else if (detail is null)
+{
+    <p class="text-espresso/42">Loading<span class="blink-cursor" aria-hidden="true">_</span></p>
+}
+else
+{
+    <div data-testid="history-detail" class="flex h-full min-h-0 flex-col gap-4 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
+        <div class="board-fit min-h-0 w-full flex-1">
+            <ChessBoard Fen="@detail.FinalFen" Interactive="false" />
+        </div>
+
+        <div class="flex min-h-0 flex-col">
+            <GameResultSummary Entry="detail.Summary" ViewerUserId="myUserId" />
+
+            <p class="mt-2 font-mono text-xs text-espresso-soft/60">Room @detail.Summary.RoomCode · final position</p>
+
+            <h3 class="mt-4 shrink-0 text-xs font-normal text-espresso/42">MOVE HISTORY</h3>
+            <div class="h-1 w-full shrink-0 border-b border-espresso/16"></div>
+            <ol data-testid="history-moves" class="mt-2 flex min-h-0 flex-1 flex-wrap content-start gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
+                @for (var i = 0; i < detail.MovesSan.Count; i++)
+                {
+                    <li><span class="text-espresso-soft/70">@(i + 1).</span> @detail.MovesSan[i]</li>
+                }
+            </ol>
+
+            <a href="history" class="mt-4 w-fit shrink-0 border border-amber-700/40 bg-amber-700/5 px-4 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+                Back to history
+            </a>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private GameHistoryDetailDto? detail;
+    private Guid myUserId;
+    private bool notFound;
+    private string? error;
+
+    protected override void OnInitialized() => GameContext.Set("History");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            var authState = await AuthStateTask!;
+            myUserId = Guid.Parse(authState.User.FindFirst("buid")!.Value);
+
+            await Game.EnsureConnectedAsync();
+            detail = await Game.GetGameHistoryEntryAsync(Id);
+            notFound = detail is null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+
+        StateHasChanged();
+    }
+}

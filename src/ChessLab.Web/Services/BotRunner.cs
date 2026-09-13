@@ -11,7 +11,7 @@ namespace ChessLab.Web.Services;
 /// Drives bot-occupied seats: whenever the active seat of a room's game is a bot, plays its turn
 /// (Brain announcement or Hand move) and broadcasts the result, chaining through consecutive bot turns.
 /// </summary>
-public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, IConfiguration configuration, ILogger<BotRunner> logger)
+public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, GameArchive archive, IConfiguration configuration, ILogger<BotRunner> logger)
     : IAsyncDisposable
 {
     private static readonly TimeSpan MinThinkDelay = TimeSpan.FromMilliseconds(400);
@@ -62,6 +62,7 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, I
                 }
 
                 await hub.Clients.Group(code).SendAsync("GameUpdated", GameDtoMapper.ToGameUpdateDto(session));
+                await archive.RecordIfFinishedAsync(session);
             }
         }
         catch (Exception ex)
@@ -107,6 +108,7 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, I
                 session.MakeMove(move.From, move.To, move.PromoteTo, DateTimeOffset.UtcNow);
 
                 await hub.Clients.Group(code).SendAsync("CardChessGameUpdated", GameDtoMapper.ToCardChessUpdateDto(session));
+                await archive.RecordIfFinishedAsync(session);
             }
         }
         catch (Exception ex)
@@ -160,6 +162,7 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, I
                 session.MakeMove(move.From, move.To, move.PromoteTo, DateTimeOffset.UtcNow);
 
                 await hub.Clients.Group(code).SendAsync("ArcaneChessGameUpdated", GameDtoMapper.ToArcaneChessUpdateDto(session));
+                await archive.RecordIfFinishedAsync(session);
             }
         }
         catch (Exception ex)

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.OAuth.Claims;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
@@ -64,10 +65,17 @@ public partial class Program
                 options.UseNpgsql(connectionString);
         });
         builder.Services.AddScoped<UserService>();
+        builder.Services.AddScoped<GameHistoryService>();
+
+        // Without a shared key ring the keys live in the container filesystem, which Render
+        // replaces on every deploy — every already-issued antiforgery token and auth cookie then
+        // fails to decrypt until the visitor clears their cookies.
+        builder.Services.AddDataProtection().PersistKeysToDbContext<ChessLabDbContext>();
 
         builder.Services.AddSignalR().AddMessagePackProtocol();
         builder.Services.AddSingleton<RoomRegistry>();
         builder.Services.AddSingleton<BotRunner>();
+        builder.Services.AddSingleton<GameArchive>();
         builder.Services.AddHostedService<ClockWatchdog>();
         builder.Services.AddScoped<ChessLab.Web.Client.Services.GameClient>();
         builder.Services.AddScoped<ChessLab.Web.Client.Services.CurrentGameContext>();
