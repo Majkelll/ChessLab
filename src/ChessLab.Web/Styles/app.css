@@ -289,6 +289,14 @@ button.hand-card:hover .hand-card-visual::after {
   opacity: 0.45;
 }
 
+/* Spell targeting picks squares on the board, and rust is the accent the spell cards already
+   use — the library's default is a blue that belongs to no other part of this app. */
+.cm-chessboard.hand-and-brain .markers .marker.marker-frame-primary {
+  stroke: var(--color-rust);
+  stroke-width: 3px;
+  opacity: 0.9;
+}
+
 svg.cm-chessboard .promotion-dialog-group .promotion-dialog {
   fill: var(--color-cream);
   fill-opacity: 0.98;

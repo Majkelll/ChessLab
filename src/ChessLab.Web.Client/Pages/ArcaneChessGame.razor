@@ -70,9 +70,12 @@ else
             <div class="board-fit min-h-0 w-full flex-1">
                 <ChessBoard Fen="@state.Fen"
                             AvailableMoves="@state.AvailableMoves"
-                            Interactive="@isBoardInteractive"
+                            Interactive="@(isBoardInteractive && !IsTargetingSquares)"
                             FlipBoard="@(mySeat?.Side == Side.Black)"
-                            OnMoveSelected="MakeMoveAsync" />
+                            OnMoveSelected="MakeMoveAsync"
+                            SquareSelect="@IsTargetingSquares"
+                            SelectedSquares="@targetSquares"
+                            OnSquareSelected="OnSquareTargeted" />
             </div>
 
             <div class="relative shrink-0">
@@ -239,23 +242,37 @@ else
 
                     @if (selectedSpell is { } spellBeingCast)
                     {
-                        <div class="mt-2 flex flex-wrap items-center gap-2 border border-espresso/16 bg-white/40 px-3 py-2" data-testid="spell-target-form">
-                            <span class="font-mono text-xs text-espresso-soft">@spellBeingCast.Label():</span>
+                        <div class="mt-2 flex flex-col gap-2 border border-espresso/16 bg-white/40 px-3 py-2" data-testid="spell-target-form">
+                            <span class="font-mono text-xs text-espresso-soft">@spellBeingCast.Label()</span>
                             @switch (ShapeOf(spellBeingCast))
                             {
                                 case TargetShape.OneSquare:
-                                    <input data-testid="spell-target-square" @bind="targetSquareText" @bind:event="oninput" placeholder="e.g. d4"
-                                           class="w-20 border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-xs uppercase focus:outline-none" />
-                                    break;
                                 case TargetShape.TwoSquares:
-                                    <input data-testid="spell-target-square-1" @bind="targetSquareText" @bind:event="oninput" placeholder="from"
-                                           class="w-16 border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-xs uppercase focus:outline-none" />
-                                    <input data-testid="spell-target-square-2" @bind="targetSquareText2" @bind:event="oninput" placeholder="to"
-                                           class="w-16 border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-xs uppercase focus:outline-none" />
+                                    <p data-testid="spell-target-prompt" class="font-mono text-[11px] text-espresso-soft/70">
+                                        @TargetPrompt(spellBeingCast)
+                                    </p>
+                                    <div class="flex flex-wrap items-center gap-1">
+                                        @for (var i = 0; i < SquaresNeeded(spellBeingCast); i++)
+                                        {
+                                            var picked = i < targetSquares.Count ? targetSquares[i].ToString() : null;
+                                            <span data-testid="@($"spell-target-slot-{i}")"
+                                                  class="@($"border px-2 py-0.5 font-mono text-xs uppercase {(picked is null ? "border-dashed border-espresso/30 text-espresso/30" : "border-rust/50 bg-rust/10 text-rust")}")">
+                                                @(picked ?? "pick")
+                                            </span>
+                                        }
+                                        @if (targetSquares.Count > 0)
+                                        {
+                                            <button type="button" data-testid="clear-spell-target-btn" @onclick="ClearSpellTarget"
+                                                    class="ml-1 font-mono text-[11px] text-espresso-soft underline hover:text-rust hover:cursor-pointer">
+                                                clear
+                                            </button>
+                                        }
+                                    </div>
                                     break;
                                 case TargetShape.HandCard:
+                                    <p class="font-mono text-[11px] text-espresso-soft/70">Pick a card to swap.</p>
                                     <select data-testid="spell-target-handcard" @bind="targetHandCardText"
-                                            class="border border-espresso/16 bg-white/60 px-1 py-1 font-mono text-xs focus:outline-none">
+                                            class="w-fit border border-espresso/16 bg-white/60 px-1 py-1 font-mono text-xs focus:outline-none">
                                         <option value="">choose a card</option>
                                         @foreach (var card in HandOf(mySpellSeat.Side))
                                         {
@@ -264,16 +281,23 @@ else
                                     </select>
                                     break;
                             }
-                            <button type="button" data-testid="cast-spell-btn"
-                                    @onclick="CastSpellAsync"
-                                    class="border border-rust/40 bg-rust/5 px-3 py-1 font-mono text-xs text-rust hover:bg-rust/20 transition duration-300 hover:cursor-pointer">
-                                Cast
-                            </button>
-                            <button type="button" data-testid="cancel-spell-btn"
-                                    @onclick="CancelSpell"
-                                    class="font-mono text-xs text-espresso-soft underline hover:text-rust">
-                                cancel
-                            </button>
+                            @if (spellError is not null)
+                            {
+                                <p data-testid="spell-error" class="font-mono text-[11px] text-rust">@spellError</p>
+                            }
+                            <div class="flex items-center gap-3">
+                                <button type="button" data-testid="cast-spell-btn"
+                                        disabled="@(!CanCast(spellBeingCast))"
+                                        @onclick="CastSpellAsync"
+                                        class="border border-rust/40 bg-rust/5 px-3 py-1 font-mono text-xs text-rust transition duration-300 disabled:opacity-40 not-disabled:hover:bg-rust/20 not-disabled:hover:cursor-pointer">
+                                    Cast
+                                </button>
+                                <button type="button" data-testid="cancel-spell-btn"
+                                        @onclick="CancelSpell"
+                                        class="font-mono text-xs text-espresso-soft underline hover:text-rust hover:cursor-pointer">
+                                    cancel
+                                </button>
+                            </div>
                         </div>
                     }
 
@@ -312,8 +336,8 @@ else
     private bool roomIsGone;
 
     private SpellRank? selectedSpell;
-    private string targetSquareText = "";
-    private string targetSquareText2 = "";
+    private List<Square> targetSquares = [];
+    private string? spellError;
     private string targetHandCardText = "";
 
     private bool whiteHpJustDropped;
@@ -460,12 +484,58 @@ else
         _ => TargetShape.None,
     };
 
+    private static int SquaresNeeded(SpellRank spell) => ShapeOf(spell) switch
+    {
+        TargetShape.OneSquare => 1,
+        TargetShape.TwoSquares => 2,
+        _ => 0,
+    };
+
+    private static string TargetPrompt(SpellRank spell) => ShapeOf(spell) switch
+    {
+        TargetShape.TwoSquares => "Click the two squares on the board.",
+        TargetShape.OneSquare => "Click the target square on the board.",
+        _ => "",
+    };
+
+    private bool CanCast(SpellRank spell) => ShapeOf(spell) switch
+    {
+        TargetShape.OneSquare or TargetShape.TwoSquares => targetSquares.Count == SquaresNeeded(spell),
+        TargetShape.HandCard => !string.IsNullOrWhiteSpace(targetHandCardText),
+        _ => true,
+    };
+
+    private bool IsTargetingSquares =>
+        selectedSpell is { } spell && SquaresNeeded(spell) > 0 && isMyTurn && !state!.IsGameOver;
+
+    private void OnSquareTargeted(Square square)
+    {
+        if (selectedSpell is not { } spell || SquaresNeeded(spell) == 0)
+            return;
+
+        if (targetSquares.Contains(square))
+            targetSquares.Remove(square);
+        else if (targetSquares.Count < SquaresNeeded(spell))
+            targetSquares.Add(square);
+        else
+            targetSquares = [square];
+
+        spellError = null;
+        StateHasChanged();
+    }
+
+    private void ClearSpellTarget()
+    {
+        targetSquares.Clear();
+        spellError = null;
+    }
+
     private void SelectSpell(SpellRank spell)
     {
         selectedSpell = selectedSpell == spell ? null : spell;
-        targetSquareText = "";
-        targetSquareText2 = "";
+        targetSquares.Clear();
         targetHandCardText = "";
+        spellError = null;
     }
 
     private void CancelSpell() => SelectSpell(selectedSpell ?? default);
@@ -479,8 +549,8 @@ else
         {
             var target = ShapeOf(spell) switch
             {
-                TargetShape.OneSquare => new SpellTarget(Primary: ParseSquare(targetSquareText)),
-                TargetShape.TwoSquares => new SpellTarget(Primary: ParseSquare(targetSquareText), Secondary: ParseSquare(targetSquareText2)),
+                TargetShape.OneSquare => new SpellTarget(Primary: targetSquares.FirstOrDefault()),
+                TargetShape.TwoSquares => new SpellTarget(Primary: targetSquares[0], Secondary: targetSquares[1]),
                 TargetShape.HandCard => new SpellTarget(HandCard: ParseHandCard(targetHandCardText)),
                 _ => default,
             };
@@ -493,11 +563,19 @@ else
             }
             SelectSpell(spell);
         }
-        catch (Exception ex) { error = ex.Message; }
+        catch (Exception ex) { spellError = StripHubPrefix(ex.Message); }
     }
 
-    private static Square? ParseSquare(string text) =>
-        string.IsNullOrWhiteSpace(text) ? null : Square.Parse(text.Trim());
+    private static string StripHubPrefix(string message)
+    {
+        const string prefix = "An unexpected error occurred invoking 'CastArcaneSpell' on the server. ";
+        if (!message.StartsWith(prefix, StringComparison.Ordinal))
+            return message;
+
+        var detail = message[prefix.Length..];
+        var separator = detail.IndexOf(": ", StringComparison.Ordinal);
+        return separator >= 0 ? detail[(separator + 2)..] : detail;
+    }
 
     private static CardRank? ParseHandCard(string text) =>
         string.IsNullOrWhiteSpace(text) ? null : Enum.Parse<CardRank>(text);

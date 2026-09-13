@@ -31,9 +31,8 @@ public sealed class ArcaneChessGamePage(IPage page)
 
     public ILocator SpellCard(SpellRank spell) => MySpellHand.GetByTestId($"spell-card-{spell}");
     public ILocator SpellTargetForm => Page.GetByTestId("spell-target-form");
-    public ILocator SpellTargetSquare => Page.GetByTestId("spell-target-square");
-    public ILocator SpellTargetSquare1 => Page.GetByTestId("spell-target-square-1");
-    public ILocator SpellTargetSquare2 => Page.GetByTestId("spell-target-square-2");
+    public ILocator SpellTargetSlot(int index) => Page.GetByTestId($"spell-target-slot-{index}");
+    public ILocator SpellError => Page.GetByTestId("spell-error");
     public ILocator CastSpellButton => Page.GetByTestId("cast-spell-btn");
 
     public async Task<IReadOnlyList<CardRank>> GetHandCardRanksAsync()
@@ -69,8 +68,8 @@ public sealed class ArcaneChessGamePage(IPage page)
     public async Task CastOneSquareSpellAsync(SpellRank spell, string square)
     {
         await SpellCard(spell).ClickAsync();
-        await SpellTargetSquare.WaitForAsync();
-        await SpellTargetSquare.FillAsync(square);
+        await SpellTargetSlot(0).WaitForAsync();
+        await Square(square).ClickAsync(new() { Force = true });
         await CastSpellButton.ClickAsync();
     }
 
@@ -78,9 +77,9 @@ public sealed class ArcaneChessGamePage(IPage page)
     public async Task CastTwoSquareSpellAsync(SpellRank spell, string firstSquare, string secondSquare)
     {
         await SpellCard(spell).ClickAsync();
-        await SpellTargetSquare1.WaitForAsync();
-        await SpellTargetSquare1.FillAsync(firstSquare);
-        await SpellTargetSquare2.FillAsync(secondSquare);
+        await SpellTargetSlot(1).WaitForAsync();
+        await Square(firstSquare).ClickAsync(new() { Force = true });
+        await Square(secondSquare).ClickAsync(new() { Force = true });
         await CastSpellButton.ClickAsync();
     }
 
