@@ -109,34 +109,55 @@ body::before {
 }
 
 .hand-card {
+  position: relative;
   transform-origin: bottom center;
   transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px));
   z-index: calc(10 + var(--i, 0));
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  background: linear-gradient(155deg, color-mix(in srgb, white 55%, var(--color-cream)) 0%, var(--color-cream) 60%);
-  transition: transform var(--duration-card) cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow var(--duration-card) ease;
   width: clamp(3.25rem, 14vw, 4.25rem);
 }
 
-.hand-card:hover,
+button.hand-card:hover,
 .hand-card[aria-current="true"] {
-  transform: translateY(-0.75rem) scale(1.08) rotate(0deg);
-  box-shadow: var(--shadow-card-lift);
   z-index: 50;
 }
 
 .hand-card.hand-card-mini {
   width: clamp(1.75rem, 6vw, 2.25rem);
+}
+
+.hand-row {
+  display: flex;
+  justify-content: center;
+  padding-top: 1.5rem;
+  padding-bottom: 1.75rem;
+}
+
+.hand-row-mini {
+  padding-top: 0.25rem;
+  padding-bottom: 1.5rem;
+}
+
+.hand-card-visual {
+  position: relative;
+  overflow: hidden;
+  transform-origin: bottom center;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  background: linear-gradient(155deg, color-mix(in srgb, white 55%, var(--color-cream)) 0%, var(--color-cream) 60%);
+  transition: transform var(--duration-card) cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow var(--duration-card) ease;
+}
+
+button.hand-card:hover .hand-card-visual,
+.hand-card[aria-current="true"] .hand-card-visual {
+  transform: translateY(-0.75rem) scale(1.08) rotate(calc(var(--rot, 0deg) * -1));
+  box-shadow: var(--shadow-card-lift);
+}
+
+.hand-card-visual.hand-card-mini {
   box-shadow: none;
 }
 
-.hand-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.hand-card::after {
+.hand-card-visual::after {
   content: "";
   position: absolute;
   inset: -50% -20%;
@@ -146,7 +167,7 @@ body::before {
   pointer-events: none;
 }
 
-.hand-card:hover::after {
+button.hand-card:hover .hand-card-visual::after {
   opacity: 1;
   animation: card-sheen var(--duration-card) ease-out;
 }
@@ -178,12 +199,12 @@ body::before {
 }
 
 @keyframes card-flip {
-  0% { transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px)) rotateY(0deg); }
-  50% { transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px)) rotateY(90deg); }
-  100% { transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px)) rotateY(0deg); }
+  0% { transform: rotateY(0deg); }
+  50% { transform: rotateY(90deg); }
+  100% { transform: rotateY(0deg); }
 }
 
-.hand-card.hand-card-marked {
+.hand-card-visual.hand-card-marked {
   animation: card-flip 360ms ease-in-out;
   background: linear-gradient(155deg, color-mix(in srgb, white 55%, var(--color-rust) 8%) 0%, color-mix(in srgb, var(--color-cream) 85%, var(--color-rust) 15%) 60%);
 }
