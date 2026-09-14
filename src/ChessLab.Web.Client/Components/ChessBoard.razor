@@ -1,0 +1,120 @@
+@using ChessLab.Core.Chess
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+
+<div class="w-full select-none">
+    <div class="border-4 border-espresso bg-espresso p-1.5 shadow-[inset_0_0_0_1px_rgba(246,239,228,0.08)]">
+        <div @ref="boardContainer" data-testid="chess-board" class="w-full"></div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Fen { get; set; } = "";
+    [Parameter] public IReadOnlyList<ChessMove> AvailableMoves { get; set; } = [];
+    [Parameter] public bool Interactive { get; set; }
+    [Parameter] public bool FlipBoard { get; set; }
+    [Parameter] public EventCallback<ChessMove> OnMoveSelected { get; set; }
+
+    private ElementReference boardContainer;
+    private IJSObjectReference? jsModule;
+    private IJSObjectReference? board;
+    private DotNetObjectReference<ChessBoard>? dotNetRef;
+    private string? syncedFen;
+    private bool syncedFlip;
+    private IReadOnlyList<ChessMove>? syncedMoves;
+    private bool syncedInteractive;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetRef = DotNetObjectReference.Create(this);
+            jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "./js/chessboardInterop.js");
+            board = await jsModule.InvokeAsync<IJSObjectReference>("create", boardContainer, dotNetRef, Fen, FlipBoard);
+            syncedFen = Fen;
+            syncedFlip = FlipBoard;
+        }
+
+        if (board is null)
+            return;
+
+        if (!firstRender && Fen != syncedFen)
+        {
+            syncedFen = Fen;
+            await board.InvokeVoidAsync("setPosition", Fen, true);
+        }
+
+        if (!firstRender && FlipBoard != syncedFlip)
+        {
+            syncedFlip = FlipBoard;
+            await board.InvokeVoidAsync("setOrientation", FlipBoard);
+        }
+
+        if (firstRender || !AvailableMoves.SequenceEqual(syncedMoves ?? []))
+        {
+            syncedMoves = AvailableMoves;
+            var movesForJs = AvailableMoves.Select(m => new
+            {
+                from = m.From.ToString(),
+                to = m.To.ToString(),
+                promotion = PromotionChar(m.PromoteTo),
+            });
+            await board.InvokeVoidAsync("setLegalMoves", movesForJs);
+        }
+
+        if (firstRender || Interactive != syncedInteractive)
+        {
+            syncedInteractive = Interactive;
+            await board.InvokeVoidAsync("setInteractive", Interactive);
+        }
+    }
+
+    /// <summary>Called from chessboardInterop.js once a move (including, for a promotion, the
+    /// chosen piece) has been fully decided client-side — never a rules decision of its own, just
+    /// resolving back to the exact <see cref="ChessMove"/> the server already told us was legal.</summary>
+    [JSInvokable]
+    public Task OnMoveInput(string from, string to, string? promotion)
+    {
+        var fromSquare = Square.Parse(from);
+        var toSquare = Square.Parse(to);
+        var promoteTo = ParsePromotion(promotion);
+
+        var candidates = AvailableMoves
+            .Where(m => m.From == fromSquare && m.To == toSquare && m.PromoteTo == promoteTo)
+            .ToList();
+
+        return candidates.Count == 0 ? Task.CompletedTask : OnMoveSelected.InvokeAsync(candidates[0]);
+    }
+
+    private static string? PromotionChar(PieceKind? kind) => kind switch
+    {
+        PieceKind.Queen => "q",
+        PieceKind.Rook => "r",
+        PieceKind.Bishop => "b",
+        PieceKind.Knight => "n",
+        _ => null,
+    };
+
+    private static PieceKind? ParsePromotion(string? promotion) => promotion switch
+    {
+        "q" => PieceKind.Queen,
+        "r" => PieceKind.Rook,
+        "b" => PieceKind.Bishop,
+        "n" => PieceKind.Knight,
+        _ => null,
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        if (board is not null)
+        {
+            await board.InvokeVoidAsync("destroy");
+            await board.DisposeAsync();
+        }
+
+        if (jsModule is not null)
+            await jsModule.DisposeAsync();
+
+        dotNetRef?.Dispose();
+    }
+}

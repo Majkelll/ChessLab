@@ -1,0 +1,399 @@
+@page "/cardchess/{Code}"
+@attribute [Authorize]
+@using ChessLab.Core.CardChess
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Contracts
+@using ChessLab.Core.Rooms
+@using ChessLab.Web.Client.Components
+@using ChessLab.Web.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GameClient Game
+@inject NavigationManager Nav
+@inject CurrentGameContext GameContext
+@implements IDisposable
+
+<PageTitle>Card Chess @Code</PageTitle>
+
+@if (error is not null)
+{
+    <p data-testid="game-error" class="text-sm text-rust">@error</p>
+}
+else if (room is null || state is null)
+{
+    <p class="text-espresso/42">Connecting<span class="blink-cursor" aria-hidden="true">_</span></p>
+}
+else
+{
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(280px,512px)_1fr]">
+        <div class="mx-auto w-full max-w-[512px]">
+            <div class="relative">
+                <ChessBoard Fen="@state.Fen"
+                            AvailableMoves="@state.AvailableMoves"
+                            Interactive="@isBoardInteractive"
+                            FlipBoard="@(mySeat?.Side == Side.Black)"
+                            OnMoveSelected="MakeMoveAsync" />
+
+                @if (mySeat is { } mine)
+                {
+                    var canToggle = isMyTurn && !state.IsGameOver;
+                    var hand = HandOf(mine.Side);
+                    <div class="hand-shelf relative z-10 -mt-3 flex flex-col items-center" data-testid="my-hand">
+                        <p class="mb-1 flex flex-wrap items-center gap-2 font-mono text-xs text-espresso-soft/70" data-testid="hand-hint">
+                            <span>Your hand</span>
+                            @if (canToggle)
+                            {
+                                <span>— click a card to mark it for reroll (swapped in at the start of your next turn)</span>
+                                @if (PendingRerollOf(mine.Side).Count > 0)
+                                {
+                                    <span class="border border-rust/50 bg-rust/10 px-1.5 py-0.5 text-[10px] text-rust" data-testid="reroll-marked-count">
+                                        @PendingRerollOf(mine.Side).Count / @GameState.MaxRerollSelection marked ↻
+                                    </span>
+                                }
+                            }
+                        </p>
+                        <div class="flex justify-center">
+                            @for (var i = 0; i < hand.Count; i++)
+                            {
+                                var card = hand[i];
+                                var marked = PendingRerollOf(mine.Side).Contains(card);
+                                <HandCard @key="card"
+                                          TestId="@($"hand-card-{card}")"
+                                          Glyph="@PieceKindDisplay.Glyph(card.ToPieceKind())"
+                                          Label="@PieceKindDisplay.Label(card.ToPieceKind())"
+                                          Marked="marked"
+                                          Disabled="!canToggle"
+                                          Index="i"
+                                          Count="hand.Count"
+                                          Title="@(marked ? $"{PieceKindDisplay.Label(card.ToPieceKind())} — marked for reroll next turn" : PieceKindDisplay.Label(card.ToPieceKind()))"
+                                          OnClick="() => ToggleRerollAsync(card)" />
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (state.EmergencyMoveAvailable && isMyTurn)
+            {
+                <p data-testid="emergency-move-banner" class="mt-4 border border-rust/40 bg-rust/5 px-3 py-2 font-mono text-sm text-rust">
+                    No card can save you — move any piece to escape check (costs 1 HP).
+                </p>
+            }
+            else if (state.HandHasNoPlayableCard && isMyTurn)
+            {
+                <p data-testid="no-playable-card-banner" class="mt-4 border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm text-espresso-soft">
+                    No card in your hand can move right now — pick any piece, free of charge.
+                </p>
+            }
+        </div>
+
+        <div>
+            <div class="flex flex-col items-start gap-1.5">
+                @if (mySeat is { } seat)
+                {
+                    var opponentSide = seat.Side == Side.White ? Side.Black : Side.White;
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <Clock TestId="@ClockTestId(opponentSide)" Label="@SideLabel(opponentSide)"
+                               RemainingMs="@RemainingMsOf(opponentSide)" IsActive="@IsClockActive(opponentSide)"
+                               AccentBorderClass="@AccentBorderClass(opponentSide)" />
+                        <span data-testid="@HpTestId(opponentSide)" class="text-rust @HpHitClass(opponentSide)">@HpHearts(opponentSide)</span>
+                        <span data-testid="opponent-hand" class="flex -space-x-1">
+                            @{ var opponentHand = HandOf(opponentSide); }
+                            @for (var i = 0; i < opponentHand.Count; i++)
+                            {
+                                var card = opponentHand[i];
+                                var marked = PendingRerollOf(opponentSide).Contains(card);
+                                <HandCard @key="card"
+                                          Interactive="false"
+                                          Size="mini"
+                                          Glyph="@PieceKindDisplay.Glyph(card.ToPieceKind())"
+                                          Label="@PieceKindDisplay.Label(card.ToPieceKind())"
+                                          Marked="marked"
+                                          Index="i"
+                                          Count="opponentHand.Count"
+                                          Title="@(marked ? $"{PieceKindDisplay.Label(card.ToPieceKind())} — marked for reroll" : PieceKindDisplay.Label(card.ToPieceKind()))" />
+                            }
+                        </span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <Clock TestId="@ClockTestId(seat.Side)" Label="@SideLabel(seat.Side)"
+                               RemainingMs="@RemainingMsOf(seat.Side)" IsActive="@IsClockActive(seat.Side)"
+                               AccentBorderClass="@AccentBorderClass(seat.Side)" />
+                        <span data-testid="@HpTestId(seat.Side)" class="text-rust @HpHitClass(seat.Side)">@HpHearts(seat.Side)</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="flex items-center gap-2 font-mono text-sm">
+                        <Clock TestId="clock-white" Label="white" RemainingMs="@RemainingMsOf(Side.White)"
+                               IsActive="@IsClockActive(Side.White)" AccentBorderClass="@AccentBorderClass(Side.White)" />
+                        <span data-testid="hp-white" class="text-rust @HpHitClass(Side.White)">@HpHearts(Side.White)</span>
+                        <Clock TestId="clock-black" Label="black" RemainingMs="@RemainingMsOf(Side.Black)"
+                               IsActive="@IsClockActive(Side.Black)" AccentBorderClass="@AccentBorderClass(Side.Black)" />
+                        <span data-testid="hp-black" class="text-rust @HpHitClass(Side.Black)">@HpHearts(Side.Black)</span>
+                    </div>
+                }
+            </div>
+
+            @if (state.IsGameOver)
+            {
+                <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
+                    <span class="text-espresso-soft">Game over:</span> <span data-testid="game-over-reason">@EndReasonLabel(state.EndReason)</span>
+                    @if (state.Winner is { } winner)
+                    {
+                        <text> — <span data-testid="game-over-winner">@(winner == Side.White ? "white" : "black")</span> wins</text>
+                    }
+                </p>
+                <button data-testid="back-to-room-link"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="BackToRoom"
+                        class="mt-4 border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+                    Back to room
+                </button>
+            }
+            else
+            {
+                <p data-testid="turn-status" class="mt-4 flex flex-wrap items-center gap-2 font-mono text-sm" @key="state.SideToMove">
+                    <span data-turn-indicator class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
+                    <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
+                    <span class="text-espresso-soft">
+                        @(TurnStatusText())
+                    </span>
+                </p>
+
+                @if (mySeat is not null)
+                {
+                    <button data-testid="resign-btn"
+                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                            @onclick="ResignAsync"
+                            class="mt-6 border border-rust/40 bg-rust/5 px-3 py-1.5 font-mono text-sm text-rust hover:bg-rust/20 transition duration-300 hover:cursor-pointer">
+                        Resign
+                    </button>
+                }
+            }
+
+            <h3 class="mt-6 text-xs font-normal text-espresso/42">MOVE HISTORY</h3>
+            <div class="h-1 w-full border-b border-espresso/16"></div>
+            <ol data-testid="move-history" class="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-sm">
+                @for (var i = 0; i < state.MoveHistory.Count; i++)
+                {
+                    <li><span class="text-espresso-soft/70">@(i + 1).</span> @state.MoveHistory[i].San</li>
+                }
+            </ol>
+        </div>
+    </div>
+
+    <a data-testid="rules-credit" href="https://patrykborowiec.com/" target="_blank" rel="noopener noreferrer"
+       class="fixed bottom-2 left-3 font-mono text-xs text-espresso/50 select-none hover:text-espresso/70">
+        Rules by patrykborowiec.com
+    </a>
+}
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private RoomStateDto? room;
+    private CardChessStateDto? state;
+    private List<ChessMove> moveHistory = [];
+    private Guid myUserId;
+    private SeatId? mySeat;
+    private string? error;
+    private bool whiteHpJustDropped;
+    private bool blackHpJustDropped;
+
+    private bool isMyTurn => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
+
+    private bool isBoardInteractive => state is { IsGameOver: false } && isMyTurn;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask!;
+        myUserId = Guid.Parse(authState.User.FindFirst("buid")!.Value);
+
+        GameContext.Set("Card Chess");
+        Game.RoomUpdated += OnRoomUpdated;
+        Game.CardChessGameUpdated += OnGameUpdated;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await Game.EnsureConnectedAsync();
+            room = await Game.JoinRoomAsync(Code);
+            mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
+            SetFullState(await Game.GetCardChessStateAsync(Code));
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+    private long RemainingMsOf(Side side) => side == Side.White ? state!.WhiteRemainingMs : state!.BlackRemainingMs;
+
+    private bool IsClockActive(Side side) => state is { IsGameOver: false } && state.SideToMove == side;
+
+    private static string SideLabel(Side side) => side == Side.White ? "white" : "black";
+
+    private static string ClockTestId(Side side) => side == Side.White ? "clock-white" : "clock-black";
+
+    private static string HpTestId(Side side) => side == Side.White ? "hp-white" : "hp-black";
+
+    private IReadOnlyList<CardRank> HandOf(Side side) => side == Side.White ? state!.WhiteHand : state!.BlackHand;
+
+    private IReadOnlyList<CardRank> PendingRerollOf(Side side) =>
+        side == Side.White ? state!.WhitePendingReroll : state!.BlackPendingReroll;
+
+    private string HpHearts(Side side)
+    {
+        var hp = side == Side.White ? state!.WhiteHp : state!.BlackHp;
+        return string.Concat(Enumerable.Repeat("♥", Math.Max(0, hp)).Concat(Enumerable.Repeat("♡", Math.Max(0, GameState.StartingHp - hp))));
+    }
+
+    private static string AccentBorderClass(Side side) => side == Side.White ? "border-amber-700/50" : "border-moss/50";
+
+    private string HpHitClass(Side side) => (side == Side.White ? whiteHpJustDropped : blackHpJustDropped) ? "hp-hit" : "";
+
+    private string TurnStatusText()
+    {
+        if (state!.EmergencyMoveAvailable)
+            return "in check, no card helps — Emergency Move (costs 1 HP)";
+        if (state.HandHasNoPlayableCard)
+            return "no hand card can move — picking freely";
+        return "choosing a move from hand";
+    }
+
+    private static string EndReasonLabel(GameEndReason? reason) => reason switch
+    {
+        GameEndReason.Checkmate => "checkmate",
+        GameEndReason.Stalemate => "stalemate",
+        GameEndReason.InsufficientMaterial => "insufficient material",
+        GameEndReason.FiftyMoveRule => "fifty-move rule",
+        GameEndReason.Repetition => "threefold repetition",
+        GameEndReason.Resignation => "resignation",
+        GameEndReason.Timeout => "timeout",
+        GameEndReason.DrawAgreed => "draw",
+        GameEndReason.HpDepleted => "out of HP",
+        _ => "",
+    };
+
+    private async Task MakeMoveAsync(ChessMove move)
+    {
+        try { await Game.MakeCardChessMoveAsync(Code, move.From, move.To, move.PromoteTo); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task ToggleRerollAsync(CardRank card)
+    {
+        if (mySeat is not { } mine || state is null)
+            return;
+
+        var current = PendingRerollOf(mine.Side).ToList();
+        if (current.Contains(card))
+        {
+            current.Remove(card);
+        }
+        else
+        {
+            if (current.Count >= GameState.MaxRerollSelection)
+                return; // already marked the max — ignore until one is un-marked
+
+            current.Add(card);
+        }
+
+        try { await Game.SelectCardChessRerollAsync(Code, current); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task ResignAsync()
+    {
+        try { await Game.ResignCardChessAsync(Code); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private void BackToRoom() => Nav.NavigateTo($"/room/{Code}");
+
+    private void OnRoomUpdated(RoomStateDto dto)
+    {
+        room = dto;
+        mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnGameUpdated(CardChessUpdateDto dto)
+    {
+        if (dto.MoveHistoryCount == moveHistory.Count + 1 && dto.LatestMove is { } move)
+            moveHistory.Add(move);
+        else if (dto.MoveHistoryCount != moveHistory.Count)
+            _ = ResyncFullStateAsync();
+
+        ApplyUpdate(dto);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ResyncFullStateAsync()
+    {
+        try
+        {
+            SetFullState(await Game.GetCardChessStateAsync(Code));
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplyUpdate(CardChessUpdateDto dto)
+    {
+        if (state is not null && dto.WhiteHp < state.WhiteHp)
+            TriggerHpHit(Side.White);
+        if (state is not null && dto.BlackHp < state.BlackHp)
+            TriggerHpHit(Side.Black);
+
+        state = new CardChessStateDto(
+            dto.SideToMove, dto.WhiteHand, dto.BlackHand, dto.WhitePendingReroll, dto.BlackPendingReroll,
+            dto.EmergencyMoveAvailable, dto.HandHasNoPlayableCard, dto.AvailableMoves, moveHistory, dto.Fen,
+            dto.WhiteHp, dto.BlackHp, dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner);
+    }
+
+    private void TriggerHpHit(Side side)
+    {
+        if (side == Side.White)
+            whiteHpJustDropped = true;
+        else
+            blackHpJustDropped = true;
+
+        _ = ClearHpHitAsync(side);
+    }
+
+    private async Task ClearHpHitAsync(Side side)
+    {
+        await Task.Delay(400);
+
+        if (side == Side.White)
+            whiteHpJustDropped = false;
+        else
+            blackHpJustDropped = false;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void SetFullState(CardChessStateDto dto)
+    {
+        state = dto;
+        moveHistory = [.. dto.MoveHistory];
+    }
+
+    public void Dispose()
+    {
+        Game.RoomUpdated -= OnRoomUpdated;
+        Game.CardChessGameUpdated -= OnGameUpdated;
+    }
+}

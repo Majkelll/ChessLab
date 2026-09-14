@@ -1,0 +1,30 @@
+@using Microsoft.AspNetCore.Components.Authorization
+
+<AuthorizeView>
+    <Authorized>
+        <div class="flex items-center gap-3">
+            @if (!string.IsNullOrEmpty(AvatarUrl(context)))
+            {
+                <img src="@AvatarUrl(context)" alt="" class="h-8 w-8 rounded-full" />
+            }
+            <span data-testid="logged-in-name" class="max-w-[9rem] truncate text-sm text-espresso-soft sm:max-w-none">@context.User.Identity?.Name</span>
+            <form method="post" action="Account/Logout?returnUrl=/">
+                <button data-testid="logout-btn" type="submit"
+                        class="border border-espresso/16 bg-white/40 px-3 py-1.5 font-mono text-sm hover:border-moss/60 transition duration-300 hover:cursor-pointer">
+                    Log out
+                </button>
+            </form>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <a data-testid="google-login-link" href="Account/Login?returnUrl=/"
+           class="border border-amber-700/40 bg-amber-700/5 px-3 py-1.5 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+            Sign in with Google
+        </a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private static string? AvatarUrl(AuthenticationState context) =>
+        context.User.FindFirst("urn:google:picture")?.Value;
+}
