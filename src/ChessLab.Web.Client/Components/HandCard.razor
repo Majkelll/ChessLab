@@ -64,6 +64,15 @@ else
         _ => "border-amber-600",
     };
 
+    private const string ThickBorderClasses = "border outline-1 -outline-offset-2";
+
+    private string AccentOutlineClass => Accent switch
+    {
+        "moss" => "outline-moss-soft",
+        "rust" => "outline-rust/60",
+        _ => "outline-amber-600",
+    };
+
     private string Style => string.Create(CultureInfo.InvariantCulture,
         $"--rot:{RotDeg}deg; --lift:{LiftPx}px; --i:{Index};");
 
@@ -100,9 +109,9 @@ else
             classes.Add(Marked ? "hand-card-marked" : "");
 
             if (Selected)
-                classes.Add($"border-2 {AccentBorderClass}");
+                classes.Add($"{ThickBorderClasses} {AccentBorderClass} {AccentOutlineClass}");
             else
-                classes.Add(Marked ? "border-2 border-rust/60" : "border border-espresso/16");
+                classes.Add(Marked ? $"{ThickBorderClasses} border-rust/60 outline-rust/60" : "border border-espresso/16");
 
             if (IsDisabledLook && !IsMini)
                 classes.Add("opacity-40");
