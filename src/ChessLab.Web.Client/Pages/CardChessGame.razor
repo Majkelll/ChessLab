@@ -99,7 +99,7 @@ else
                         </div>
                         <div class="relative flex w-full flex-col items-center gap-1 text-center font-mono text-xs text-espresso-soft/70" data-testid="hand-hint">
                             <p class="uppercase tracking-wide">Your hand</p>
-                            <p class="@(canToggle ? "" : "invisible")">click a card to mark it for reroll (swapped in next turn)</p>
+                            <p class="@(canToggle ? "" : "invisible")">click a card to mark it for reroll (swapped in next turn, can't be played now)</p>
                             <span class="absolute top-0 right-0 border border-rust/50 bg-rust/10 px-1.5 py-0.5 text-[10px] text-rust @(canToggle && markedCount > 0 ? "" : "invisible")" data-testid="reroll-marked-count">
                                 @markedCount / @GameState.MaxRerollSelection marked ↻
                             </span>
@@ -119,6 +119,12 @@ else
                 {
                     <p data-testid="no-playable-card-banner" class="border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm text-espresso-soft">
                         No card in your hand can move right now — pick any piece, free of charge.
+                    </p>
+                }
+                else if (isMyTurn && !state.IsGameOver && state.AvailableMoves.Count == 0 && PendingRerollOf(state.SideToMove).Count > 0)
+                {
+                    <p data-testid="all-playable-cards-marked-banner" class="border border-rust/40 bg-rust/5 px-3 py-2 font-mono text-sm text-rust">
+                        Only your marked cards can move — unmark one to play it.
                     </p>
                 }
             </div>

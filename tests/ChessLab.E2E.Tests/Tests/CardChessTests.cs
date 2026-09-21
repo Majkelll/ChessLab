@@ -77,7 +77,7 @@ public sealed class CardChessTests(WebAppFixture app, PlaywrightFixture playwrig
         await Expect(white.HandCard(toReroll[0])).ToHaveAttributeAsync("data-marked-for-reroll", "true");
         await Expect(white.HandCard(toReroll[1])).ToHaveAttributeAsync("data-marked-for-reroll", "true");
 
-        var (whiteFrom, whiteTo) = await ComputeOpeningMoveAsync(white, isWhite: true);
+        var (whiteFrom, whiteTo) = await ComputeOpeningMoveAsync(white, isWhite: true, toReroll);
         await white.MoveAsync(whiteFrom, whiteTo);
         Assert.Equal(5, (await white.GetHandCardRanksAsync()).Count);
 
@@ -158,10 +158,12 @@ public sealed class CardChessTests(WebAppFixture app, PlaywrightFixture playwrig
         await Expect(white.TurnStatus).ToContainTextAsync("white");
     }
 
-    private static async Task<(string From, string To)> ComputeOpeningMoveAsync(CardChessGamePage page, bool isWhite)
+    private static async Task<(string From, string To)> ComputeOpeningMoveAsync(
+        CardChessGamePage page, bool isWhite, IReadOnlyCollection<CardRank>? markedCards = null)
     {
         var ranks = await page.GetHandCardRanksAsync();
-        var workable = ranks.First(r => r.ToPieceKind() is PieceKind.Pawn or PieceKind.Knight);
+        var workable = ranks.First(r => r.ToPieceKind() is PieceKind.Pawn or PieceKind.Knight
+            && markedCards?.Contains(r) != true);
         return OpeningMoveFor(workable, isWhite);
     }
 

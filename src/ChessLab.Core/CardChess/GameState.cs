@@ -87,6 +87,7 @@ public sealed class GameState
 
         hands[side][index] = DrawPlayable(side, decks[side], hands[side]);
         decks[side].Discard(card);
+        pendingRerolls[side].Remove(card);
         if (side == SideToMove)
             RefreshAvailableMoves();
     }
@@ -126,7 +127,10 @@ public sealed class GameState
             throw new ArgumentException("Can only mark cards that are currently in hand.", nameof(cards));
 
         pendingRerolls[side] = [.. cards];
+        ComputeAvailableMoves();
     }
+
+    private IEnumerable<CardRank> PlayableHandOf(Side side) => hands[side].Except(pendingRerolls[side]);
 
     private void ApplyPendingReroll(Side side)
     {
@@ -149,6 +153,14 @@ public sealed class GameState
 
     private void RefreshAvailableMoves()
     {
+        if (!IsGameOver)
+            ApplyPendingReroll(SideToMove);
+
+        ComputeAvailableMoves();
+    }
+
+    private void ComputeAvailableMoves()
+    {
         EmergencyMoveAvailable = false;
         HandHasNoPlayableCard = false;
 
@@ -159,7 +171,6 @@ public sealed class GameState
         }
 
         var mover = SideToMove;
-        ApplyPendingReroll(mover);
 
         var allLegal = engine.LegalMoves();
 
@@ -169,12 +180,18 @@ public sealed class GameState
         // opposing king outright dozens of turns later, instead of having already ended the game by
         // checkmate. A king must never actually be captured, so such moves are filtered out here
         // regardless of source; see the fallback below for what happens when that was the only move.
-        var moves = hands[mover].SelectMany(LegalMovesFor).Distinct()
+        var moves = PlayableHandOf(mover).SelectMany(LegalMovesFor).Distinct()
             .Where(m => m.CapturedPiece != PieceKind.King).ToArray();
 
         if (moves.Length > 0)
         {
             AvailableMoves = moves;
+            return;
+        }
+
+        if (pendingRerolls[mover].Any(card => LegalMovesFor(card).Any(m => m.CapturedPiece != PieceKind.King)))
+        {
+            AvailableMoves = [];
             return;
         }
 
@@ -227,7 +244,7 @@ public sealed class GameState
             throw new InvalidOperationException($"{from}-{to} is not a legal move right now.");
 
         var applied = match.Value;
-        var usedCardIndex = hands[mover].FindIndex(card =>
+        var usedCardIndex = hands[mover].FindIndex(card => !pendingRerolls[mover].Contains(card) &&
             LegalMovesFor(card).Any(m => m.From == from && m.To == to && m.PromoteTo == promoteTo));
         var costsHp = usedCardIndex < 0 && EmergencyMoveAvailable;
 

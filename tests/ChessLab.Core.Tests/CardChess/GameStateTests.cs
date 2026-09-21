@@ -292,7 +292,7 @@ public class GameStateTests
     }
 
     [Fact]
-    public void SelectCardsForReroll_MarksCardsWithoutTouchingHandOrAvailableMovesThisTurn()
+    public void SelectCardsForReroll_MarksCardsWithoutTouchingHand()
     {
         var state = NewRealGame();
         var handBefore = state.HandOf(Side.White).ToArray();
@@ -336,19 +336,75 @@ public class GameStateTests
     }
 
     [Fact]
-    public void MarkedCard_PlayedAsThisTurnsMove_IsSkippedRatherThanDealingAnExtraCard()
+    public void MoveMatchingBothMarkedAndUnmarkedCards_SpendsTheUnmarkedCardAndRerollsBothMarkedOnes()
     {
         var state = NewRealGame(
-            whiteOrder: [CardRank.Six, .. Deck.AllRanks.Where(r => r != CardRank.Six)],
+            whiteOrder: [CardRank.Two, CardRank.Three, CardRank.Four, CardRank.Ten, CardRank.Jack, CardRank.Five, CardRank.Six, CardRank.Seven, CardRank.Eight, CardRank.Nine, CardRank.Queen, CardRank.King, CardRank.Ace],
             blackOrder: Deck.AllRanks);
 
-        state.SelectCardsForReroll([CardRank.Six, CardRank.Two]);
+        state.SelectCardsForReroll([CardRank.Two, CardRank.Three]);
         PlayTurn(state, "e2", "e4");
+
+        Assert.DoesNotContain(CardRank.Four, state.HandOf(Side.White));
+        Assert.Contains(CardRank.Two, state.HandOf(Side.White));
+        Assert.Contains(CardRank.Three, state.HandOf(Side.White));
+        Assert.Equal([CardRank.Two, CardRank.Three], state.PendingRerollOf(Side.White));
+
         PlayTurn(state, "e7", "e5");
 
         Assert.Empty(state.PendingRerollOf(Side.White));
         Assert.Equal(GameState.HandSize, state.HandOf(Side.White).Count);
         Assert.DoesNotContain(CardRank.Two, state.HandOf(Side.White));
+        Assert.DoesNotContain(CardRank.Three, state.HandOf(Side.White));
+    }
+
+    [Fact]
+    public void MarkingEveryCardOfAPieceKind_RemovesThatPiecesMovesThisTurn()
+    {
+        var pawnMove = Move("e2", "e4", PieceKind.Pawn);
+        var knightMove = Move("g1", "f3", PieceKind.Knight);
+        var (state, _) = NewFakeGame(
+            [CardRank.Two, CardRank.Three, CardRank.Ten, CardRank.King, CardRank.Queen],
+            e =>
+            {
+                e.AlwaysHasLegalMove = true;
+                e.InCheck = false;
+                e.AllMoves = [pawnMove, knightMove];
+                e.MovesByKind[PieceKind.Pawn] = [pawnMove];
+                e.MovesByKind[PieceKind.Knight] = [knightMove];
+            });
+
+        state.SelectCardsForReroll([CardRank.Two, CardRank.Three]);
+
+        Assert.Equal([knightMove], state.AvailableMoves);
+        Assert.Throws<InvalidOperationException>(() =>
+            state.MakeMove(pawnMove.From, pawnMove.To, null, TimeSpan.Zero));
+
+        state.SelectCardsForReroll([CardRank.Two]);
+
+        Assert.Contains(pawnMove, state.AvailableMoves);
+    }
+
+    [Fact]
+    public void MarkingEveryCardThatCouldMove_LeavesNoMovesInsteadOfGrantingAFreeOne()
+    {
+        var pawnMove = Move("e2", "e4", PieceKind.Pawn);
+        var queenMove = Move("d1", "h5", PieceKind.Queen);
+        var (state, _) = NewFakeGame(
+            [CardRank.Two, CardRank.Three, CardRank.Ten, CardRank.King, CardRank.Jack],
+            e =>
+            {
+                e.AlwaysHasLegalMove = true;
+                e.InCheck = false;
+                e.AllMoves = [pawnMove, queenMove];
+                e.MovesByKind[PieceKind.Pawn] = [pawnMove];
+            });
+
+        state.SelectCardsForReroll([CardRank.Two, CardRank.Three]);
+
+        Assert.Empty(state.AvailableMoves);
+        Assert.False(state.HandHasNoPlayableCard);
+        Assert.False(state.EmergencyMoveAvailable);
     }
 
     [Fact]
