@@ -11,7 +11,7 @@ internal sealed class FakeChessRulesEngine : IChessRulesEngine
     public List<ChessMove> AppliedMoves { get; } = [];
     public Side? Resigned { get; private set; }
     public Side? TimedOut { get; private set; }
-    public string Fen { get; set; } = "8/8/8/8/8/8/8/8 w - - 0 1";
+    public string Fen { get; set; } = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     public bool InCheck { get; set; } = true;
 
     /// <summary>When true, every card is immediately dealable/keepable (see

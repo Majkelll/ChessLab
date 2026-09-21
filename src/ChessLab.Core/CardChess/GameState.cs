@@ -66,6 +66,32 @@ public sealed class GameState
     private CardRank DrawPlayable(Side side, Deck deck, IReadOnlyCollection<CardRank> currentHand) =>
         deck.Draw(card => engine.HasLegalMove(side, card.ToPieceKind()) && !currentHand.Contains(card));
 
+    private CardRank DrawRerollReplacement(Side side, CardRank rerolled)
+    {
+        var first = DrawPlayable(side, decks[side], hands[side]);
+        if (first.ToPieceKind() != rerolled.ToPieceKind())
+            return first;
+
+        var second = DrawPlayable(side, decks[side], hands[side]);
+        return second.ToPieceKind() != rerolled.ToPieceKind() ? second : first;
+    }
+
+    private void ReplaceCardsOfLostPieces(Side side)
+    {
+        var fen = engine.ToFen();
+        var hand = hands[side];
+        for (var i = 0; i < hand.Count; i++)
+        {
+            var card = hand[i];
+            if (FenBoard.HasPiece(fen, side, card.ToPieceKind()))
+                continue;
+
+            hand[i] = DrawPlayable(side, decks[side], hand);
+            decks[side].Discard(card);
+            pendingRerolls[side].Remove(card);
+        }
+    }
+
     /// <summary>Changes a side's HP by <paramref name="delta"/>, clamped to [0, <see cref="StartingHp"/>].
     /// Exposed for Arcane Chess spells (Mend, Restoration, Deep Breath) that sit on top of Card Chess's
     /// hand/HP loop — Card Chess itself never calls this.</summary>
@@ -85,7 +111,7 @@ public sealed class GameState
         if (index < 0)
             throw new ArgumentException($"{card} is not currently in {side}'s hand.", nameof(card));
 
-        hands[side][index] = DrawPlayable(side, decks[side], hands[side]);
+        hands[side][index] = DrawRerollReplacement(side, card);
         decks[side].Discard(card);
         pendingRerolls[side].Remove(card);
         if (side == SideToMove)
@@ -143,7 +169,7 @@ public sealed class GameState
             var index = hands[side].IndexOf(card);
             if (index >= 0)
             {
-                hands[side][index] = DrawPlayable(side, decks[side], hands[side]);
+                hands[side][index] = DrawRerollReplacement(side, card);
                 decks[side].Discard(card);
             }
         }
@@ -154,7 +180,10 @@ public sealed class GameState
     private void RefreshAvailableMoves()
     {
         if (!IsGameOver)
+        {
             ApplyPendingReroll(SideToMove);
+            ReplaceCardsOfLostPieces(SideToMove);
+        }
 
         ComputeAvailableMoves();
     }

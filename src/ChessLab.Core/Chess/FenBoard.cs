@@ -7,6 +7,24 @@ public static class FenBoard
 {
     public static char? PieceAt(string fen, Square square) => ParsePlacement(fen)[square.File, square.Rank];
 
+    public static bool HasPiece(string fen, Side side, PieceKind kind) =>
+        fen.Split(' ')[0].Contains(PieceSymbol(side, kind));
+
+    private static char PieceSymbol(Side side, PieceKind kind)
+    {
+        var symbol = kind switch
+        {
+            PieceKind.Pawn => 'p',
+            PieceKind.Knight => 'n',
+            PieceKind.Bishop => 'b',
+            PieceKind.Rook => 'r',
+            PieceKind.Queen => 'q',
+            PieceKind.King => 'k',
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+        return side == Side.White ? char.ToUpperInvariant(symbol) : symbol;
+    }
+
     /// <summary>Forces whose turn it is without moving any piece, clearing the en-passant target
     /// (which wouldn't apply to a hypothetical turn). Used by the Arcane Chess "Extra Turn" spell.</summary>
     public static string WithSideToMove(string fen, Side side)

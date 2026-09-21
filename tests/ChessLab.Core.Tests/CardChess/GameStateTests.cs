@@ -408,6 +408,49 @@ public class GameStateTests
     }
 
     [Fact]
+    public void CardsOfAPieceKindWithNothingLeftOnTheBoard_AreReplacedAtTurnStart()
+    {
+        var (state, engine) = NewFakeGame(
+            [CardRank.Two, CardRank.Three, CardRank.Ten, CardRank.Jack, CardRank.Queen,
+             CardRank.Four, CardRank.Five, CardRank.Six, CardRank.Seven, CardRank.Eight, CardRank.Nine, CardRank.King, CardRank.Ace],
+            e => { e.AlwaysHasLegalMove = true; e.InCheck = false; });
+        engine.AlwaysHasLegalMove = false;
+        engine.MovesByKind[PieceKind.Knight] = [Move("g1", "f3", PieceKind.Knight)];
+        engine.MovesByKind[PieceKind.King] = [Move("e1", "e2", PieceKind.King)];
+        engine.MovesByKind[PieceKind.Rook] = [Move("a1", "a2", PieceKind.Rook)];
+
+        state.ApplyExternalFenEdit(_ => "rnbqkbnr/pppppppp/8/8/8/8/8/RNBQKBNR w - - 0 1");
+
+        Assert.Equal([CardRank.King, CardRank.Ace, CardRank.Ten, CardRank.Jack, CardRank.Queen], state.HandOf(Side.White));
+    }
+
+    [Fact]
+    public void RerolledCard_PrefersADifferentPieceKind_WhenTheFirstDrawMatchesIt()
+    {
+        var (state, _) = NewFakeGame(
+            [CardRank.Two, CardRank.Three, CardRank.Four, CardRank.Five, CardRank.Six, CardRank.Seven, CardRank.Ten, .. Deck.AllRanks.Skip(6).Where(r => r != CardRank.Ten)],
+            e => { e.AlwaysHasLegalMove = true; e.InCheck = false; });
+
+        state.ReplaceHandCardNow(Side.White, CardRank.Two);
+
+        Assert.Contains(CardRank.Ten, state.HandOf(Side.White));
+        Assert.DoesNotContain(CardRank.Seven, state.HandOf(Side.White));
+    }
+
+    [Fact]
+    public void RerolledCard_CanStillComeBackAsTheSamePieceKind_WhenBothDrawsMatchIt()
+    {
+        var (state, _) = NewFakeGame(
+            [CardRank.Two, CardRank.Three, CardRank.Four, CardRank.Five, CardRank.Six, CardRank.Seven, CardRank.Eight, .. Deck.AllRanks.Skip(7)],
+            e => { e.AlwaysHasLegalMove = true; e.InCheck = false; });
+
+        state.ReplaceHandCardNow(Side.White, CardRank.Two);
+
+        Assert.Contains(CardRank.Seven, state.HandOf(Side.White));
+        Assert.DoesNotContain(CardRank.Eight, state.HandOf(Side.White));
+    }
+
+    [Fact]
     public void Reroll_NeverProducesADuplicateRankInHand_EvenAfterTheDeckCyclesRepeatedly()
     {
         var (state, _) = NewFakeGame(configure: engine =>
