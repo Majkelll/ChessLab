@@ -36,9 +36,9 @@ else if (room is null || state is null)
 }
 else
 {
-    <div class="flex h-full min-h-0 flex-col gap-4 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
-        <div class="flex min-h-0 w-full flex-col">
-            <div class="board-fit min-h-0 w-full flex-1">
+    <div class="flex h-full min-h-0 flex-col gap-4 max-lg:h-auto max-lg:gap-2 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
+        <div class="flex min-h-0 w-full flex-col max-lg:contents">
+            <div class="board-fit min-h-0 w-full flex-1 max-lg:max-h-[75dvh] max-lg:flex-none max-lg:aspect-square">
                 <ChessBoard Fen="@state.Fen"
                             AvailableMoves="@state.AvailableMoves"
                             Interactive="@(isBoardInteractive)"
@@ -57,8 +57,8 @@ else
             </div>
         </div>
 
-        <div class="flex min-h-0 flex-col">
-            <div class="flex flex-col items-start gap-1.5">
+        <div class="flex min-h-0 flex-col max-lg:contents">
+            <div class="flex flex-col items-start gap-1.5 max-lg:order-first max-lg:w-full max-lg:flex-row max-lg:flex-wrap max-lg:items-center max-lg:justify-between">
                 @if (mySeat is { } seat)
                 {
                     var opponentSide = seat.Side == Side.White ? Side.Black : Side.White;
@@ -113,7 +113,7 @@ else
             }
             else
             {
-                <p data-testid="turn-status" class="mt-4 flex flex-wrap items-center gap-2 font-mono text-sm">
+                <p data-testid="turn-status" class="mt-4 max-lg:mt-2 flex flex-wrap items-center gap-2 font-mono text-sm">
                     <span class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
                     <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
                     <span class="@(state.Phase == TurnPhase.BrainSelecting ? "text-moss" : "text-amber-700")">
@@ -136,9 +136,9 @@ else
                 }
             }
 
-            <h3 class="mt-4 shrink-0 text-xs font-normal text-espresso/42">MOVE HISTORY</h3>
-            <div class="h-1 w-full shrink-0 border-b border-espresso/16"></div>
-            <ol data-testid="move-history" class="mt-2 flex min-h-0 flex-1 flex-wrap content-start gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
+            <h3 class="mt-4 shrink-0 text-xs font-normal text-espresso/42 max-lg:order-last">MOVE HISTORY</h3>
+            <div class="h-1 w-full shrink-0 border-b border-espresso/16 max-lg:order-last"></div>
+            <ol data-testid="move-history" class="mt-2 flex min-h-0 flex-1 flex-wrap max-lg:order-last max-lg:min-h-8 content-start gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
                 @for (var i = 0; i < state.MoveHistory.Count; i++)
                 {
                     <li><span class="text-espresso-soft/70">@(i + 1).</span> @state.MoveHistory[i].San</li>

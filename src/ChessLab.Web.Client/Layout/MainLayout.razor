@@ -28,7 +28,7 @@
     <span class="cursor-pointer">🗙</span>
 </div>
 
-<span class="fixed bottom-2 right-3 font-mono text-xs text-espresso/50 select-none">@("v" + Version)</span>
+<span class="fixed bottom-2 right-3 font-mono text-xs text-espresso/50 select-none max-lg:hidden">@("v" + Version)</span>
 
 @code {
     // Set via the Docker build-arg APP_VERSION -> `dotnet publish -p:InformationalVersion=...`,
