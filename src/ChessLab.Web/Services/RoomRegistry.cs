@@ -32,6 +32,7 @@ public sealed class RoomRegistry
         GameKind.CardChess => new CardChessSession(room),
         GameKind.ArcaneChess => new ArcaneChessSession(room),
         GameKind.BiddingChess => new BiddingChessSession(room),
+        GameKind.ProgressiveChess => new ProgressiveChessSession(room),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown game kind."),
     };
 

@@ -39,3 +39,5 @@ public sealed record BiddingSectionDto(
     bool BlackHasBid,
     int? LastWhiteBid,
     int? LastBlackBid);
+
+public sealed record ProgressiveSectionDto(int SeriesNumber, int MovesPlayedInSeries, int MovesLeftInSeries);

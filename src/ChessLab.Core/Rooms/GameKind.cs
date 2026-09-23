@@ -7,4 +7,5 @@ public enum GameKind
     CardChess,
     ArcaneChess,
     BiddingChess,
+    ProgressiveChess,
 }
