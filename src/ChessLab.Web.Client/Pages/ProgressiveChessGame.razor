@@ -1,0 +1,47 @@
+@page "/progressive/{Code}"
+@attribute [Authorize]
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Games
+@using ChessLab.Web.Client.Components
+
+<GameShell Code="@Code" GameName="Progressive Chess" StatusText="StatusText">
+    <Board Context="view">
+        <div class="board-fit min-h-0 w-full flex-1 max-lg:max-h-[75dvh] max-lg:flex-none max-lg:aspect-square">
+            <ChessBoard Fen="@view.State.PositionText"
+                        AvailableMoves="@view.State.AvailableMoves"
+                        Interactive="@view.IsBoardInteractive"
+                        FlipBoard="@view.IsFlipped"
+                        OnMoveSelected="move => view.Perform(GameAction.MovePiece(move.From, move.To, move.PromoteTo))" />
+        </div>
+    </Board>
+    <Panel Context="view">
+        @{ var series = view.State.Progressive!; }
+        <div data-testid="series-counter" class="border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm">
+            <p class="text-espresso-soft">
+                series <span class="font-semibold">@series.SeriesNumber</span> —
+                move <span class="font-semibold">@(series.MovesPlayedInSeries + 1)</span> of @series.SeriesNumber
+            </p>
+            <div class="mt-2 flex flex-wrap gap-1" aria-hidden="true">
+                @for (var i = 0; i < series.SeriesNumber; i++)
+                {
+                    <span class="h-2 w-4 border @(i < series.MovesPlayedInSeries ? "border-espresso/40 bg-espresso/30" : "border-espresso/20")"></span>
+                }
+            </div>
+            <p class="mt-2 text-xs text-espresso-soft/70">
+                A check ends the series on the spot, so it can only ever be the last move of one.
+            </p>
+        </div>
+    </Panel>
+</GameShell>
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+
+    private static string StatusText(GameView view)
+    {
+        var series = view.State.Progressive!;
+        return series.MovesLeftInSeries == 1
+            ? "last move of the series"
+            : $"{series.MovesLeftInSeries} moves left in the series";
+    }
+}

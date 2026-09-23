@@ -24,6 +24,10 @@ public sealed class ArcaneChessGamePage(IPage page)
     public ILocator BackToRoomLink => Page.GetByTestId("back-to-room-link");
     public ILocator ResignButton => Page.GetByTestId("resign-btn");
     public ILocator MoveHistory => Page.GetByTestId("move-history");
+
+    public Task<int> MoveHistoryCountAsync() => MoveHistory.Locator("li").CountAsync();
+
+    public ILocator PromotionPicker => Page.Locator(".promotion-dialog-group");
     public ILocator ErrorMessage => Page.GetByTestId("game-error");
 
     public ILocator ChessBoardRoot => Page.GetByTestId("chess-board");
@@ -49,11 +53,23 @@ public sealed class ArcaneChessGamePage(IPage page)
         return testIds.Select(id => Enum.Parse<SpellRank>(id["spell-card-".Length..])).ToArray();
     }
 
+    /// <summary>Click the piece, then its destination — and try again if the board wasn't listening
+    /// yet. The first click only arms the board's own move input, which a slow render can swallow,
+    /// and a move that did land is never sent twice because the history is checked in between.</summary>
     public async Task MoveAsync(string from, string to)
     {
-        await Square(from).ClickAsync();
-        await Page.WaitForTimeoutAsync(100);
-        await Square(to).ClickAsync();
+        var before = await MoveHistoryCountAsync();
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            await Square(from).ClickAsync();
+            await Page.WaitForTimeoutAsync(250);
+            await Square(to).ClickAsync();
+            await Page.WaitForTimeoutAsync(400);
+
+            if (await MoveHistoryCountAsync() > before || await PromotionPicker.IsVisibleAsync())
+                return;
+        }
     }
 
     /// <summary>Casts a spell with no target (e.g. Peek, Mend, Jam, Feint, Reshuffle, ExtraTurn).</summary>

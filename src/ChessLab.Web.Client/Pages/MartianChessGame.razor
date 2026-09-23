@@ -1,0 +1,42 @@
+@page "/martian/{Code}"
+@attribute [Authorize]
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Games
+@using ChessLab.Web.Client.Components
+
+<GameShell Code="@Code" GameName="Martian Chess" StatusText="StatusText">
+    <Board Context="view">
+        <div class="flex min-h-0 w-full flex-1 justify-center max-lg:h-[70dvh] max-lg:flex-none">
+            <MartianBoard Pyramids="@view.State.Martian!.Pyramids"
+                          AvailableMoves="@view.State.AvailableMoves"
+                          Interactive="@view.IsBoardInteractive"
+                          FlipBoard="@view.IsFlipped"
+                          OnMoveSelected="move => view.Perform(GameAction.MovePiece(move.From, move.To, null))" />
+        </div>
+    </Board>
+    <Panel Context="view">
+        @{ var martian = view.State.Martian!; }
+        <div class="border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm">
+            <div class="flex items-center justify-between" data-testid="score-white">
+                <span class="text-espresso-soft">white points</span>
+                <span class="font-semibold">@martian.WhiteScore</span>
+            </div>
+            <div class="flex items-center justify-between" data-testid="score-black">
+                <span class="text-espresso-soft">black points</span>
+                <span class="font-semibold">@martian.BlackScore</span>
+            </div>
+            <p class="mt-2 text-xs text-espresso-soft/70">
+                ▴ 1 steps diagonally · ▲ 2 moves one or two squares straight · ⬢ 3 goes any distance.
+            </p>
+            <p class="mt-1 text-xs text-espresso-soft/70">
+                You move whatever stands in your half — push a piece across and it becomes your opponent's.
+            </p>
+        </div>
+    </Panel>
+</GameShell>
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+
+    private static string StatusText(GameView view) => "moving a pyramid from its own half";
+}

@@ -144,4 +144,18 @@ public sealed class RoomPage
         await Page.WaitForURLAsync(new Regex($"/arcanechess/{Regex.Escape(Code)}$"), new() { Timeout = timeoutMs });
         return new ArcaneChessGamePage(Page);
     }
+
+    /// <summary>Host-only: starts a room for one of the modes that share the board shell.</summary>
+    public async Task<VariantGamePage> StartVariantGameAsync(GameKind kind)
+    {
+        await StartGameButton.ClickAsync();
+        return await WaitForVariantGameStartedAsync(kind);
+    }
+
+    public async Task<VariantGamePage> WaitForVariantGameStartedAsync(GameKind kind, int timeoutMs = 15000)
+    {
+        var route = Helpers.VariantRoutes.Of(kind);
+        await Page.WaitForURLAsync(new Regex($"/{route}/{Regex.Escape(Code)}$"), new() { Timeout = timeoutMs });
+        return new VariantGamePage(Page);
+    }
 }

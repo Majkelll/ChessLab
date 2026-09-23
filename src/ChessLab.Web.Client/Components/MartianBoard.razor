@@ -1,0 +1,89 @@
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Contracts
+
+<div data-testid="martian-board" class="mx-auto grid aspect-[1/2] h-full max-h-full grid-cols-4 grid-rows-8 border border-espresso/30">
+    @foreach (var rank in RankOrder())
+    {
+        @foreach (var file in FileOrder())
+        {
+            var square = new Square(file, rank);
+            var value = ValueAt(square);
+            var isTarget = selected is { } from && TargetsFrom(from).Contains(square);
+            var isSelected = selected == square;
+
+            <button type="button"
+                    data-testid="@($"martian-square-{square}")"
+                    disabled="@(!Interactive)"
+                    @onclick="() => OnSquareClicked(square)"
+                    class="relative flex items-center justify-center border border-espresso/10 font-mono text-lg transition duration-150 @BackgroundClass(rank) @(isSelected ? "ring-2 ring-inset ring-amber-700/70" : "") @(isTarget ? "ring-2 ring-inset ring-moss/70" : "") @(Interactive ? "hover:cursor-pointer" : "")">
+                @if (value > 0)
+                {
+                    <span data-testid="@($"martian-pyramid-{square}")" class="@PyramidClass(value)">@PyramidGlyph(value)</span>
+                }
+                else if (isTarget)
+                {
+                    <span class="h-2 w-2 rounded-full bg-moss/60" aria-hidden="true"></span>
+                }
+            </button>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MartianPyramidDto> Pyramids { get; set; } = [];
+
+    [Parameter, EditorRequired] public IReadOnlyList<ChessMove> AvailableMoves { get; set; } = [];
+
+    [Parameter] public bool Interactive { get; set; }
+
+    [Parameter] public bool FlipBoard { get; set; }
+
+    [Parameter] public EventCallback<ChessMove> OnMoveSelected { get; set; }
+
+    private Square? selected;
+
+    private IEnumerable<int> RankOrder() =>
+        FlipBoard ? Enumerable.Range(0, 8) : Enumerable.Range(0, 8).Reverse();
+
+    private IEnumerable<int> FileOrder() =>
+        FlipBoard ? Enumerable.Range(0, 4).Reverse() : Enumerable.Range(0, 4);
+
+    private int ValueAt(Square square) =>
+        Pyramids.FirstOrDefault(pyramid => pyramid.Square == square)?.Value ?? 0;
+
+    private IReadOnlyList<Square> TargetsFrom(Square from) =>
+        [.. AvailableMoves.Where(move => move.From == from).Select(move => move.To)];
+
+    private async Task OnSquareClicked(Square square)
+    {
+        if (!Interactive)
+            return;
+
+        if (selected is { } from && TargetsFrom(from).Contains(square))
+        {
+            var move = AvailableMoves.First(candidate => candidate.From == from && candidate.To == square);
+            selected = null;
+            await OnMoveSelected.InvokeAsync(move);
+            return;
+        }
+
+        selected = AvailableMoves.Any(move => move.From == square) ? square : null;
+    }
+
+    private static string BackgroundClass(int rank) =>
+        rank < 4 ? "bg-paper-dark" : "bg-espresso/10";
+
+    private static string PyramidClass(int value) => value switch
+    {
+        1 => "text-sm text-espresso-soft",
+        2 => "text-lg text-espresso",
+        _ => "text-2xl text-rust",
+    };
+
+    private static string PyramidGlyph(int value) => value switch
+    {
+        1 => "▴",
+        2 => "▲",
+        _ => "⬢",
+    };
+}

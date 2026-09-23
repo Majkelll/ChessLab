@@ -54,6 +54,12 @@
     {
         GameKind.CardChess => "Card Chess",
         GameKind.ArcaneChess => "Arcane Chess",
+        GameKind.BiddingChess => "Bidding Chess",
+        GameKind.ProgressiveChess => "Progressive Chess",
+        GameKind.AliceChess => "Alice Chess",
+        GameKind.AbsorptionChess => "Absorption Chess",
+        GameKind.MartianChess => "Martian Chess",
+        GameKind.DraftChess => "Draft Chess",
         _ => "Hand and Brain",
     };
 
@@ -68,6 +74,9 @@
         GameEndReason.Timeout => "timeout",
         GameEndReason.DrawAgreed => "draw agreed",
         GameEndReason.HpDepleted => "HP depleted",
+        GameEndReason.KingCaptured => "king captured",
+        GameEndReason.BoardHalfEmptied => "a half ran empty",
+        GameEndReason.MoveLimit => "move limit",
         _ => reason.ToString().ToLowerInvariant(),
     };
 }

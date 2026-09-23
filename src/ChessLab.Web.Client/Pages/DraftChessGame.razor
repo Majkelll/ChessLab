@@ -1,0 +1,226 @@
+@page "/draft/{Code}"
+@attribute [Authorize]
+@using System.Text
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Contracts
+@using ChessLab.Core.Draft
+@using ChessLab.Core.Games
+@using ChessLab.Web.Client.Components
+
+<GameShell Code="@Code" GameName="Draft Chess" StatusText="StatusText">
+    <Board Context="view">
+        @{
+            var draft = view.State.Draft!;
+            var placing = draft.Phase == DraftPhase.Placing;
+        }
+        <div class="board-fit min-h-0 w-full flex-1 max-lg:max-h-[75dvh] max-lg:flex-none max-lg:aspect-square">
+            <ChessBoard Fen="@BoardFen(view)"
+                        AvailableMoves="@view.State.AvailableMoves"
+                        Interactive="@(draft.Phase == DraftPhase.Playing && view.IsBoardInteractive)"
+                        FlipBoard="@view.IsFlipped"
+                        SquareSelect="@placing"
+                        SelectedSquares="@PlacedSquares(view)"
+                        OnSquareSelected="square => OnSquareSelectedAsync(view, square)"
+                        OnMoveSelected="move => view.Perform(GameAction.MovePiece(move.From, move.To, move.PromoteTo))" />
+        </div>
+    </Board>
+    <Panel Context="view">
+        @{
+            var draft = view.State.Draft!;
+            var mine = view.MySeat?.Side;
+        }
+
+        @if (draft.Phase == DraftPhase.Drafting)
+        {
+            <div class="flex flex-col gap-2 border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm" data-testid="draft-pool">
+                <p class="text-xs uppercase tracking-wide text-espresso-soft/60">
+                    draft — @(draft.SideToPick == Side.White ? "white" : "black") to pick
+                </p>
+                @foreach (var entry in draft.Pool)
+                {
+                    var affordable = mine is { } side && draft.SideToPick == side && entry.Remaining > 0 &&
+                        entry.Cost <= BudgetOf(draft, side);
+                    <button data-testid="@($"draft-pick-{entry.Kind}")"
+                            disabled="@(!affordable)"
+                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                            @onclick="() => view.Perform(GameAction.DraftPick(entry.Kind))"
+                            class="flex items-center justify-between border border-espresso/20 px-2 py-1 disabled:opacity-40 @(affordable ? "hover:bg-amber-700/10 hover:cursor-pointer" : "")">
+                        <span>@PieceKindDisplay.Glyph(entry.Kind) @PieceKindDisplay.Label(entry.Kind)</span>
+                        <span class="text-espresso-soft/70">@entry.Cost pts · @entry.Remaining left</span>
+                    </button>
+                }
+                <button data-testid="draft-pass-btn"
+                        disabled="@(mine is null || draft.SideToPick != mine)"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="() => view.Perform(GameAction.DraftPass())"
+                        class="border border-rust/40 bg-rust/5 px-2 py-1 text-rust disabled:opacity-40 hover:bg-rust/20 hover:cursor-pointer">
+                    Pass for good
+                </button>
+            </div>
+        }
+        else if (draft.Phase == DraftPhase.Placing && mine is { } side)
+        {
+            var unplaced = UnplacedOf(draft, side);
+            <div class="flex flex-col gap-2 border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm" data-testid="placement-tray">
+                <p class="text-xs uppercase tracking-wide text-espresso-soft/60">lay your army out</p>
+                @if (unplaced.Count == 0)
+                {
+                    <p data-testid="placement-done" class="text-xs text-moss">Ready — waiting for your opponent.</p>
+                }
+                else
+                {
+                    <div class="flex flex-wrap gap-1">
+                        @foreach (var (kind, count) in unplaced)
+                        {
+                            <button data-testid="@($"place-{kind}")"
+                                    @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                    @onclick="() => pieceToPlace = kind"
+                                    class="border px-2 py-1 @(pieceToPlace == kind ? "border-amber-700/60 bg-amber-700/10" : "border-espresso/20") hover:cursor-pointer">
+                            @PieceKindDisplay.Glyph(kind) x@count
+                            </button>
+                        }
+                    </div>
+                    <p class="text-xs text-espresso-soft/70">
+                        Pick a piece, then click a square. Pawns go on your second rank, everything else on your back rank.
+                        Click a piece you already placed to take it back.
+                    </p>
+                }
+            </div>
+        }
+
+        <div class="mt-2 border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-xs" data-testid="draft-summary">
+            <p data-testid="budget-white">white — @draft.WhiteBudgetLeft pts left @(draft.WhitePassed ? "(passed)" : "")</p>
+            <p class="text-espresso-soft/70">@Army(draft.WhitePicks)</p>
+            <p class="mt-1" data-testid="budget-black">black — @draft.BlackBudgetLeft pts left @(draft.BlackPassed ? "(passed)" : "")</p>
+            <p class="text-espresso-soft/70">@Army(draft.BlackPicks)</p>
+        </div>
+    </Panel>
+</GameShell>
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+
+    private PieceKind? pieceToPlace;
+
+    private async Task OnSquareSelectedAsync(GameView view, Square square)
+    {
+        var draft = view.State.Draft!;
+        if (draft.Phase != DraftPhase.Placing || view.MySeat is not { } seat)
+            return;
+
+        if (PlacementsOf(draft, seat.Side).Any(placement => placement.Square == square))
+        {
+            await view.Perform(GameAction.UnplacePiece(square));
+            return;
+        }
+
+        if (pieceToPlace is { } kind)
+            await view.Perform(GameAction.PlacePiece(kind, square));
+    }
+
+    /// <summary>During the draft there is nothing to show; while the armies are being laid out each
+    /// side only sees its own, and once play starts the real position takes over.</summary>
+    private static string BoardFen(GameView view)
+    {
+        var draft = view.State.Draft!;
+        if (draft.Phase == DraftPhase.Playing)
+            return view.State.PositionText;
+
+        var placements = view.MySeat is { } seat
+            ? PlacementsOf(draft, seat.Side).Select(placement => (placement.Square, placement.Kind, seat.Side))
+            : [];
+
+        return FenOf(placements);
+    }
+
+    private static string FenOf(IEnumerable<(Square Square, PieceKind Kind, Side Side)> pieces)
+    {
+        var grid = new char?[8, 8];
+        foreach (var (square, kind, side) in pieces)
+        {
+            var symbol = kind switch
+            {
+                PieceKind.Pawn => 'p',
+                PieceKind.Knight => 'n',
+                PieceKind.Bishop => 'b',
+                PieceKind.Rook => 'r',
+                PieceKind.Queen => 'q',
+                _ => 'k',
+            };
+            grid[square.File, square.Rank] = side == Side.White ? char.ToUpperInvariant(symbol) : symbol;
+        }
+
+        var placement = new StringBuilder();
+        for (var rank = 7; rank >= 0; rank--)
+        {
+            var empty = 0;
+            for (var file = 0; file < 8; file++)
+            {
+                if (grid[file, rank] is not { } piece)
+                {
+                    empty++;
+                    continue;
+                }
+
+                if (empty > 0)
+                {
+                    placement.Append(empty);
+                    empty = 0;
+                }
+
+                placement.Append(piece);
+            }
+
+            if (empty > 0)
+                placement.Append(empty);
+
+            if (rank > 0)
+                placement.Append('/');
+        }
+
+        return $"{placement} w - - 0 1";
+    }
+
+    private static IReadOnlyList<Square> PlacedSquares(GameView view)
+    {
+        var draft = view.State.Draft!;
+        if (draft.Phase != DraftPhase.Placing || view.MySeat is not { } seat)
+            return [];
+
+        return [.. PlacementsOf(draft, seat.Side).Select(placement => placement.Square)];
+    }
+
+    private static IReadOnlyList<DraftPlacementDto> PlacementsOf(DraftSectionDto draft, Side side) =>
+        side == Side.White ? draft.WhitePlacements : draft.BlackPlacements;
+
+    private static int BudgetOf(DraftSectionDto draft, Side side) =>
+        side == Side.White ? draft.WhiteBudgetLeft : draft.BlackBudgetLeft;
+
+    private static IReadOnlyList<(PieceKind Kind, int Count)> UnplacedOf(DraftSectionDto draft, Side side)
+    {
+        var owned = new List<PieceKind> { PieceKind.King };
+        owned.AddRange(side == Side.White ? draft.WhitePicks : draft.BlackPicks);
+
+        var placed = PlacementsOf(draft, side).Select(placement => placement.Kind).ToList();
+
+        return
+        [
+            .. owned.GroupBy(kind => kind)
+                .Select(group => (group.Key, group.Count() - placed.Count(kind => kind == group.Key)))
+                .Where(entry => entry.Item2 > 0),
+        ];
+    }
+
+    private static string Army(IReadOnlyList<PieceKind> picks) =>
+        picks.Count == 0
+            ? "nothing yet"
+            : string.Join(' ', picks.GroupBy(kind => kind)
+                .Select(group => $"{PieceKindDisplay.Glyph(group.Key)}x{group.Count()}"));
+
+    private static string StatusText(GameView view) => view.State.Draft!.Phase switch
+    {
+        DraftPhase.Drafting => "building an army from the shared pool",
+        DraftPhase.Placing => "laying the pieces out",
+        _ => "choosing a move",
+    };
+}

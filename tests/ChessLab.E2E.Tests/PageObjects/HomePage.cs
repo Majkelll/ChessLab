@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using ChessLab.Core.Rooms;
+using ChessLab.E2E.Tests.Helpers;
 using Microsoft.Playwright;
 
 namespace ChessLab.E2E.Tests.PageObjects;
@@ -34,6 +36,16 @@ public sealed class HomePage(IPage page)
     public async Task<RoomPage> CreateArcaneChessRoomAsync()
     {
         await CreateArcaneChessRoomButton.ClickAsync();
+        await Page.WaitForURLAsync(new Regex(@"/room/[A-Z0-9]{6}$"));
+        return new RoomPage(Page);
+    }
+
+    public ILocator CreateVariantRoomButton(GameKind kind) =>
+        Page.GetByTestId(VariantRoutes.CreateButtonTestId(kind));
+
+    public async Task<RoomPage> CreateVariantRoomAsync(GameKind kind)
+    {
+        await CreateVariantRoomButton(kind).ClickAsync();
         await Page.WaitForURLAsync(new Regex(@"/room/[A-Z0-9]{6}$"));
         return new RoomPage(Page);
     }

@@ -296,12 +296,7 @@ else
             }
 
             room = joined;
-            GameContext.Set(room.Kind switch
-            {
-                GameKind.CardChess => "Card Chess",
-                GameKind.ArcaneChess => "Arcane Chess",
-                _ => "Hand and Brain",
-            });
+            GameContext.Set(GameName(room.Kind));
             if (room.HasStarted)
             {
                 Nav.NavigateTo(GamePageUrl(room.Kind));
@@ -402,7 +397,26 @@ else
     {
         GameKind.CardChess => $"/cardchess/{Code}",
         GameKind.ArcaneChess => $"/arcanechess/{Code}",
+        GameKind.BiddingChess => $"/bidding/{Code}",
+        GameKind.ProgressiveChess => $"/progressive/{Code}",
+        GameKind.AliceChess => $"/alice/{Code}",
+        GameKind.AbsorptionChess => $"/absorption/{Code}",
+        GameKind.MartianChess => $"/martian/{Code}",
+        GameKind.DraftChess => $"/draft/{Code}",
         _ => $"/game/{Code}",
+    };
+
+    private static string GameName(GameKind kind) => kind switch
+    {
+        GameKind.CardChess => "Card Chess",
+        GameKind.ArcaneChess => "Arcane Chess",
+        GameKind.BiddingChess => "Bidding Chess",
+        GameKind.ProgressiveChess => "Progressive Chess",
+        GameKind.AliceChess => "Alice Chess",
+        GameKind.AbsorptionChess => "Absorption Chess",
+        GameKind.MartianChess => "Martian Chess",
+        GameKind.DraftChess => "Draft Chess",
+        _ => "Hand and Brain",
     };
 
     private async Task CopyLinkAsync()

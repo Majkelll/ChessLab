@@ -72,11 +72,23 @@ public sealed class GamePage(IPage page)
     /// after the first click matters: Blazor WebAssembly's event dispatch hops through a JS interop
     /// microtask even for a fully synchronous handler, so two Playwright clicks fired back-to-back
     /// can both land before the first one's handler has actually run and recorded the selection.</summary>
+    /// <summary>Click the piece, then its destination — and try again if the board wasn't listening
+    /// yet. The first click only arms the board's own move input, which a slow render can swallow,
+    /// and a move that did land is never sent twice because the history is checked in between.</summary>
     public async Task MoveAsync(string from, string to)
     {
-        await Square(from).ClickAsync();
-        await Page.WaitForTimeoutAsync(100);
-        await Square(to).ClickAsync();
+        var before = await MoveHistoryCountAsync();
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            await Square(from).ClickAsync();
+            await Page.WaitForTimeoutAsync(250);
+            await Square(to).ClickAsync();
+            await Page.WaitForTimeoutAsync(400);
+
+            if (await MoveHistoryCountAsync() > before || await PromotionPicker.IsVisibleAsync())
+                return;
+        }
     }
 
     /// <summary>Drag-and-drop move, exercised separately from click-to-move so both input paths get coverage.</summary>

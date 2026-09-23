@@ -1,6 +1,7 @@
 @page "/history/{Id:guid}"
 @attribute [Authorize]
 @using ChessLab.Core.Contracts
+@using ChessLab.Core.Rooms
 @using ChessLab.Web.Client.Components
 @using ChessLab.Web.Client.Services
 @using Microsoft.AspNetCore.Components.Authorization
@@ -29,8 +30,35 @@ else if (detail is null)
 else
 {
     <div data-testid="history-detail" class="flex h-full min-h-0 flex-col gap-4 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
-        <div class="board-fit min-h-0 w-full flex-1">
-            <ChessBoard Fen="@detail.FinalFen" Interactive="false" />
+        <div class="min-h-0 w-full flex-1">
+            @if (detail.Summary.Kind == GameKind.MartianChess)
+            {
+                <pre data-testid="final-position-text" class="border border-espresso/16 bg-white/40 p-4 font-mono text-sm leading-6">@MartianGrid(detail.FinalFen)</pre>
+            }
+            else if (detail.Summary.Kind == GameKind.AliceChess)
+            {
+                <div class="grid gap-3 xl:grid-cols-2">
+                    @foreach (var (label, fen) in AliceBoards(detail.FinalFen))
+                    {
+                        <div>
+                            <p class="font-mono text-[10px] uppercase tracking-wide text-espresso-soft/60">@label</p>
+                            <div class="board-fit aspect-square w-full">
+                                <ChessBoard Fen="@fen" Interactive="false" />
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="board-fit h-full w-full">
+                    <ChessBoard Fen="@BoardPart(detail.FinalFen)" Interactive="false" />
+                </div>
+                @if (PowersPart(detail.FinalFen) is { } powers)
+                {
+                    <p data-testid="final-powers" class="mt-2 font-mono text-xs text-espresso-soft/70">absorbed moves: @powers</p>
+                }
+            }
         </div>
 
         <div class="flex min-h-0 flex-col">
@@ -64,6 +92,32 @@ else
     private string? error;
 
     protected override void OnInitialized() => GameContext.Set("History");
+
+    /// <summary>Only chess-shaped modes record a plain FEN. Alice keeps both of its boards in one
+    /// string, Absorption appends what each piece has eaten, and Martian isn't a FEN at all.</summary>
+    private static string BoardPart(string position) => position.Split(" | ")[0];
+
+    private static string? PowersPart(string position)
+    {
+        var parts = position.Split(" | ");
+        return parts.Length > 1 ? parts[1] : null;
+    }
+
+    private static IEnumerable<(string Label, string Fen)> AliceBoards(string position)
+    {
+        var parts = position.Split(" | ");
+        yield return ("board a", parts[0]);
+
+        if (parts.Length > 1)
+            yield return ("board b", parts[1]);
+    }
+
+    private static string MartianGrid(string position)
+    {
+        var parts = position.Split(' ');
+        var rows = string.Join('\n', parts[0].Split('/'));
+        return parts.Length > 2 ? $"{rows}\n\nscore {parts[2]}" : rows;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

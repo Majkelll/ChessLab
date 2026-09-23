@@ -1,0 +1,277 @@
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Contracts
+@using ChessLab.Core.Games
+@using ChessLab.Core.Rooms
+@using ChessLab.Web.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GameClient Game
+@inject NavigationManager Nav
+@inject CurrentGameContext GameContext
+@implements IDisposable
+
+<PageTitle>@GameName @Code</PageTitle>
+
+@if (roomIsGone)
+{
+    <div data-testid="room-gone" class="max-w-xl">
+        <p class="text-sm text-rust">Room '@Code' was not found.</p>
+        <p class="mt-2 text-sm text-espresso-soft">
+            Rooms only live while the server is running, so this one is gone if the game ended or the server restarted.
+        </p>
+        <a href="" class="mt-4 inline-block border border-amber-700/40 bg-amber-700/5 px-4 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+            Back to games
+        </a>
+    </div>
+}
+else if (error is not null)
+{
+    <p data-testid="game-error" class="text-sm text-rust">@error</p>
+}
+else if (room is null || state is null)
+{
+    <p class="text-espresso/42">Connecting<span class="blink-cursor" aria-hidden="true">_</span></p>
+}
+else
+{
+    var view = CurrentView();
+
+    <div class="flex h-full min-h-0 flex-col gap-4 max-lg:h-auto max-lg:gap-2 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
+        <div class="flex min-h-0 w-full flex-col max-lg:contents">
+            @Board(view)
+        </div>
+
+        <div class="flex min-h-0 flex-col max-lg:contents">
+            <div class="flex shrink-0 flex-col items-start gap-1.5 max-lg:order-first max-lg:w-full max-lg:flex-row max-lg:flex-wrap max-lg:items-center max-lg:justify-between">
+                @foreach (var side in ClockOrder())
+                {
+                    <Clock TestId="@ClockTestId(side)" Label="@SideLabel(side)"
+                           RemainingMs="@RemainingMsOf(side)" IsActive="@IsClockActive(side)"
+                           AccentBorderClass="@AccentBorderClass(side)" />
+                }
+            </div>
+
+            @if (Panel is not null)
+            {
+                <div class="mt-4 shrink-0 max-lg:order-last">
+                    @Panel(view)
+                </div>
+            }
+
+            @if (state.IsGameOver)
+            {
+                <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
+                    <span class="text-espresso-soft">Game over:</span> <span data-testid="game-over-reason">@EndReasonLabel(state.EndReason)</span>
+                    @if (state.Winner is { } winner)
+                    {
+                        <text> — <span data-testid="game-over-winner">@SideLabel(winner)</span> wins</text>
+                    }
+                </p>
+                <button data-testid="back-to-room-link"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="BackToRoom"
+                        class="mt-4 w-fit shrink-0 self-start border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+                    Back to room
+                </button>
+            }
+            else
+            {
+                <p data-testid="turn-status" class="mt-4 max-lg:mt-2 flex flex-wrap items-center gap-2 font-mono text-sm" @key="state.SideToMove">
+                    <span data-turn-indicator class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@SideLabel(state.SideToMove)</span>
+                    <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
+                    <span class="text-espresso-soft">@StatusText(view)</span>
+                </p>
+
+                @if (mySeat is not null)
+                {
+                    <button data-testid="resign-btn"
+                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                            @onclick="ResignAsync"
+                            class="mt-4 w-fit shrink-0 self-start border border-rust/40 bg-rust/5 px-3 py-1.5 font-mono text-sm text-rust hover:bg-rust/20 transition duration-300 hover:cursor-pointer">
+                        Resign
+                    </button>
+                }
+            }
+
+            <h3 class="mt-4 shrink-0 text-xs font-normal text-espresso/42 max-lg:order-last">MOVE HISTORY</h3>
+            <div class="h-1 w-full shrink-0 border-b border-espresso/16 max-lg:order-last"></div>
+            <ol data-testid="move-history" class="mt-2 flex min-h-0 flex-1 flex-wrap max-lg:order-last max-lg:min-h-8 content-start gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
+                @for (var i = 0; i < state.MoveHistory.Count; i++)
+                {
+                    <li><span class="text-espresso-soft/70">@(i + 1).</span> @state.MoveHistory[i].San</li>
+                }
+            </ol>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Code { get; set; } = "";
+
+    [Parameter, EditorRequired] public string GameName { get; set; } = "";
+
+    [Parameter, EditorRequired] public RenderFragment<GameView> Board { get; set; } = default!;
+
+    [Parameter] public RenderFragment<GameView>? Panel { get; set; }
+
+    [Parameter] public Func<GameView, string> StatusText { get; set; } = _ => "thinking";
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private RoomStateDto? room;
+    private GameStateEnvelopeDto? state;
+    private List<ChessMove> moveHistory = [];
+    private Guid myUserId;
+    private SeatId? mySeat;
+    private string? error;
+    private bool roomIsGone;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask!;
+        myUserId = Guid.Parse(authState.User.FindFirst("buid")!.Value);
+
+        GameContext.Set(GameName);
+        Game.RoomUpdated += OnRoomUpdated;
+        Game.GameUpdated += OnGameUpdated;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await Game.EnsureConnectedAsync();
+            if (await Game.JoinRoomAsync(Code) is not { } joined)
+            {
+                if (await Game.GetGameHistoryByRoomCodeAsync(Code) is { } finished)
+                {
+                    Nav.NavigateTo($"history/{finished.Summary.Id}");
+                    return;
+                }
+
+                roomIsGone = true;
+                StateHasChanged();
+                return;
+            }
+
+            room = joined;
+            mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
+            SetFullState(await Game.GetGameStateAsync(Code));
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+    private GameView CurrentView() => new()
+    {
+        Room = room!,
+        State = state!,
+        MySeat = mySeat,
+        Perform = PerformAsync,
+    };
+
+    private async Task PerformAsync(GameAction action)
+    {
+        try { await Game.PerformActionAsync(Code, action); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task ResignAsync()
+    {
+        try { await Game.ResignAsync(Code); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private void BackToRoom() => Nav.NavigateTo($"/room/{Code}");
+
+    private IEnumerable<Side> ClockOrder()
+    {
+        if (mySeat is { } seat)
+            return [seat.Side == Side.White ? Side.Black : Side.White, seat.Side];
+
+        return [Side.White, Side.Black];
+    }
+
+    private long RemainingMsOf(Side side) => side == Side.White ? state!.WhiteRemainingMs : state!.BlackRemainingMs;
+
+    private bool IsClockActive(Side side) => state is { IsGameOver: false } && state.SideToMove == side;
+
+    private static string SideLabel(Side side) => side == Side.White ? "white" : "black";
+
+    private static string ClockTestId(Side side) => side == Side.White ? "clock-white" : "clock-black";
+
+    private static string AccentBorderClass(Side side) =>
+        side == Side.White ? "border-amber-700/50" : "border-moss/50";
+
+    private static string EndReasonLabel(GameEndReason? reason) => reason switch
+    {
+        GameEndReason.Checkmate => "checkmate",
+        GameEndReason.Stalemate => "stalemate",
+        GameEndReason.InsufficientMaterial => "insufficient material",
+        GameEndReason.FiftyMoveRule => "fifty-move rule",
+        GameEndReason.Repetition => "threefold repetition",
+        GameEndReason.Resignation => "resignation",
+        GameEndReason.Timeout => "timeout",
+        GameEndReason.DrawAgreed => "draw",
+        GameEndReason.HpDepleted => "out of HP",
+        GameEndReason.KingCaptured => "the king was taken",
+        GameEndReason.BoardHalfEmptied => "a half of the board ran empty",
+        GameEndReason.MoveLimit => "move limit",
+        _ => "",
+    };
+
+    private void OnRoomUpdated(RoomStateDto dto)
+    {
+        room = dto;
+        mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnGameUpdated(GameUpdateEnvelopeDto dto)
+    {
+        if (dto.MoveHistoryCount == moveHistory.Count + 1 && dto.LatestMove is { } move)
+            moveHistory.Add(move);
+        else if (dto.MoveHistoryCount != moveHistory.Count)
+            _ = ResyncFullStateAsync();
+
+        state = new GameStateEnvelopeDto(
+            dto.Kind, dto.SideToMove, dto.PositionText, dto.AvailableMoves, moveHistory,
+            dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
+            dto.HandBrain, dto.CardChess, dto.Arcane, dto.Bidding, dto.Progressive, dto.Alice,
+            dto.Absorption, dto.Martian, dto.Draft);
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ResyncFullStateAsync()
+    {
+        try
+        {
+            SetFullState(await Game.GetGameStateAsync(Code));
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void SetFullState(GameStateEnvelopeDto dto)
+    {
+        state = dto;
+        moveHistory = [.. dto.MoveHistory];
+    }
+
+    public void Dispose()
+    {
+        Game.RoomUpdated -= OnRoomUpdated;
+        Game.GameUpdated -= OnGameUpdated;
+    }
+}

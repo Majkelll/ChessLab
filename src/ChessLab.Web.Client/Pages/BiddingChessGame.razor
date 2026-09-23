@@ -1,0 +1,100 @@
+@page "/bidding/{Code}"
+@attribute [Authorize]
+@using ChessLab.Core.Bidding
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Games
+@using ChessLab.Web.Client.Components
+
+<GameShell Code="@Code" GameName="Bidding Chess" StatusText="StatusText">
+    <Board Context="view">
+        <div class="board-fit min-h-0 w-full flex-1 max-lg:max-h-[75dvh] max-lg:flex-none max-lg:aspect-square">
+            <ChessBoard Fen="@view.State.PositionText"
+                        AvailableMoves="@view.State.AvailableMoves"
+                        Interactive="@CanMove(view)"
+                        FlipBoard="@view.IsFlipped"
+                        OnMoveSelected="move => view.Perform(GameAction.MovePiece(move.From, move.To, move.PromoteTo))" />
+        </div>
+    </Board>
+    <Panel Context="view">
+        @{
+            var bidding = view.State.Bidding!;
+            var mine = view.MySeat?.Side;
+        }
+        <div class="flex flex-col gap-2 border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm">
+            <div class="flex items-center justify-between" data-testid="chips-white">
+                <span class="text-espresso-soft">white chips</span>
+                <span class="font-semibold">@bidding.WhiteChips @(bidding.MarkerHolder == Side.White ? "★" : "")</span>
+            </div>
+            <div class="flex items-center justify-between" data-testid="chips-black">
+                <span class="text-espresso-soft">black chips</span>
+                <span class="font-semibold">@bidding.BlackChips @(bidding.MarkerHolder == Side.Black ? "★" : "")</span>
+            </div>
+
+            @if (bidding.LastWhiteBid is { } lastWhite && bidding.LastBlackBid is { } lastBlack)
+            {
+                <p data-testid="last-bids" class="text-xs text-espresso-soft/70">
+                    last bids — white @lastWhite, black @lastBlack
+                </p>
+            }
+
+            @if (bidding.Phase == BiddingPhase.Bidding && mine is { } side && !view.State.IsGameOver)
+            {
+                var alreadyBid = side == Side.White ? bidding.WhiteHasBid : bidding.BlackHasBid;
+                var chips = side == Side.White ? bidding.WhiteChips : bidding.BlackChips;
+
+                @if (alreadyBid)
+                {
+                    <p data-testid="bid-submitted" class="text-xs text-moss">Bid in — waiting for your opponent.</p>
+                }
+                else
+                {
+                    <div class="flex items-center gap-2">
+                        <input data-testid="bid-input" type="number" min="0" max="@chips" step="1"
+                               value="@bid" @oninput="OnBidInput"
+                               class="w-20 border border-espresso/20 bg-paper-dark px-2 py-1 text-sm" />
+                        <button data-testid="submit-bid-btn"
+                                @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                @onclick="() => SubmitBidAsync(view, chips)"
+                                class="border border-amber-700/40 bg-amber-700/5 px-3 py-1 hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+                            Bid
+                        </button>
+                    </div>
+                    <p class="text-xs text-espresso-soft/70">
+                        The higher bid moves and pays it to the other side; a tie goes to the ★ marker, which then changes hands.
+                    </p>
+                }
+            }
+        </div>
+    </Panel>
+</GameShell>
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+
+    private int bid;
+
+    private void OnBidInput(ChangeEventArgs args) =>
+        bid = int.TryParse(args.Value?.ToString(), out var parsed) ? parsed : 0;
+
+    private Task SubmitBidAsync(GameView view, int chips) =>
+        view.Perform(GameAction.SubmitBid(Math.Clamp(bid, 0, chips)));
+
+    private static bool CanMove(GameView view) =>
+        view.State.Bidding!.Phase == BiddingPhase.Moving && view.IsBoardInteractive;
+
+    private static string StatusText(GameView view)
+    {
+        var bidding = view.State.Bidding!;
+        if (bidding.Phase == BiddingPhase.Moving)
+            return "won the bid — playing a move";
+
+        var waiting = (bidding.WhiteHasBid, bidding.BlackHasBid) switch
+        {
+            (true, false) => "waiting on black's bid",
+            (false, true) => "waiting on white's bid",
+            _ => "both sides are bidding",
+        };
+
+        return waiting;
+    }
+}
