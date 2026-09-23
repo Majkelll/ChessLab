@@ -254,6 +254,11 @@ public sealed class GameState : IGameEngineState
         board = built;
         board.SetSideToMove(Side.White);
         Phase = DraftPhase.Playing;
+
+        // Anything that asked for the moves while the armies were still being built got an empty
+        // list, and that answer is cached — there is a real board to read now.
+        availableMoves = null;
+
         CountPosition();
     }
 

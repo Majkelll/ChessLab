@@ -1,7 +1,7 @@
 @using ChessLab.Core.Chess
 @using ChessLab.Core.Contracts
 
-<div data-testid="martian-board" class="mx-auto grid aspect-[1/2] h-full max-h-full grid-cols-4 grid-rows-8 border border-espresso/30">
+<div data-testid="martian-board" data-available-moves="@MoveList()" class="mx-auto grid aspect-[1/2] h-full max-h-full grid-cols-4 grid-rows-8 border border-espresso/30">
     @foreach (var rank in RankOrder())
     {
         @foreach (var file in FileOrder())
@@ -41,6 +41,11 @@
     [Parameter] public EventCallback<ChessMove> OnMoveSelected { get; set; }
 
     private Square? selected;
+
+    /// <summary>The moves currently on offer, as "a3a5", so a browser test can play a real game
+    /// without having to work the pyramids out from the picture.</summary>
+    private string MoveList() =>
+        string.Join(' ', AvailableMoves.Select(move => $"{move.From}{move.To}").Distinct());
 
     private IEnumerable<int> RankOrder() =>
         FlipBoard ? Enumerable.Range(0, 8) : Enumerable.Range(0, 8).Reverse();

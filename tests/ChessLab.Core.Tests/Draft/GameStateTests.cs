@@ -145,6 +145,24 @@ public class GameStateTests
     }
 
     [Fact]
+    public void AvailableMoves_AskedForBeforeTheGameStarts_DoNotStayEmptyOnceItDoes()
+    {
+        var game = NewGame();
+        Assert.Empty(game.AvailableMoves);
+
+        game.Pass(Side.White);
+        Assert.Empty(game.AvailableMoves);
+
+        game.Pass(Side.Black);
+        game.Place(Side.White, PieceKind.King, Square.Parse("e1"));
+        Assert.Empty(game.AvailableMoves);
+
+        game.Place(Side.Black, PieceKind.King, Square.Parse("e8"));
+
+        Assert.NotEmpty(game.AvailableMoves);
+    }
+
+    [Fact]
     public void Unplace_PutsThePieceBackInHand()
     {
         var game = NewGame();

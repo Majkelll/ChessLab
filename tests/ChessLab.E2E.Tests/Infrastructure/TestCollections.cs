@@ -13,3 +13,28 @@ public sealed class ShortClockAppCollection : ICollectionFixture<ShortClockWebAp
 {
     public const string Name = "ChessLab app (short clock)";
 }
+
+// The long play-through tests get their own collections, three of them, so the nine games run
+// three at a time instead of one after another — each collection pays for its own app and browser,
+// which is the trade that turns five minutes of wall time into under two.
+
+[CollectionDefinition(Name)]
+public sealed class LongGameClassicsCollection
+    : ICollectionFixture<WebAppFixture>, ICollectionFixture<PlaywrightFixture>
+{
+    public const string Name = "ChessLab long games (original modes)";
+}
+
+[CollectionDefinition(Name)]
+public sealed class LongGameChessLikeCollection
+    : ICollectionFixture<WebAppFixture>, ICollectionFixture<PlaywrightFixture>
+{
+    public const string Name = "ChessLab long games (chess-like modes)";
+}
+
+[CollectionDefinition(Name)]
+public sealed class LongGameOddOnesCollection
+    : ICollectionFixture<WebAppFixture>, ICollectionFixture<PlaywrightFixture>
+{
+    public const string Name = "ChessLab long games (unusual modes)";
+}

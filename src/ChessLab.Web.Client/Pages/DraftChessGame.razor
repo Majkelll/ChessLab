@@ -76,7 +76,7 @@
                                     @onmousedown="() => { }" @onmousedown:preventDefault="true"
                                     @onclick="() => pieceToPlace = kind"
                                     class="border px-2 py-1 @(pieceToPlace == kind ? "border-amber-700/60 bg-amber-700/10" : "border-espresso/20") hover:cursor-pointer">
-                            @PieceKindDisplay.Glyph(kind) x@count
+                            @PieceKindDisplay.Glyph(kind) x@(count)
                             </button>
                         }
                     </div>

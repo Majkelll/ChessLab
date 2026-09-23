@@ -4,7 +4,7 @@
 
 <div class="board-frame select-none">
     <div class="h-full w-full border-4 border-espresso bg-espresso p-1.5 shadow-[inset_0_0_0_1px_rgba(246,239,228,0.08)]">
-        <div @ref="boardContainer" data-testid="chess-board" class="h-full w-full"></div>
+        <div @ref="boardContainer" data-testid="chess-board" data-available-moves="@MoveList()" class="h-full w-full"></div>
     </div>
 </div>
 
@@ -19,6 +19,21 @@
     [Parameter] public bool SquareSelect { get; set; }
     [Parameter] public IReadOnlyList<Square> SelectedSquares { get; set; } = [];
     [Parameter] public EventCallback<Square> OnSquareSelected { get; set; }
+
+    /// <summary>The moves currently on offer, as "e2e4" / "e7e8q" — the same list the board itself
+    /// validates against, published so a browser test can play a real game without guessing.</summary>
+    private string MoveList() => string.Join(' ', AvailableMoves
+        .Select(move => $"{move.From}{move.To}{(move.PromoteTo is { } promotion ? PromotionLetter(promotion) : "")}")
+        .Distinct());
+
+    private static string PromotionLetter(PieceKind kind) => kind switch
+    {
+        PieceKind.Queen => "q",
+        PieceKind.Rook => "r",
+        PieceKind.Bishop => "b",
+        PieceKind.Knight => "n",
+        _ => "",
+    };
 
     private ElementReference boardContainer;
     private IJSObjectReference? jsModule;

@@ -115,7 +115,7 @@ else
             else
             {
                 <p data-testid="turn-status" class="mt-4 max-lg:mt-2 flex flex-wrap items-center gap-2 font-mono text-sm">
-                    <span class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
+                    <span data-turn-indicator class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
                     <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
                     <span class="@(handBrain.Phase == TurnPhase.BrainSelecting ? "text-moss" : "text-amber-700")">
                         @(handBrain.Phase == TurnPhase.BrainSelecting ? "Brain is announcing a piece" : "Hand is making a move")
