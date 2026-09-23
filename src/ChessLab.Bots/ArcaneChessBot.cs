@@ -19,7 +19,7 @@ public sealed class ArcaneChessBot(StockfishEngine engine) : IGameBot
 
     private int spellTriedAtMoveCount = -1;
 
-    public async Task<GameAction> ChooseActionAsync(IRoomSession session, BotDifficulty difficulty,
+    public async Task<GameAction> ChooseActionAsync(IRoomSession session, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)
     {
         var game = ((ArcaneChessSession)session).Game!;

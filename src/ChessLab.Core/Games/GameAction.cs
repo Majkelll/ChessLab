@@ -10,6 +10,7 @@ public enum GameActionKind
     SelectPieceKind,
     SelectReroll,
     CastSpell,
+    SubmitBid,
 }
 
 /// <summary>
@@ -25,7 +26,8 @@ public sealed record GameAction(
     PieceKind? SelectedKind = null,
     IReadOnlyList<CardRank>? Cards = null,
     SpellRank? Spell = null,
-    SpellTarget? Target = null)
+    SpellTarget? Target = null,
+    int? Amount = null)
 {
     public static GameAction MovePiece(Square from, Square to, PieceKind? promoteTo = null) =>
         new(GameActionKind.Move, From: from, To: to, PromoteTo: promoteTo);
@@ -38,4 +40,6 @@ public sealed record GameAction(
 
     public static GameAction CastSpell(SpellRank spell, SpellTarget target) =>
         new(GameActionKind.CastSpell, Spell: spell, Target: target);
+
+    public static GameAction SubmitBid(int amount) => new(GameActionKind.SubmitBid, Amount: amount);
 }

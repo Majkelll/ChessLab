@@ -6,4 +6,5 @@ public enum GameKind
     HandAndBrain,
     CardChess,
     ArcaneChess,
+    BiddingChess,
 }

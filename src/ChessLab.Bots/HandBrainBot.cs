@@ -8,7 +8,7 @@ namespace ChessLab.Bots;
 /// <summary>Decides bot moves for both Hand&amp;Brain roles on top of a single Stockfish engine.</summary>
 public sealed class HandBrainBot(StockfishEngine engine) : IGameBot
 {
-    public async Task<GameAction> ChooseActionAsync(IRoomSession session, BotDifficulty difficulty,
+    public async Task<GameAction> ChooseActionAsync(IRoomSession session, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)
     {
         var game = ((GameSession)session).Game!;

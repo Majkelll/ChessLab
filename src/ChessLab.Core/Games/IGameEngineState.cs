@@ -18,6 +18,10 @@ public interface IGameEngineState
     IReadOnlyList<string> MoveNotations { get; }
     string PositionText { get; }
 
+    /// <summary>Whose clocks are running right now. Normally just the side to move, but a mode
+    /// where both sides act at once (Bidding Chess's sealed bids) charges both of them.</summary>
+    IReadOnlyList<Side> SidesOnTheClock { get; }
+
     void Resign(Side side);
     void DeclareTimeoutIfFlagged();
 }

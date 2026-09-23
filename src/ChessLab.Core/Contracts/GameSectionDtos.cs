@@ -1,4 +1,5 @@
 using ChessLab.Core.ArcaneChess;
+using ChessLab.Core.Bidding;
 using ChessLab.Core.CardChess;
 using ChessLab.Core.Chess;
 using ChessLab.Core.HandBrain;
@@ -28,3 +29,13 @@ public sealed record ArcaneChessSectionDto(
     bool WhiteSeesBlackHand,
     bool BlackSeesWhiteHand,
     IReadOnlyList<ArcaneEffect> ActiveEffects);
+
+public sealed record BiddingSectionDto(
+    BiddingPhase Phase,
+    int WhiteChips,
+    int BlackChips,
+    Side MarkerHolder,
+    bool WhiteHasBid,
+    bool BlackHasBid,
+    int? LastWhiteBid,
+    int? LastBlackBid);

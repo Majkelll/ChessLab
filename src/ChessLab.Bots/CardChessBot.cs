@@ -7,7 +7,7 @@ namespace ChessLab.Bots;
 
 public sealed class CardChessBot(StockfishEngine engine) : IGameBot
 {
-    public async Task<GameAction> ChooseActionAsync(IRoomSession session, BotDifficulty difficulty,
+    public async Task<GameAction> ChooseActionAsync(IRoomSession session, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)
     {
         var move = await ChooseMoveAsync(((CardChessSession)session).Game!, difficulty, ct);

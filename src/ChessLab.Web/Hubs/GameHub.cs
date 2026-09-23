@@ -117,11 +117,11 @@ public sealed class GameHub(
     public async Task PerformAction(string code, GameAction action)
     {
         var session = registry.Get(code);
-        EnsureActiveSeatIsCaller(session);
+        var seat = EnsureCallerMayAct(session);
 
         try
         {
-            session.Apply(action, DateTimeOffset.UtcNow);
+            session.Apply(action, seat, DateTimeOffset.UtcNow);
         }
         catch (InvalidOperationException ex)
         {
@@ -164,13 +164,15 @@ public sealed class GameHub(
         await archive.RecordIfFinishedAsync(session);
     }
 
-    private void EnsureActiveSeatIsCaller(IRoomSession session)
+    private SeatId EnsureCallerMayAct(IRoomSession session)
     {
         if (session.Game is null)
             throw new HubException("Game has not started.");
 
-        var occupant = session.Room.Seats[session.ActiveSeat];
-        if (occupant.Kind != OccupantKind.Human || occupant.UserId != UserId)
+        var seat = session.Room.FindSeatOf(UserId) ?? throw new HubException("You are not seated in this room.");
+        if (!session.ActiveSeats.Contains(seat))
             throw new HubException("It's not your turn.");
+
+        return seat;
     }
 }

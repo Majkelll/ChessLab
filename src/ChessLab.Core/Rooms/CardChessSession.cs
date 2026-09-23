@@ -12,7 +12,7 @@ public sealed class CardChessSession(Room room, Func<IChessRulesEngine> engineFa
     {
     }
 
-    public override SeatId ActiveSeat => new(StartedGame.SideToMove, SeatRole.Player);
+    public override IReadOnlyList<SeatId> ActiveSeats => [new SeatId(StartedGame.SideToMove, SeatRole.Player)];
 
     public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
     {
@@ -23,7 +23,7 @@ public sealed class CardChessSession(Room room, Func<IChessRulesEngine> engineFa
         TurnStartedAt = now;
     }
 
-    public override void Apply(GameAction action, DateTimeOffset now)
+    public override void Apply(GameAction action, SeatId seat, DateTimeOffset now)
     {
         switch (action.Kind)
         {

@@ -17,7 +17,7 @@ public sealed class Room
         new(Side.Black, SeatRole.Hand),
     ];
 
-    /// <summary>The 2 Card Chess / Arcane Chess seats — one per side, no role split.</summary>
+    /// <summary>The 2 seats every game kind but Hand &amp; Brain uses — one per side, no role split.</summary>
     public static IReadOnlyList<SeatId> CardChessSeatIds { get; } =
     [
         new(Side.White, SeatRole.Player),
@@ -25,7 +25,7 @@ public sealed class Room
     ];
 
     private static IReadOnlyList<SeatId> SeatIdsFor(GameKind kind) =>
-        kind is GameKind.CardChess or GameKind.ArcaneChess ? CardChessSeatIds : AllSeatIds;
+        kind is GameKind.HandAndBrain ? AllSeatIds : CardChessSeatIds;
 
     private readonly Dictionary<SeatId, SeatOccupant> seats;
 

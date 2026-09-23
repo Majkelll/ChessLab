@@ -41,25 +41,32 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, G
 
             while (session.HasActiveGame)
             {
-                var occupant = session.Room.Seats[session.ActiveSeat];
-                if (occupant.Kind != OccupantKind.Bot)
+                var botSeats = session.ActiveSeats
+                    .Where(seat => session.Room.Seats[seat].Kind == OccupantKind.Bot)
+                    .ToArray();
+
+                if (botSeats.Length == 0)
                     return;
 
                 await Task.Delay(Random.Shared.Next((int)MinThinkDelay.TotalMilliseconds, (int)MaxThinkDelay.TotalMilliseconds));
 
                 var bot = await GetOrCreateBotAsync(code, session.Room.Kind);
-                var action = await bot.ChooseActionAsync(session, occupant.Difficulty!.Value);
 
-                try
+                foreach (var seat in botSeats)
                 {
-                    session.Apply(action, DateTimeOffset.UtcNow);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    // A bot heuristic guessing an illegal target isn't a fault worth stopping the
-                    // room for — it gets another go at the same seat on the next pass.
-                    logger.LogDebug(ex, "Bot action {Action} rejected in room {Code}.", action.Kind, code);
-                    continue;
+                    var difficulty = session.Room.Seats[seat].Difficulty!.Value;
+                    var action = await bot.ChooseActionAsync(session, seat, difficulty);
+
+                    try
+                    {
+                        session.Apply(action, seat, DateTimeOffset.UtcNow);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        // A bot heuristic guessing an illegal target isn't a fault worth stopping
+                        // the room for — it gets another go at the same seat on the next pass.
+                        logger.LogDebug(ex, "Bot action {Action} rejected in room {Code}.", action.Kind, code);
+                    }
                 }
 
                 await hub.Clients.Group(code).SendAsync("GameUpdated", session.ToUpdateDto());

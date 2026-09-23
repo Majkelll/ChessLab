@@ -8,7 +8,8 @@ namespace ChessLab.Bots;
 /// one action (Arcane Chess casting before moving) returns them one at a time.</summary>
 public interface IGameBot
 {
-    Task<GameAction> ChooseActionAsync(IRoomSession session, BotDifficulty difficulty, CancellationToken ct = default);
+    Task<GameAction> ChooseActionAsync(IRoomSession session, SeatId seat, BotDifficulty difficulty,
+        CancellationToken ct = default);
 }
 
 public static class GameBots

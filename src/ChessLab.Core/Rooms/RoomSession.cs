@@ -20,11 +20,11 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
 
     public bool HasActiveGame => Game is { IsGameOver: false };
 
-    public abstract SeatId ActiveSeat { get; }
+    public abstract IReadOnlyList<SeatId> ActiveSeats { get; }
 
     public abstract void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null);
 
-    public abstract void Apply(GameAction action, DateTimeOffset now);
+    public abstract void Apply(GameAction action, SeatId seat, DateTimeOffset now);
 
     protected abstract IReadOnlyList<ChessMove> AvailableMoves { get; }
 
@@ -36,14 +36,19 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
 
     protected virtual ArcaneChessSectionDto? ArcaneSection => null;
 
+    protected virtual BiddingSectionDto? BiddingSection => null;
+
     public void DeclareTimeoutIfExpired(DateTimeOffset now)
     {
         if (Game is not { IsGameOver: false } game || TurnStartedAt is not { } startedAt)
             return;
 
         var elapsedSinceTurnStart = now - startedAt;
-        if (elapsedSinceTurnStart >= game.Clock.Remaining(game.SideToMove))
-            game.Clock.Deduct(game.SideToMove, elapsedSinceTurnStart);
+        foreach (var side in game.SidesOnTheClock)
+        {
+            if (elapsedSinceTurnStart >= game.Clock.Remaining(side))
+                game.Clock.Deduct(side, elapsedSinceTurnStart);
+        }
 
         game.DeclareTimeoutIfFlagged();
     }
@@ -64,7 +69,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
             game.EndResult?.Winner,
             HandBrainSection,
             CardChessSection,
-            ArcaneSection);
+            ArcaneSection,
+            BiddingSection);
     }
 
     public GameUpdateEnvelopeDto ToUpdateDto()
@@ -85,7 +91,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
             game.EndResult?.Winner,
             HandBrainSection,
             CardChessSection,
-            ArcaneSection);
+            ArcaneSection,
+            BiddingSection);
     }
 
     protected TGame StartedGame => Game ?? throw new InvalidOperationException("Game has not started.");

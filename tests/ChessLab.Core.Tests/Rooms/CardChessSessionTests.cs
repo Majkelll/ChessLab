@@ -41,7 +41,7 @@ public class CardChessSessionTests
     {
         var session = NewFullSession();
 
-        Assert.Throws<InvalidOperationException>(() => session.ActiveSeat);
+        Assert.Throws<InvalidOperationException>(() => session.ActiveSeats);
     }
 
     [Fact]
@@ -50,11 +50,11 @@ public class CardChessSessionTests
         var session = NewFullSession();
         session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, DateTimeOffset.UtcNow, new Random(1));
 
-        Assert.Equal(White, session.ActiveSeat);
+        Assert.Equal(White, Assert.Single(session.ActiveSeats));
     }
 
     [Fact]
-    public void MakeMove_DeductsElapsedWallClockTimeAndSwitchesActiveSeat()
+    public void MakeMove_DeductsElapsedWallClockTimeAndSwitchesTheActiveSeat()
     {
         var session = NewFullSession();
         var start = DateTimeOffset.UtcNow;
@@ -66,7 +66,7 @@ public class CardChessSessionTests
         Assert.Equal(
             TimeSpan.FromMinutes(10) - TimeSpan.FromSeconds(12) + TimeSpan.FromSeconds(5),
             session.Game.Clock.WhiteRemaining);
-        Assert.Equal(Black, session.ActiveSeat);
+        Assert.Equal(Black, Assert.Single(session.ActiveSeats));
     }
 
     [Fact]

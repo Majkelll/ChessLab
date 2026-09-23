@@ -46,7 +46,7 @@ public class GameSessionTests
     {
         var session = NewFullSession();
 
-        Assert.Throws<InvalidOperationException>(() => session.ActiveSeat);
+        Assert.Throws<InvalidOperationException>(() => session.ActiveSeats);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class GameSessionTests
         var session = NewFullSession();
         session.Start(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(5), DateTimeOffset.UtcNow);
 
-        Assert.Equal(WhiteBrain, session.ActiveSeat);
+        Assert.Equal(WhiteBrain, Assert.Single(session.ActiveSeats));
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class GameSessionTests
 
         session.Game!.SelectPieceKind(PieceKind.Pawn);
 
-        Assert.Equal(WhiteHand, session.ActiveSeat);
+        Assert.Equal(WhiteHand, Assert.Single(session.ActiveSeats));
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class GameSessionTests
         Assert.Equal(
             TimeSpan.FromMinutes(10) - TimeSpan.FromSeconds(12) + TimeSpan.FromSeconds(5),
             session.Game.Clock.WhiteRemaining);
-        Assert.Equal(BlackBrain, session.ActiveSeat);
+        Assert.Equal(BlackBrain, Assert.Single(session.ActiveSeats));
     }
 
     /// <summary>

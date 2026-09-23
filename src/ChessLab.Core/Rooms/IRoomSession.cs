@@ -15,12 +15,13 @@ public interface IRoomSession
     /// <summary>True once a game has started and is still in progress.</summary>
     bool HasActiveGame { get; }
 
-    /// <summary>The seat whose occupant is expected to act right now.</summary>
-    SeatId ActiveSeat { get; }
+    /// <summary>The seats whose occupants may act right now — more than one only in a mode where
+    /// both sides act at the same time, such as Bidding Chess's sealed bids.</summary>
+    IReadOnlyList<SeatId> ActiveSeats { get; }
 
     void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null);
 
-    void Apply(GameAction action, DateTimeOffset now);
+    void Apply(GameAction action, SeatId seat, DateTimeOffset now);
 
     /// <summary>Ends the game by timeout if the side to move has used up its clock, even though
     /// nobody has made a move (which is normally what deducts elapsed time from the clock). The

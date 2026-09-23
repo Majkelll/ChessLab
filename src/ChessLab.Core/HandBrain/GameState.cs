@@ -28,6 +28,8 @@ public sealed class GameState : IGameEngineState
 
     public string PositionText => ToFen();
 
+    public IReadOnlyList<Side> SidesOnTheClock => [SideToMove];
+
     public GameState(IChessRulesEngine engine, Clock clock)
     {
         this.engine = engine;

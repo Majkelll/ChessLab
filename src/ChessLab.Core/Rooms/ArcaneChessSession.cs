@@ -12,7 +12,7 @@ public sealed class ArcaneChessSession(Room room, Func<IChessRulesEngine> engine
     {
     }
 
-    public override SeatId ActiveSeat => new(StartedGame.SideToMove, SeatRole.Player);
+    public override IReadOnlyList<SeatId> ActiveSeats => [new SeatId(StartedGame.SideToMove, SeatRole.Player)];
 
     public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
     {
@@ -25,7 +25,7 @@ public sealed class ArcaneChessSession(Room room, Func<IChessRulesEngine> engine
         TurnStartedAt = now;
     }
 
-    public override void Apply(GameAction action, DateTimeOffset now)
+    public override void Apply(GameAction action, SeatId seat, DateTimeOffset now)
     {
         switch (action.Kind)
         {

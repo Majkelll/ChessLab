@@ -40,6 +40,8 @@ public sealed class GameState : IGameEngineState
 
     public string PositionText => ToFen();
 
+    public IReadOnlyList<Side> SidesOnTheClock => [SideToMove];
+
     public int ManaOf(Side side) => mana[side];
     public IReadOnlyList<SpellRank> SpellHandOf(Side side) => spellHands[side];
     public bool HasCastSpellThisTurn(Side side) => spellCastThisTurn[side];
