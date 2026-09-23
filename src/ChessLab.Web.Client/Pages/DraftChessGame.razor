@@ -4,6 +4,7 @@
 @using ChessLab.Core.Chess
 @using ChessLab.Core.Contracts
 @using ChessLab.Core.Draft
+@using GameState = ChessLab.Core.Draft.GameState
 @using ChessLab.Core.Games
 @using ChessLab.Web.Client.Components
 
@@ -19,7 +20,7 @@
                         Interactive="@(draft.Phase == DraftPhase.Playing && view.IsBoardInteractive)"
                         FlipBoard="@view.IsFlipped"
                         SquareSelect="@placing"
-                        SelectedSquares="@PlacedSquares(view)"
+                        SelectedSquares="@MarkedSquares(view)"
                         OnSquareSelected="square => OnSquareSelectedAsync(view, square)"
                         OnMoveSelected="move => view.Perform(GameAction.MovePiece(move.From, move.To, move.PromoteTo))" />
         </div>
@@ -35,6 +36,10 @@
             <div class="flex flex-col gap-2 border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm" data-testid="draft-pool">
                 <p class="text-xs uppercase tracking-wide text-espresso-soft/60">
                     draft — @(draft.SideToPick == Side.White ? "white" : "black") to pick
+                </p>
+                <p class="text-xs text-espresso-soft/70">
+                    Every piece taken makes that kind dearer for both of you, and whatever you don't spend
+                    becomes time: @GameState.SecondsPerUnspentPoint seconds a point.
                 </p>
                 @foreach (var entry in draft.Pool)
                 {
@@ -81,17 +86,23 @@
                         }
                     </div>
                     <p class="text-xs text-espresso-soft/70">
-                        Pick a piece, then click a square. Pawns go on your second rank, everything else on your back rank.
-                        Click a piece you already placed to take it back.
+                        Pick a piece, then click one of the marked squares. Pawns go on your second rank, the king on
+                        either of yours, everything else on your back rank. Click a piece you already placed to take it back.
                     </p>
                 }
             </div>
         }
 
         <div class="mt-2 border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-xs" data-testid="draft-summary">
-            <p data-testid="budget-white">white — @draft.WhiteBudgetLeft pts left @(draft.WhitePassed ? "(passed)" : "")</p>
+            <p data-testid="budget-white">
+                white — @draft.WhiteBudgetLeft pts left (+@Bonus(draft.WhiteTimeBonusSeconds) on the clock)
+                @(draft.WhitePassed ? "(passed)" : "")
+            </p>
             <p class="text-espresso-soft/70">@Army(draft.WhitePicks)</p>
-            <p class="mt-1" data-testid="budget-black">black — @draft.BlackBudgetLeft pts left @(draft.BlackPassed ? "(passed)" : "")</p>
+            <p class="mt-1" data-testid="budget-black">
+                black — @draft.BlackBudgetLeft pts left (+@Bonus(draft.BlackTimeBonusSeconds) on the clock)
+                @(draft.BlackPassed ? "(passed)" : "")
+            </p>
             <p class="text-espresso-soft/70">@Army(draft.BlackPicks)</p>
         </div>
     </Panel>
@@ -114,9 +125,15 @@
             return;
         }
 
-        if (pieceToPlace is { } kind)
+        if (pieceToPlace is { } kind && SquaresFor(draft, seat.Side, kind).Contains(square))
             await view.Perform(GameAction.PlacePiece(kind, square));
     }
+
+    private static IReadOnlyList<Square> SquaresFor(DraftSectionDto draft, Side side, PieceKind kind) =>
+        (side == Side.White ? draft.WhitePlaceable : draft.BlackPlaceable)
+            .FirstOrDefault(entry => entry.Kind == kind)?.Squares ?? [];
+
+    private static string Bonus(int seconds) => $"{seconds / 60}:{seconds % 60:00}";
 
     private static string BoardFen(GameView view)
     {
@@ -179,13 +196,17 @@
         return $"{placement} w - - 0 1";
     }
 
-    private static IReadOnlyList<Square> PlacedSquares(GameView view)
+    private IReadOnlyList<Square> MarkedSquares(GameView view)
     {
         var draft = view.State.Draft!;
         if (draft.Phase != DraftPhase.Placing || view.MySeat is not { } seat)
             return [];
 
-        return [.. PlacementsOf(draft, seat.Side).Select(placement => placement.Square)];
+        var placed = PlacementsOf(draft, seat.Side).Select(placement => placement.Square);
+
+        return pieceToPlace is { } kind
+            ? [.. placed.Concat(SquaresFor(draft, seat.Side, kind))]
+            : [.. placed];
     }
 
     private static IReadOnlyList<DraftPlacementDto> PlacementsOf(DraftSectionDto draft, Side side) =>

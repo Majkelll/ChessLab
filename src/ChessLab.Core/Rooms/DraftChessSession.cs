@@ -71,7 +71,7 @@ public sealed class DraftChessSession(Room room) : RoomSession<GameState>(room)
                 game.Phase,
                 game.SideToPick,
                 [.. PoolKinds.Select(kind =>
-                    new DraftPoolEntryDto(kind, game.Pool.GetValueOrDefault(kind), GameState.CostOf(kind)))],
+                    new DraftPoolEntryDto(kind, game.Pool.GetValueOrDefault(kind), game.PriceOf(kind)))],
                 game.PicksOf(Side.White),
                 game.PicksOf(Side.Black),
                 game.BudgetLeft(Side.White),
@@ -81,9 +81,20 @@ public sealed class DraftChessSession(Room room) : RoomSession<GameState>(room)
                 PlacementsOf(game, Side.White),
                 PlacementsOf(game, Side.Black),
                 game.HasFinishedPlacing(Side.White),
-                game.HasFinishedPlacing(Side.Black));
+                game.HasFinishedPlacing(Side.Black),
+                (int)game.TimeBonusOf(Side.White).TotalSeconds,
+                (int)game.TimeBonusOf(Side.Black).TotalSeconds,
+                PlaceableSquaresOf(game, Side.White),
+                PlaceableSquaresOf(game, Side.Black));
         }
     }
+
+    private static IReadOnlyList<DraftPlaceableDto> PlaceableSquaresOf(GameState game, Side side) =>
+    [
+        .. PoolKinds.Append(PieceKind.King)
+            .Where(kind => game.Remaining(side, kind) > 0)
+            .Select(kind => new DraftPlaceableDto(kind, game.SquaresFor(side, kind))),
+    ];
 
     private static IReadOnlyList<DraftPlacementDto> PlacementsOf(GameState game, Side side) =>
         [.. game.PlacementsOf(side).Select(entry => new DraftPlacementDto(entry.Key, entry.Value))];

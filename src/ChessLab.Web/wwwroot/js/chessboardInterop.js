@@ -1,7 +1,3 @@
-// Blazor JS interop wrapper around cm-chessboard (https://github.com/shaack/cm-chessboard, MIT).
-// The board itself never decides legality — the server is authoritative and pushes down the
-// current legal-move list via setLegalMoves(); this file's only job is turning that list into
-// input validation/markers and reporting finished moves back to .NET.
 import {Chessboard, COLOR, INPUT_EVENT_TYPE, BORDER_TYPE} from "./cm-chessboard/src/Chessboard.js"
 import {Markers, MARKER_TYPE} from "./cm-chessboard/src/extensions/markers/Markers.js"
 import {PromotionDialog, PROMOTION_DIALOG_RESULT_TYPE} from "./cm-chessboard/src/extensions/promotion-dialog/PromotionDialog.js"
@@ -35,9 +31,6 @@ class BoardController {
         this.squareSelectHandler = this.squareSelectHandler.bind(this)
         this.squareSelectEnabled = false
     }
-
-    // Spell targeting: the board stops being a move surface and becomes a square picker, so a
-    // target is chosen by clicking the board rather than typing coordinates.
     setSquareSelect(enabled) {
         if (enabled === this.squareSelectEnabled) {
             return
@@ -71,9 +64,6 @@ class BoardController {
     setOrientation(isBlack) {
         return this.board.setOrientation(isBlack ? COLOR.black : COLOR.white, true)
     }
-
-    // moves: [{from, to, promotion}], promotion is "q"/"r"/"b"/"n" or null — mirrors the server's
-    // current AvailableMoves exactly, so validation here is just a lookup, never a rules decision.
     setLegalMoves(moves) {
         this.legalMoves = moves
     }
@@ -104,8 +94,6 @@ class BoardController {
                     this.reportMove(event.squareFrom, event.squareTo, null)
                     return true
                 }
-                // Promotion: several legal moves share this from/to, one per promotion piece —
-                // let the player choose, then report whichever one they picked.
                 const piece = this.board.getPiece(event.squareFrom)
                 const color = piece ? piece.charAt(0) : COLOR.white
                 event.chessboard.showPromotionDialog(event.squareTo, color, (result) => {

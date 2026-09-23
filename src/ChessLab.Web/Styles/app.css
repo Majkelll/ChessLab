@@ -3,22 +3,11 @@
 @import "@fontsource/jetbrains-mono/500.css";
 @import "@fontsource/jetbrains-mono/600.css";
 @import "@fontsource/jetbrains-mono/700.css";
-/* JetBrains Mono has no glyphs in the U+2600-27BF range, which is where every icon-ish character
-   this app uses lives — chess pieces (♚♛♜♝♞♟), hearts (♥♡), mana pips (✦✧), effect icons (⛓❄).
-   Without an explicit fallback that actually covers that range, rendering falls through to
-   whatever symbol font (if any) happens to be installed on the visitor's OS, which is inconsistent
-   across browsers/platforms — some glyphs show as tofu boxes, others render from a font whose
-   metrics don't match the surrounding monospace text (the "misaligned hearts" look). Bundling this
-   symbol font makes it deterministic for every visitor instead of a gamble on system fonts. */
 @import "@fontsource/noto-sans-symbols-2/400.css";
 
 @source "../Components/**/*.razor";
 @source "../../ChessLab.Web.Client/**/*.razor";
 
-/* Coffee-shop / vim / chess-club palette. Espresso is the ink, cream and paper are the two warm
-   surfaces (page vs. panel), moss is the second accent (Brain role, connected/idle states) sitting
-   opposite amber (Hand role, primary actions), and rust stands in for alarm red so errors stay in
-   the same muted family instead of reading as a generic app warning color. */
 @theme {
   --font-mono: "JetBrains Mono", ui-monospace, "Noto Sans Symbols 2", monospace;
 
@@ -31,7 +20,6 @@
   --color-moss-soft: #7c8a6e;
   --color-rust: #a1462f;
 
-  /* Maple/walnut club-board tones, in place of stock Tailwind amber-50/amber-200 squares. */
   --color-board-light: #ead9b8;
   --color-board-dark: #8a6a45;
 
@@ -43,12 +31,6 @@
   --duration-card: 220ms;
 }
 
-/* Real interactive elements only. Blazor's <FocusOnNavigate> programmatically focuses the page's
-   <h1> on every navigation (for screen readers) by giving it tabindex="-1" — excluding that keeps
-   the amber ring off headings like "Welcome, ...!" or "Room XYZ" while keyboard focus on actual
-   controls (buttons, links, inputs) still shows it. The second rule is needed too: without an
-   explicit override, the browser's own default focus ring shows through on that heading once our
-   custom one no longer applies to it. */
 :focus:not([tabindex="-1"]) {
   outline: 2px solid #b45309;
   outline-offset: 2px;
@@ -62,10 +44,43 @@ html {
   overflow-anchor: none;
 }
 
-/* A near-invisible paper grain over the whole page — fixed so it doesn't scroll with content,
-   painted first so it sits beneath everything else in normal DOM/stacking order. Opacity is
-   deliberately subliminal: it should read as "this surface has tooth" on close inspection, not
-   as a visible pattern. */
+html {
+  scrollbar-gutter: stable;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-espresso) 32%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--color-espresso) 5%, transparent);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--color-espresso) 28%, transparent);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--color-espresso) 45%, transparent);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in srgb, var(--color-espresso) 60%, transparent);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 body::before {
   content: "";
   position: fixed;
@@ -76,8 +91,6 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Faint horizontal wood-grain hairlines, for the header bar and board frame — a texture cue for
-   "wood" without importing an actual photographic texture. */
 .grain-wood {
   background-image: repeating-linear-gradient(
     to bottom,
@@ -88,8 +101,6 @@ body::before {
   );
 }
 
-/* A blinking terminal cursor, used as a decorative accent (next to the wordmark, in place of a
-   spinner during "connecting…" states) rather than a real caret. */
 @keyframes cursor-blink {
   0%, 45% { opacity: 1; }
   50%, 95% { opacity: 0; }
@@ -248,11 +259,6 @@ button.hand-card:hover .hand-card-visual::after {
   animation: turn-slide 260ms ease-out;
 }
 
-/* cm-chessboard theme ("hand-and-brain"): a from-scratch skin (not one of the library's bundled
-   themes) so the board uses the exact same maple/walnut/amber tokens as the rest of the app. These
-   rules must load after cm-chessboard's own stylesheets (see App.razor's <link> order) since the
-   promotion dialog selectors below aren't theme-scoped in the vendor CSS and need equal-specificity
-   cascade order, not higher specificity, to win. */
 .cm-chessboard.hand-and-brain .board .square.white {
   fill: var(--color-board-light);
 }
@@ -276,8 +282,6 @@ button.hand-card:hover .hand-card-visual::after {
   opacity: 0.85;
 }
 
-/* Legal-move dots/capture markers and the from/to square highlight, recolored from the library's
-   default black to the same amber used for every other "you can act here" affordance in the app. */
 .cm-chessboard.hand-and-brain .markers .marker.marker-square {
   fill: var(--color-amber-700);
   opacity: 0.18;
@@ -289,8 +293,6 @@ button.hand-card:hover .hand-card-visual::after {
   opacity: 0.45;
 }
 
-/* Spell targeting picks squares on the board, and rust is the accent the spell cards already
-   use — the library's default is a blue that belongs to no other part of this app. */
 .cm-chessboard.hand-and-brain .markers .marker.marker-frame-primary {
   stroke: var(--color-rust);
   stroke-width: 3px;

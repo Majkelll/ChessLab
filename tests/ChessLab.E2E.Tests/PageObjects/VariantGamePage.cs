@@ -76,6 +76,28 @@ public sealed class VariantGamePage(IPage page)
         }
     }
 
+    public async Task PassUntilLayingOutAsync(int timeoutMs = 30000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            if (await PlacementTray.CountAsync() > 0 && await PlacementTray.IsVisibleAsync())
+                return;
+
+            try
+            {
+                if (await DraftPassButton.IsVisibleAsync() && await DraftPassButton.IsEnabledAsync())
+                    await DraftPassButton.ClickAsync(new() { Timeout = 2000 });
+            }
+            catch (Exception ex) when (ex is PlaywrightException or TimeoutException)
+            {
+            }
+
+            await Page.WaitForTimeoutAsync(200);
+        }
+    }
+
     public async Task SubmitBidAsync(int amount)
     {
         await BidInput.FillAsync(amount.ToString());

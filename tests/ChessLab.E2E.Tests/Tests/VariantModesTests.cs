@@ -96,10 +96,10 @@ public sealed class VariantModesTests(WebAppFixture app, PlaywrightFixture playw
         var white = game[Side.White];
 
         await Expect(white.DraftPool).ToBeVisibleAsync();
+        await Expect(white.DraftPick("Rook")).ToBeEnabledAsync(new() { Timeout = 20000 });
         await white.DraftPick("Rook").ClickAsync();
-        await Expect(white.DraftPassButton).ToBeEnabledAsync(new() { Timeout = 20000 });
-        await white.DraftPassButton.ClickAsync();
 
+        await white.PassUntilLayingOutAsync();
         await Expect(white.PlacementTray).ToBeVisibleAsync(new() { Timeout = 20000 });
 
         await white.PlaceButton("King").ClickAsync();

@@ -29,6 +29,16 @@ public sealed class Clock
             BlackRemaining -= elapsed;
     }
 
+    public void Add(Side side, TimeSpan amount)
+    {
+        if (amount < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(amount));
+
+        if (side == Side.White)
+            WhiteRemaining += amount;
+        else
+            BlackRemaining += amount;
+    }
+
     public void ApplyIncrement(Side side)
     {
         if (side == Side.White)

@@ -55,6 +55,112 @@ public class GameStateTests
     }
 
     [Fact]
+    public void Pick_RaisesThatKindsPriceForBothSides()
+    {
+        var game = NewGame();
+
+        Assert.Equal(9, game.PriceOf(PieceKind.Queen));
+        Assert.Equal(5, game.PriceOf(PieceKind.Rook));
+
+        game.Pick(Side.White, PieceKind.Queen);
+
+        Assert.Equal(13, game.PriceOf(PieceKind.Queen));
+        Assert.Equal(GameState.Budget - 9, game.BudgetLeft(Side.White));
+
+        game.Pick(Side.Black, PieceKind.Rook);
+
+        Assert.Equal(7, game.PriceOf(PieceKind.Rook));
+        Assert.Equal(GameState.Budget - 5, game.BudgetLeft(Side.Black));
+    }
+
+    [Fact]
+    public void Pick_AtTheRaisedPrice_CostsWhatItSaidWhenItWasTaken()
+    {
+        var game = NewGame();
+
+        game.Pick(Side.White, PieceKind.Rook);
+        game.Pick(Side.Black, PieceKind.Rook);
+        game.Pick(Side.Black, PieceKind.Rook);
+
+        Assert.Equal(GameState.Budget - 7 - 9, game.BudgetLeft(Side.Black));
+    }
+
+    [Fact]
+    public void Pick_WhatTheRaisedPriceHasPutOutOfReach_IsNotOffered()
+    {
+        var game = NewGame();
+
+        game.Pick(Side.White, PieceKind.Queen);
+        game.Pick(Side.Black, PieceKind.Queen);
+        game.Pick(Side.Black, PieceKind.Knight);
+        game.Pick(Side.White, PieceKind.Rook);
+
+        Assert.False(game.CanPick(Side.White, PieceKind.Queen));
+    }
+
+    [Fact]
+    public void StartingPlay_TurnsEveryUnspentPointIntoTimeOnThatSidesClock()
+    {
+        var clock = new Clock(TimeSpan.FromMinutes(10), TimeSpan.Zero);
+        var game = new GameState(clock);
+
+        game.Pick(Side.White, PieceKind.Queen);
+        game.Pass(Side.Black);
+        game.Pass(Side.White);
+
+        game.Place(Side.White, PieceKind.King, Square.Parse("e1"));
+        game.Place(Side.White, PieceKind.Queen, Square.Parse("d1"));
+        game.Place(Side.Black, PieceKind.King, Square.Parse("e8"));
+
+        Assert.Equal(DraftPhase.Playing, game.Phase);
+        Assert.Equal(TimeSpan.FromMinutes(10) + TimeSpan.FromSeconds((GameState.Budget - 9) * GameState.SecondsPerUnspentPoint),
+            clock.Remaining(Side.White));
+        Assert.Equal(TimeSpan.FromMinutes(10) + TimeSpan.FromSeconds(GameState.Budget * GameState.SecondsPerUnspentPoint),
+            clock.Remaining(Side.Black));
+    }
+
+    [Fact]
+    public void Place_TheKingOnTheSecondRank_IsAllowed()
+    {
+        var game = NewGame();
+        game.Pass(Side.White);
+        game.Pass(Side.Black);
+
+        game.Place(Side.White, PieceKind.King, Square.Parse("c2"));
+
+        Assert.True(game.HasFinishedPlacing(Side.White));
+    }
+
+    [Fact]
+    public void Place_TheKingWhereThePawnsWouldNotFit_Throws()
+    {
+        var game = NewGame();
+        while (game.SideToPick is { } side)
+        {
+            if (game.PicksOf(side).Count(pick => pick == PieceKind.Pawn) < GameState.MaxPawns)
+                game.Pick(side, PieceKind.Pawn);
+            else
+                game.Pass(side);
+        }
+
+        Assert.Throws<InvalidOperationException>(() =>
+            game.Place(Side.White, PieceKind.King, Square.Parse("c2")));
+    }
+
+    [Fact]
+    public void SquaresFor_OffersOnlyWhatThatPieceMayStandOn()
+    {
+        var game = NewGame();
+        game.Pick(Side.White, PieceKind.Rook);
+        game.Pass(Side.Black);
+        game.Pass(Side.White);
+
+        Assert.All(game.SquaresFor(Side.White, PieceKind.Rook), square => Assert.Equal(0, square.Rank));
+        Assert.All(game.SquaresFor(Side.White, PieceKind.Pawn), square => Assert.Equal(1, square.Rank));
+        Assert.Equal(16, game.SquaresFor(Side.White, PieceKind.King).Count);
+    }
+
+    [Fact]
     public void Pick_BeyondTheBudget_Throws()
     {
         var game = NewGame();

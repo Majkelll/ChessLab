@@ -58,6 +58,8 @@ public sealed record DraftPoolEntryDto(PieceKind Kind, int Remaining, int Cost);
 
 public sealed record DraftPlacementDto(Square Square, PieceKind Kind);
 
+public sealed record DraftPlaceableDto(PieceKind Kind, IReadOnlyList<Square> Squares);
+
 public sealed record DraftSectionDto(
     DraftPhase Phase,
     Side? SideToPick,
@@ -71,4 +73,8 @@ public sealed record DraftSectionDto(
     IReadOnlyList<DraftPlacementDto> WhitePlacements,
     IReadOnlyList<DraftPlacementDto> BlackPlacements,
     bool WhiteReady,
-    bool BlackReady);
+    bool BlackReady,
+    int WhiteTimeBonusSeconds,
+    int BlackTimeBonusSeconds,
+    IReadOnlyList<DraftPlaceableDto> WhitePlaceable,
+    IReadOnlyList<DraftPlaceableDto> BlackPlaceable);

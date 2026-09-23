@@ -13,19 +13,29 @@ public enum DraftPhase
 
 public sealed class GameState : IGameEngineState
 {
-    public const int Budget = 39;
+    public const int Budget = 24;
     public const int MaxPawns = 8;
 
     public const int MaxOfficers = 7;
     public const int MoveLimit = 300;
+    public const int SecondsPerUnspentPoint = 20;
 
-    private static readonly IReadOnlyDictionary<PieceKind, int> Costs = new Dictionary<PieceKind, int>
+    private static readonly IReadOnlyDictionary<PieceKind, int> BasePrices = new Dictionary<PieceKind, int>
     {
         [PieceKind.Queen] = 9,
         [PieceKind.Rook] = 5,
         [PieceKind.Bishop] = 3,
         [PieceKind.Knight] = 3,
         [PieceKind.Pawn] = 1,
+    };
+
+    private static readonly IReadOnlyDictionary<PieceKind, int> PriceRise = new Dictionary<PieceKind, int>
+    {
+        [PieceKind.Queen] = 4,
+        [PieceKind.Rook] = 2,
+        [PieceKind.Bishop] = 1,
+        [PieceKind.Knight] = 1,
+        [PieceKind.Pawn] = 0,
     };
 
     private static readonly IReadOnlyDictionary<PieceKind, int> PoolSize = new Dictionary<PieceKind, int>
@@ -38,6 +48,8 @@ public sealed class GameState : IGameEngineState
     };
 
     private readonly Dictionary<PieceKind, int> pool;
+    private readonly Dictionary<PieceKind, int> timesTaken;
+    private readonly Dictionary<Side, int> spent = new() { [Side.White] = 0, [Side.Black] = 0 };
     private readonly Dictionary<Side, List<PieceKind>> picks;
     private readonly Dictionary<Side, bool> passed;
     private readonly Dictionary<Side, Dictionary<Square, PieceKind>> placements;
@@ -53,6 +65,7 @@ public sealed class GameState : IGameEngineState
     {
         Clock = clock;
         pool = PoolSize.ToDictionary(entry => entry.Key, entry => entry.Value);
+        timesTaken = PoolSize.ToDictionary(entry => entry.Key, _ => 0);
         picks = new Dictionary<Side, List<PieceKind>> { [Side.White] = [], [Side.Black] = [] };
         passed = new Dictionary<Side, bool> { [Side.White] = false, [Side.Black] = false };
         placements = new Dictionary<Side, Dictionary<Square, PieceKind>>
@@ -99,16 +112,19 @@ public sealed class GameState : IGameEngineState
 
     public bool HasPassed(Side side) => passed[side];
 
-    public int SpentBy(Side side) => picks[side].Sum(kind => Costs[kind]);
+    public int SpentBy(Side side) => spent[side];
 
     public int BudgetLeft(Side side) => Budget - SpentBy(side);
+
+    public TimeSpan TimeBonusOf(Side side) => TimeSpan.FromSeconds(BudgetLeft(side) * SecondsPerUnspentPoint);
+
+    public int PriceOf(PieceKind kind) =>
+        BasePrices.TryGetValue(kind, out var price) ? price + (PriceRise[kind] * timesTaken[kind]) : int.MaxValue;
 
     public IReadOnlyDictionary<Square, PieceKind> PlacementsOf(Side side) => placements[side];
 
     public bool HasFinishedPlacing(Side side) =>
         placements[side].Count == picks[side].Count + 1 && placements[side].ContainsValue(PieceKind.King);
-
-    public static int CostOf(PieceKind kind) => Costs[kind];
 
     public void Pick(Side side, PieceKind kind)
     {
@@ -123,7 +139,9 @@ public sealed class GameState : IGameEngineState
         if (!CanPick(side, kind))
             throw new InvalidOperationException($"{side} cannot take a {kind} right now.");
 
+        spent[side] += PriceOf(kind);
         pool[kind]--;
+        timesTaken[kind]++;
         picks[side].Add(kind);
         pickSlot++;
         AdvanceDraft();
@@ -146,10 +164,10 @@ public sealed class GameState : IGameEngineState
 
     public bool CanPick(Side side, PieceKind kind)
     {
-        if (!Costs.TryGetValue(kind, out var cost) || pool.GetValueOrDefault(kind) == 0)
+        if (!BasePrices.ContainsKey(kind) || pool.GetValueOrDefault(kind) == 0)
             return false;
 
-        if (cost > BudgetLeft(side))
+        if (PriceOf(kind) > BudgetLeft(side))
             return false;
 
         return kind == PieceKind.Pawn
@@ -158,7 +176,7 @@ public sealed class GameState : IGameEngineState
     }
 
     private bool CanPickAnything(Side side) =>
-        !passed[side] && Costs.Keys.Any(kind => CanPick(side, kind));
+        !passed[side] && BasePrices.Keys.Any(kind => CanPick(side, kind));
 
     private void AdvanceDraft()
     {
@@ -187,27 +205,49 @@ public sealed class GameState : IGameEngineState
         if (Phase != DraftPhase.Placing)
             throw new InvalidOperationException("Pieces can only be laid out once the draft is over.");
 
-        if (!HomeRanks(side).Contains(square.Rank))
-            throw new InvalidOperationException($"{side} can only use its own two ranks.");
-
-        if (square.Rank != (kind == PieceKind.Pawn ? PawnRank(side) : BackRank(side)))
-        {
-            throw new InvalidOperationException(kind == PieceKind.Pawn
-                ? "Pawns go on the second rank."
-                : $"A {kind} goes on the back rank.");
-        }
-
-        if (placements[side].ContainsKey(square))
-            throw new InvalidOperationException($"{square} is already taken.");
-
         if (Remaining(side, kind) == 0)
             throw new InvalidOperationException($"{side} has no {kind} left to place.");
+
+        if (!CanPlace(side, kind, square))
+            throw new InvalidOperationException($"{side} cannot put a {kind} on {square}.");
 
         placements[side][square] = kind;
 
         if (Sides.All(HasFinishedPlacing))
             StartPlay();
     }
+
+    public bool CanPlace(Side side, PieceKind kind, Square square)
+    {
+        if (placements[side].ContainsKey(square) || Remaining(side, kind) == 0)
+            return false;
+
+        if (kind == PieceKind.Pawn)
+            return square.Rank == PawnRank(side);
+
+        if (kind != PieceKind.King)
+            return square.Rank == BackRank(side);
+
+        if (square.Rank == BackRank(side))
+            return true;
+
+        return square.Rank == PawnRank(side) && FreeSquaresOn(side, PawnRank(side)) > Remaining(side, PieceKind.Pawn);
+    }
+
+    public IReadOnlyList<Square> SquaresFor(Side side, PieceKind kind) =>
+        [.. AllSquares().Where(square => CanPlace(side, kind, square))];
+
+    private static IEnumerable<Square> AllSquares()
+    {
+        for (var rank = 0; rank < 8; rank++)
+        {
+            for (var file = 0; file < 8; file++)
+                yield return new Square(file, rank);
+        }
+    }
+
+    private int FreeSquaresOn(Side side, int rank) =>
+        8 - placements[side].Keys.Count(square => square.Rank == rank);
 
     public void Unplace(Side side, Square square)
     {
@@ -235,6 +275,9 @@ public sealed class GameState : IGameEngineState
             foreach (var (square, kind) in placements[side])
                 built.Set(square, BoardPiece.Of(side, kind));
         }
+
+        foreach (var side in Sides)
+            Clock.Add(side, TimeBonusOf(side));
 
         board = built;
         board.SetSideToMove(Side.White);
