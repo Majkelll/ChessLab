@@ -27,7 +27,8 @@ public sealed record GameStateEnvelopeDto(
     ProgressiveSectionDto? Progressive = null,
     AliceSectionDto? Alice = null,
     AbsorptionSectionDto? Absorption = null,
-    MartianSectionDto? Martian = null);
+    MartianSectionDto? Martian = null,
+    DraftSectionDto? Draft = null);
 
 /// <summary>The same thing as <see cref="GameStateEnvelopeDto"/>, but carrying only the latest move
 /// and the resulting history length, so a client that's been following along doesn't have the whole
@@ -51,4 +52,5 @@ public sealed record GameUpdateEnvelopeDto(
     ProgressiveSectionDto? Progressive = null,
     AliceSectionDto? Alice = null,
     AbsorptionSectionDto? Absorption = null,
-    MartianSectionDto? Martian = null);
+    MartianSectionDto? Martian = null,
+    DraftSectionDto? Draft = null);

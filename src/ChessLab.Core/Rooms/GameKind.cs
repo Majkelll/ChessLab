@@ -11,4 +11,5 @@ public enum GameKind
     AliceChess,
     AbsorptionChess,
     MartianChess,
+    DraftChess,
 }

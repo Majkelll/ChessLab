@@ -11,6 +11,10 @@ public enum GameActionKind
     SelectReroll,
     CastSpell,
     SubmitBid,
+    DraftPick,
+    DraftPass,
+    PlacePiece,
+    UnplacePiece,
 }
 
 /// <summary>
@@ -42,4 +46,13 @@ public sealed record GameAction(
         new(GameActionKind.CastSpell, Spell: spell, Target: target);
 
     public static GameAction SubmitBid(int amount) => new(GameActionKind.SubmitBid, Amount: amount);
+
+    public static GameAction DraftPick(PieceKind kind) => new(GameActionKind.DraftPick, SelectedKind: kind);
+
+    public static GameAction DraftPass() => new(GameActionKind.DraftPass);
+
+    public static GameAction PlacePiece(PieceKind kind, Square square) =>
+        new(GameActionKind.PlacePiece, To: square, SelectedKind: kind);
+
+    public static GameAction UnplacePiece(Square square) => new(GameActionKind.UnplacePiece, To: square);
 }

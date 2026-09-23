@@ -1,5 +1,6 @@
 using ChessLab.Core.ArcaneChess;
 using ChessLab.Core.Bidding;
+using ChessLab.Core.Draft;
 using ChessLab.Core.CardChess;
 using ChessLab.Core.Chess;
 using ChessLab.Core.HandBrain;
@@ -52,3 +53,22 @@ public sealed record MartianSectionDto(
     IReadOnlyList<MartianPyramidDto> Pyramids,
     int WhiteScore,
     int BlackScore);
+
+public sealed record DraftPoolEntryDto(PieceKind Kind, int Remaining, int Cost);
+
+public sealed record DraftPlacementDto(Square Square, PieceKind Kind);
+
+public sealed record DraftSectionDto(
+    DraftPhase Phase,
+    Side? SideToPick,
+    IReadOnlyList<DraftPoolEntryDto> Pool,
+    IReadOnlyList<PieceKind> WhitePicks,
+    IReadOnlyList<PieceKind> BlackPicks,
+    int WhiteBudgetLeft,
+    int BlackBudgetLeft,
+    bool WhitePassed,
+    bool BlackPassed,
+    IReadOnlyList<DraftPlacementDto> WhitePlacements,
+    IReadOnlyList<DraftPlacementDto> BlackPlacements,
+    bool WhiteReady,
+    bool BlackReady);
