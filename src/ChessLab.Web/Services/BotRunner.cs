@@ -88,7 +88,8 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, G
         if (bots.TryGetValue(code, out var existing))
             return existing;
 
-        var bot = GameBots.For(kind, await GetOrCreateEngineAsync(code));
+        var engine = GameBots.NeedsChessEngine(kind) ? await GetOrCreateEngineAsync(code) : null;
+        var bot = GameBots.For(kind, engine);
         bots[code] = bot;
         return bot;
     }

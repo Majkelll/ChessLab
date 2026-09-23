@@ -74,7 +74,11 @@ public sealed class GameState : IGameEngineState
     /// <summary>Everything the side that won the bid may play — every move the pieces can physically
     /// make, including ones that leave its own king attacked and ones that take the opposing king.</summary>
     public IReadOnlyList<ChessMove> AvailableMoves =>
-        Phase == BiddingPhase.Moving && !IsGameOver ? board.PseudoLegalMoves(SideToMove) : [];
+        Phase == BiddingPhase.Moving && !IsGameOver ? MovesFor(SideToMove) : [];
+
+    /// <summary>What a side could play if it won the bid — worth knowing while bids are still open,
+    /// since that's the whole question being bid on.</summary>
+    public IReadOnlyList<ChessMove> MovesFor(Side side) => IsGameOver ? [] : board.PseudoLegalMoves(side);
 
     public void SubmitBid(Side side, int amount, TimeSpan elapsed)
     {

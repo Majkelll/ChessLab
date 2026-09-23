@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\ChessLab.Bots\ChessLab.Bots.csproj" />
     <ProjectReference Include="..\..\src\ChessLab.Core\ChessLab.Core.csproj" />
   </ItemGroup>
 
