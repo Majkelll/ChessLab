@@ -41,3 +41,5 @@ public sealed record BiddingSectionDto(
     int? LastBlackBid);
 
 public sealed record ProgressiveSectionDto(int SeriesNumber, int MovesPlayedInSeries, int MovesLeftInSeries);
+
+public sealed record AliceSectionDto(string BoardAFen, string BoardBFen, bool IsInCheck);

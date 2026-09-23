@@ -40,6 +40,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
 
     protected virtual ProgressiveSectionDto? ProgressiveSection => null;
 
+    protected virtual AliceSectionDto? AliceSection => null;
+
     public void DeclareTimeoutIfExpired(DateTimeOffset now)
     {
         if (Game is not { IsGameOver: false } game || TurnStartedAt is not { } startedAt)
@@ -73,7 +75,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
             CardChessSection,
             ArcaneSection,
             BiddingSection,
-            ProgressiveSection);
+            ProgressiveSection,
+            AliceSection);
     }
 
     public GameUpdateEnvelopeDto ToUpdateDto()
@@ -96,7 +99,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
             CardChessSection,
             ArcaneSection,
             BiddingSection,
-            ProgressiveSection);
+            ProgressiveSection,
+            AliceSection);
     }
 
     protected TGame StartedGame => Game ?? throw new InvalidOperationException("Game has not started.");

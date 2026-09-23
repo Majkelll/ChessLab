@@ -29,6 +29,7 @@ public sealed class PieceBoard
 
     public CastlingRights Castling { get; private set; } = CastlingRights.All;
 
+
     public Square? EnPassantTarget { get; private set; }
 
     public int HalfmoveClock { get; private set; }
@@ -41,7 +42,7 @@ public sealed class PieceBoard
 
     public static PieceBoard StandardStart() => FromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-    public static PieceBoard Empty() => new(new BoardPiece?[64]);
+    public static PieceBoard Empty() => new(new BoardPiece?[64]) { Castling = CastlingRights.None };
 
     public BoardPiece? At(Square square) => squares[Index(square)];
 
