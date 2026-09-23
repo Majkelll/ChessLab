@@ -1,4 +1,5 @@
 using ChessLab.Core.Chess;
+using ChessLab.Core.Games;
 
 namespace ChessLab.Core.HandBrain;
 
@@ -7,7 +8,7 @@ namespace ChessLab.Core.HandBrain;
 /// each side's turn alternates between the Brain announcing a piece kind and the Hand
 /// moving one of the pieces of that kind.
 /// </summary>
-public sealed class GameState
+public sealed class GameState : IGameEngineState
 {
     private readonly IChessRulesEngine engine;
     private readonly List<ChessMove> moveHistory = [];
@@ -22,6 +23,10 @@ public sealed class GameState
     public bool IsGameOver => EndResult is not null;
 
     public string ToFen() => engine.ToFen();
+
+    public IReadOnlyList<string> MoveNotations => [.. MoveHistory.Select(move => move.San)];
+
+    public string PositionText => ToFen();
 
     public GameState(IChessRulesEngine engine, Clock clock)
     {

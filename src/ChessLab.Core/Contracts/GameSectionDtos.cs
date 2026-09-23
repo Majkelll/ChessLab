@@ -1,28 +1,26 @@
 using ChessLab.Core.ArcaneChess;
 using ChessLab.Core.CardChess;
 using ChessLab.Core.Chess;
+using ChessLab.Core.HandBrain;
 
 namespace ChessLab.Core.Contracts;
 
-public sealed record ArcaneChessUpdateDto(
-    Side SideToMove,
+public sealed record HandBrainSectionDto(
+    TurnPhase Phase,
+    PieceKind? SelectedPieceKind,
+    IReadOnlyList<PieceKind> AvailablePieceKinds);
+
+public sealed record CardChessSectionDto(
     IReadOnlyList<CardRank> WhiteHand,
     IReadOnlyList<CardRank> BlackHand,
     IReadOnlyList<CardRank> WhitePendingReroll,
     IReadOnlyList<CardRank> BlackPendingReroll,
     bool EmergencyMoveAvailable,
     bool HandHasNoPlayableCard,
-    IReadOnlyList<ChessMove> AvailableMoves,
-    ChessMove? LatestMove,
-    int MoveHistoryCount,
-    string Fen,
     int WhiteHp,
-    int BlackHp,
-    long WhiteRemainingMs,
-    long BlackRemainingMs,
-    bool IsGameOver,
-    GameEndReason? EndReason,
-    Side? Winner,
+    int BlackHp);
+
+public sealed record ArcaneChessSectionDto(
     IReadOnlyList<SpellRank> WhiteSpellHand,
     IReadOnlyList<SpellRank> BlackSpellHand,
     int WhiteMana,

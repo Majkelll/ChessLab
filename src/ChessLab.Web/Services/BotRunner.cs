@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using ChessLab.Bots;
-using ChessLab.Core.HandBrain;
 using ChessLab.Core.Rooms;
 using ChessLab.Web.Hubs;
 using Microsoft.AspNetCore.SignalR;
@@ -9,7 +8,7 @@ namespace ChessLab.Web.Services;
 
 /// <summary>
 /// Drives bot-occupied seats: whenever the active seat of a room's game is a bot, plays its turn
-/// (Brain announcement or Hand move) and broadcasts the result, chaining through consecutive bot turns.
+/// and broadcasts the result, chaining through consecutive bot turns.
 /// </summary>
 public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, GameArchive archive, IConfiguration configuration, ILogger<BotRunner> logger)
     : IAsyncDisposable
@@ -18,6 +17,7 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, G
     private static readonly TimeSpan MaxThinkDelay = TimeSpan.FromMilliseconds(900);
 
     private readonly ConcurrentDictionary<string, StockfishEngine> engines = new();
+    private readonly ConcurrentDictionary<string, IGameBot> bots = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> roomLocks = new();
 
     /// <summary>Fire-and-forget: processes any pending bot turns for the room in the background.</summary>
@@ -29,7 +29,7 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, G
         await roomLock.WaitAsync();
         try
         {
-            GameSession session;
+            IRoomSession session;
             try
             {
                 session = registry.Get(code);
@@ -39,7 +39,7 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, G
                 return;
             }
 
-            while (session.Game is { IsGameOver: false } game)
+            while (session.HasActiveGame)
             {
                 var occupant = session.Room.Seats[session.ActiveSeat];
                 if (occupant.Kind != OccupantKind.Bot)
@@ -47,21 +47,22 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, G
 
                 await Task.Delay(Random.Shared.Next((int)MinThinkDelay.TotalMilliseconds, (int)MaxThinkDelay.TotalMilliseconds));
 
-                var engine = await GetOrCreateEngineAsync(code);
-                var bot = new HandBrainBot(engine);
+                var bot = await GetOrCreateBotAsync(code, session.Room.Kind);
+                var action = await bot.ChooseActionAsync(session, occupant.Difficulty!.Value);
 
-                if (game.Phase == TurnPhase.BrainSelecting)
+                try
                 {
-                    var kind = await bot.ChooseBrainAnnouncementAsync(game, occupant.Difficulty!.Value);
-                    game.SelectPieceKind(kind);
+                    session.Apply(action, DateTimeOffset.UtcNow);
                 }
-                else
+                catch (InvalidOperationException ex)
                 {
-                    var move = await bot.ChooseHandMoveAsync(game, occupant.Difficulty!.Value);
-                    session.MakeMove(move.From, move.To, move.PromoteTo, DateTimeOffset.UtcNow);
+                    // A bot heuristic guessing an illegal target isn't a fault worth stopping the
+                    // room for — it gets another go at the same seat on the next pass.
+                    logger.LogDebug(ex, "Bot action {Action} rejected in room {Code}.", action.Kind, code);
+                    continue;
                 }
 
-                await hub.Clients.Group(code).SendAsync("GameUpdated", GameDtoMapper.ToGameUpdateDto(session));
+                await hub.Clients.Group(code).SendAsync("GameUpdated", session.ToUpdateDto());
                 await archive.RecordIfFinishedAsync(session);
             }
         }
@@ -75,104 +76,14 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, G
         }
     }
 
-    /// <summary>Fire-and-forget: processes any pending Card Chess bot turns for the room in the background.</summary>
-    public void ScheduleCardChessBotTurns(string code) => _ = RunPendingCardChessBotTurnsAsync(code);
-
-    private async Task RunPendingCardChessBotTurnsAsync(string code)
+    private async Task<IGameBot> GetOrCreateBotAsync(string code, GameKind kind)
     {
-        var roomLock = roomLocks.GetOrAdd(code, static _ => new SemaphoreSlim(1, 1));
-        await roomLock.WaitAsync();
-        try
-        {
-            CardChessSession session;
-            try
-            {
-                session = registry.GetCardChess(code);
-            }
-            catch (HubException)
-            {
-                return;
-            }
+        if (bots.TryGetValue(code, out var existing))
+            return existing;
 
-            while (session.Game is { IsGameOver: false } game)
-            {
-                var occupant = session.Room.Seats[session.ActiveSeat];
-                if (occupant.Kind != OccupantKind.Bot)
-                    return;
-
-                await Task.Delay(Random.Shared.Next((int)MinThinkDelay.TotalMilliseconds, (int)MaxThinkDelay.TotalMilliseconds));
-
-                var engine = await GetOrCreateEngineAsync(code);
-                var bot = new CardChessBot(engine);
-                var move = await bot.ChooseMoveAsync(game, occupant.Difficulty!.Value);
-                session.MakeMove(move.From, move.To, move.PromoteTo, DateTimeOffset.UtcNow);
-
-                await hub.Clients.Group(code).SendAsync("CardChessGameUpdated", GameDtoMapper.ToCardChessUpdateDto(session));
-                await archive.RecordIfFinishedAsync(session);
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Card Chess bot turn processing failed for room {Code}.", code);
-        }
-        finally
-        {
-            roomLock.Release();
-        }
-    }
-
-    /// <summary>Fire-and-forget: processes any pending Arcane Chess bot turns for the room in the background.</summary>
-    public void ScheduleArcaneChessBotTurns(string code) => _ = RunPendingArcaneChessBotTurnsAsync(code);
-
-    private async Task RunPendingArcaneChessBotTurnsAsync(string code)
-    {
-        var roomLock = roomLocks.GetOrAdd(code, static _ => new SemaphoreSlim(1, 1));
-        await roomLock.WaitAsync();
-        try
-        {
-            ArcaneChessSession session;
-            try
-            {
-                session = registry.GetArcaneChess(code);
-            }
-            catch (HubException)
-            {
-                return;
-            }
-
-            while (session.Game is { IsGameOver: false } game)
-            {
-                var occupant = session.Room.Seats[session.ActiveSeat];
-                if (occupant.Kind != OccupantKind.Bot)
-                    return;
-
-                await Task.Delay(Random.Shared.Next((int)MinThinkDelay.TotalMilliseconds, (int)MaxThinkDelay.TotalMilliseconds));
-
-                var engine = await GetOrCreateEngineAsync(code);
-                var bot = new ArcaneChessBot(engine);
-
-                var spellCast = bot.ChooseSpell(game, game.SideToMove);
-                if (spellCast is { } cast)
-                {
-                    try { session.CastSpell(cast.Spell, cast.Target); }
-                    catch (InvalidOperationException) { /* heuristic guessed wrong; just move instead */ }
-                }
-
-                var move = await bot.ChooseMoveAsync(game, occupant.Difficulty!.Value);
-                session.MakeMove(move.From, move.To, move.PromoteTo, DateTimeOffset.UtcNow);
-
-                await hub.Clients.Group(code).SendAsync("ArcaneChessGameUpdated", GameDtoMapper.ToArcaneChessUpdateDto(session));
-                await archive.RecordIfFinishedAsync(session);
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Arcane Chess bot turn processing failed for room {Code}.", code);
-        }
-        finally
-        {
-            roomLock.Release();
-        }
+        var bot = GameBots.For(kind, await GetOrCreateEngineAsync(code));
+        bots[code] = bot;
+        return bot;
     }
 
     private async Task<StockfishEngine> GetOrCreateEngineAsync(string code)

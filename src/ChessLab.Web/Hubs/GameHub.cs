@@ -1,8 +1,6 @@
 using System.Security.Claims;
-using ChessLab.Core.ArcaneChess;
-using ChessLab.Core.CardChess;
-using ChessLab.Core.Chess;
 using ChessLab.Core.Contracts;
+using ChessLab.Core.Games;
 using ChessLab.Core.Rooms;
 using ChessLab.Web.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -35,21 +33,7 @@ public sealed class GameHub(
 
     public async Task<RoomStateDto> CreateRoom(GameKind kind = GameKind.HandAndBrain)
     {
-        if (kind == GameKind.CardChess)
-        {
-            var cardChessSession = registry.CreateCardChessRoom(UserId, DefaultInitialClock, DefaultClockIncrement);
-            await SwitchToRoomGroupAsync(cardChessSession.Room.Code);
-            return GameDtoMapper.ToRoomDto(cardChessSession);
-        }
-
-        if (kind == GameKind.ArcaneChess)
-        {
-            var arcaneChessSession = registry.CreateArcaneChessRoom(UserId, DefaultInitialClock, DefaultClockIncrement);
-            await SwitchToRoomGroupAsync(arcaneChessSession.Room.Code);
-            return GameDtoMapper.ToRoomDto(arcaneChessSession);
-        }
-
-        var session = registry.CreateRoom(UserId, DefaultInitialClock, DefaultClockIncrement);
+        var session = registry.CreateRoom(kind, UserId, DefaultInitialClock, DefaultClockIncrement);
         await SwitchToRoomGroupAsync(session.Room.Code);
         return GameDtoMapper.ToRoomDto(session);
     }
@@ -65,7 +49,7 @@ public sealed class GameHub(
 
     public async Task<RoomStateDto?> JoinRoom(string code)
     {
-        if (registry.FindAny(code) is not { } session)
+        if (registry.Find(code) is not { } session)
             return null;
 
         await SwitchToRoomGroupAsync(session.Room.Code);
@@ -83,35 +67,35 @@ public sealed class GameHub(
 
     public async Task ClaimSeat(string code, SeatId seatId)
     {
-        var session = registry.GetAny(code);
+        var session = registry.Get(code);
         session.Room.ClaimSeat(seatId, UserId, DisplayName);
         await BroadcastRoom(session);
     }
 
     public async Task LeaveSeat(string code, SeatId seatId)
     {
-        var session = registry.GetAny(code);
+        var session = registry.Get(code);
         session.Room.LeaveSeat(seatId, UserId);
         await BroadcastRoom(session);
     }
 
     public async Task SetSeatBot(string code, SeatId seatId, BotDifficulty difficulty)
     {
-        var session = registry.GetAny(code);
+        var session = registry.Get(code);
         session.Room.SetBot(seatId, difficulty);
         await BroadcastRoom(session);
     }
 
     public async Task ClearSeat(string code, SeatId seatId)
     {
-        var session = registry.GetAny(code);
+        var session = registry.Get(code);
         session.Room.ClearSeat(seatId);
         await BroadcastRoom(session);
     }
 
     public async Task SetClockSettings(string code, int initialSeconds, int incrementSeconds)
     {
-        var session = registry.GetAny(code);
+        var session = registry.Get(code);
         if (session.Room.HostUserId != UserId)
             throw new HubException("Only the room's host can change the clock settings.");
 
@@ -130,31 +114,34 @@ public sealed class GameHub(
         botRunner.ScheduleBotTurns(code);
     }
 
-    public async Task SelectPieceKind(string code, PieceKind kind)
+    public async Task PerformAction(string code, GameAction action)
     {
         var session = registry.Get(code);
         EnsureActiveSeatIsCaller(session);
-        session.Game!.SelectPieceKind(kind);
+
+        try
+        {
+            session.Apply(action, DateTimeOffset.UtcNow);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // A rejected action is the player picking something the rules don't allow — an illegal
+            // spell target, a card that isn't in hand — not a server fault. Send the rule that
+            // rejected it so the UI can show it where the player acted.
+            throw new HubException(ex.Message);
+        }
+
         await BroadcastGame(session, "GameUpdated");
         botRunner.ScheduleBotTurns(code);
     }
 
-    public async Task MakeMove(string code, Square from, Square to, PieceKind? promoteTo)
-    {
-        var session = registry.Get(code);
-        EnsureActiveSeatIsCaller(session);
-        session.MakeMove(from, to, promoteTo, DateTimeOffset.UtcNow);
-        await BroadcastGame(session, "GameUpdated");
-        botRunner.ScheduleBotTurns(code);
-    }
-
-    public Task<GameStateDto> GetGameState(string code)
+    public Task<GameStateEnvelopeDto> GetGameState(string code)
     {
         var session = registry.Get(code);
         if (session.Game is null)
             throw new HubException("Game has not started.");
 
-        return Task.FromResult(GameDtoMapper.ToGameDto(session));
+        return Task.FromResult(session.ToStateDto());
     }
 
     public async Task Resign(string code)
@@ -168,163 +155,16 @@ public sealed class GameHub(
         await BroadcastGame(session, "GameUpdated");
     }
 
-    public async Task StartCardChessGame(string code)
-    {
-        var session = registry.GetCardChess(code);
-        if (session.Room.HostUserId != UserId)
-            throw new HubException("Only the room's host can start the game.");
-
-        session.Start(session.Room.InitialClock, session.Room.ClockIncrement, DateTimeOffset.UtcNow);
-        await BroadcastCardChessGame(session, "CardChessGameStarted");
-        botRunner.ScheduleCardChessBotTurns(code);
-    }
-
-    public async Task MakeCardChessMove(string code, Square from, Square to, PieceKind? promoteTo)
-    {
-        var session = registry.GetCardChess(code);
-        EnsureCardChessActiveSeatIsCaller(session);
-        session.MakeMove(from, to, promoteTo, DateTimeOffset.UtcNow);
-        await BroadcastCardChessGame(session, "CardChessGameUpdated");
-        botRunner.ScheduleCardChessBotTurns(code);
-    }
-
-    public async Task SelectCardChessReroll(string code, IReadOnlyList<CardRank> cards)
-    {
-        var session = registry.GetCardChess(code);
-        EnsureCardChessActiveSeatIsCaller(session);
-        session.SelectCardsForReroll(cards);
-        await BroadcastCardChessGame(session, "CardChessGameUpdated");
-    }
-
-    public Task<CardChessStateDto> GetCardChessState(string code)
-    {
-        var session = registry.GetCardChess(code);
-        if (session.Game is null)
-            throw new HubException("Game has not started.");
-
-        return Task.FromResult(GameDtoMapper.ToCardChessDto(session));
-    }
-
-    public async Task ResignCardChess(string code)
-    {
-        var session = registry.GetCardChess(code);
-        if (session.Game is null)
-            throw new HubException("Game has not started.");
-
-        var seat = session.Room.FindSeatOf(UserId) ?? throw new HubException("You are not seated in this room.");
-        session.Game.Resign(seat.Side);
-        await BroadcastCardChessGame(session, "CardChessGameUpdated");
-    }
-
-    public async Task StartArcaneChessGame(string code)
-    {
-        var session = registry.GetArcaneChess(code);
-        if (session.Room.HostUserId != UserId)
-            throw new HubException("Only the room's host can start the game.");
-
-        session.Start(session.Room.InitialClock, session.Room.ClockIncrement, DateTimeOffset.UtcNow);
-        await BroadcastArcaneChessGame(session, "ArcaneChessGameStarted");
-        botRunner.ScheduleArcaneChessBotTurns(code);
-    }
-
-    public async Task MakeArcaneChessMove(string code, Square from, Square to, PieceKind? promoteTo)
-    {
-        var session = registry.GetArcaneChess(code);
-        EnsureArcaneChessActiveSeatIsCaller(session);
-        session.MakeMove(from, to, promoteTo, DateTimeOffset.UtcNow);
-        await BroadcastArcaneChessGame(session, "ArcaneChessGameUpdated");
-        botRunner.ScheduleArcaneChessBotTurns(code);
-    }
-
-    public async Task CastArcaneSpell(string code, SpellRank spell, SpellTarget target)
-    {
-        var session = registry.GetArcaneChess(code);
-        EnsureArcaneChessActiveSeatIsCaller(session);
-
-        try
-        {
-            session.CastSpell(spell, target);
-        }
-        catch (InvalidOperationException ex)
-        {
-            // An illegal target is the player picking the wrong square, not a server fault — send
-            // the rule that rejected it so the UI can show it next to the spell.
-            throw new HubException(ex.Message);
-        }
-
-        await BroadcastArcaneChessGame(session, "ArcaneChessGameUpdated");
-    }
-
-    public async Task SelectArcaneChessReroll(string code, IReadOnlyList<CardRank> cards)
-    {
-        var session = registry.GetArcaneChess(code);
-        EnsureArcaneChessActiveSeatIsCaller(session);
-        session.SelectCardsForReroll(cards);
-        await BroadcastArcaneChessGame(session, "ArcaneChessGameUpdated");
-    }
-
-    public Task<ArcaneChessStateDto> GetArcaneChessState(string code)
-    {
-        var session = registry.GetArcaneChess(code);
-        if (session.Game is null)
-            throw new HubException("Game has not started.");
-
-        return Task.FromResult(GameDtoMapper.ToArcaneChessDto(session));
-    }
-
-    public async Task ResignArcaneChess(string code)
-    {
-        var session = registry.GetArcaneChess(code);
-        if (session.Game is null)
-            throw new HubException("Game has not started.");
-
-        var seat = session.Room.FindSeatOf(UserId) ?? throw new HubException("You are not seated in this room.");
-        session.Game.Resign(seat.Side);
-        await BroadcastArcaneChessGame(session, "ArcaneChessGameUpdated");
-    }
-
     private Task BroadcastRoom(IRoomSession session) =>
         Clients.Group(session.Room.Code).SendAsync("RoomUpdated", GameDtoMapper.ToRoomDto(session));
 
-    private async Task BroadcastGame(GameSession session, string eventName)
+    private async Task BroadcastGame(IRoomSession session, string eventName)
     {
-        await Clients.Group(session.Room.Code).SendAsync(eventName, GameDtoMapper.ToGameUpdateDto(session));
+        await Clients.Group(session.Room.Code).SendAsync(eventName, session.ToUpdateDto());
         await archive.RecordIfFinishedAsync(session);
     }
 
-    private async Task BroadcastCardChessGame(CardChessSession session, string eventName)
-    {
-        await Clients.Group(session.Room.Code).SendAsync(eventName, GameDtoMapper.ToCardChessUpdateDto(session));
-        await archive.RecordIfFinishedAsync(session);
-    }
-
-    private async Task BroadcastArcaneChessGame(ArcaneChessSession session, string eventName)
-    {
-        await Clients.Group(session.Room.Code).SendAsync(eventName, GameDtoMapper.ToArcaneChessUpdateDto(session));
-        await archive.RecordIfFinishedAsync(session);
-    }
-
-    private void EnsureActiveSeatIsCaller(GameSession session)
-    {
-        if (session.Game is null)
-            throw new HubException("Game has not started.");
-
-        var occupant = session.Room.Seats[session.ActiveSeat];
-        if (occupant.Kind != OccupantKind.Human || occupant.UserId != UserId)
-            throw new HubException("It's not your turn.");
-    }
-
-    private void EnsureCardChessActiveSeatIsCaller(CardChessSession session)
-    {
-        if (session.Game is null)
-            throw new HubException("Game has not started.");
-
-        var occupant = session.Room.Seats[session.ActiveSeat];
-        if (occupant.Kind != OccupantKind.Human || occupant.UserId != UserId)
-            throw new HubException("It's not your turn.");
-    }
-
-    private void EnsureArcaneChessActiveSeatIsCaller(ArcaneChessSession session)
+    private void EnsureActiveSeatIsCaller(IRoomSession session)
     {
         if (session.Game is null)
             throw new HubException("Game has not started.");

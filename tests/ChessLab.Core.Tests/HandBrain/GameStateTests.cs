@@ -1,4 +1,5 @@
 using ChessLab.Core.Chess;
+using ChessLab.Core.Games;
 using ChessLab.Core.HandBrain;
 
 namespace ChessLab.Core.Tests.HandBrain;

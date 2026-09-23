@@ -1,9 +1,9 @@
 using ChessLab.Core.Chess;
-using ChessLab.Core.HandBrain;
+using ChessLab.Core.Games;
 
 namespace ChessLab.Core.CardChess;
 
-public sealed class GameState
+public sealed class GameState : IGameEngineState
 {
     public const int StartingHp = 3;
     public const int HandSize = 5;
@@ -35,6 +35,10 @@ public sealed class GameState
     public IReadOnlyList<CardRank> PendingRerollOf(Side side) => pendingRerolls[side];
 
     public string ToFen() => engine.ToFen();
+
+    public IReadOnlyList<string> MoveNotations => [.. MoveHistory.Select(move => move.San)];
+
+    public string PositionText => ToFen();
 
     public GameState(IChessRulesEngine engine, Clock clock, Deck whiteDeck, Deck blackDeck)
     {

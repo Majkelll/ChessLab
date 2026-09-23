@@ -1,6 +1,7 @@
 using ChessLab.Core.ArcaneChess;
 using ChessLab.Core.CardChess;
 using ChessLab.Core.Chess;
+using ChessLab.Core.Games;
 using ChessLab.Core.HandBrain;
 using ChessLab.Core.Tests.CardChess;
 using ArcaneGameState = ChessLab.Core.ArcaneChess.GameState;

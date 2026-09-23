@@ -1,37 +1,22 @@
 using ChessLab.Core.ArcaneChess;
 using ChessLab.Core.Chess;
-using ChessLab.Core.HandBrain;
+using ChessLab.Core.Contracts;
+using ChessLab.Core.Games;
 using GameState = ChessLab.Core.ArcaneChess.GameState;
 
 namespace ChessLab.Core.Rooms;
 
-public sealed class ArcaneChessSession(Room room, Func<IChessRulesEngine> engineFactory) : IRoomSession
+public sealed class ArcaneChessSession(Room room, Func<IChessRulesEngine> engineFactory) : RoomSession<GameState>(room)
 {
-    public Room Room { get; } = room;
-    public GameState? Game { get; private set; }
-    public DateTimeOffset? TurnStartedAt { get; private set; }
-    public bool HasActiveGame => Game is { IsGameOver: false };
-
     public ArcaneChessSession(Room room) : this(room, static () => new GeraChessRulesEngine())
     {
     }
 
-    public SeatId ActiveSeat
+    public override SeatId ActiveSeat => new(StartedGame.SideToMove, SeatRole.Player);
+
+    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
     {
-        get
-        {
-            if (Game is null)
-                throw new InvalidOperationException("Game has not started.");
-
-            return new SeatId(Game.SideToMove, SeatRole.Player);
-        }
-    }
-
-    public void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
-    {
-        if (Game is not null)
-            throw new InvalidOperationException("Game has already started.");
-
+        EnsureNotStarted();
         Room.Lock();
         var rng = random ?? Random.Shared;
         var inner = new CardChess.GameState(engineFactory(), new Clock(initial, increment),
@@ -40,42 +25,70 @@ public sealed class ArcaneChessSession(Room room, Func<IChessRulesEngine> engine
         TurnStartedAt = now;
     }
 
+    public override void Apply(GameAction action, DateTimeOffset now)
+    {
+        switch (action.Kind)
+        {
+            case GameActionKind.Move:
+                MakeMove(action.From!.Value, action.To!.Value, action.PromoteTo, now);
+                break;
+            case GameActionKind.SelectReroll:
+                SelectCardsForReroll(action.Cards!);
+                break;
+            case GameActionKind.CastSpell:
+                CastSpell(action.Spell!.Value, action.Target!.Value);
+                break;
+            default:
+                throw new InvalidOperationException($"{action.Kind} is not an action in Arcane Chess.");
+        }
+    }
+
     public ChessMove MakeMove(Square from, Square to, PieceKind? promoteTo, DateTimeOffset now)
     {
-        if (Game is null)
-            throw new InvalidOperationException("Game has not started.");
-
-        var elapsed = TurnStartedAt is { } startedAt ? now - startedAt : TimeSpan.Zero;
-        var move = Game.MakeMove(from, to, promoteTo, elapsed);
+        var move = StartedGame.MakeMove(from, to, promoteTo, ElapsedSinceTurnStart(now));
         TurnStartedAt = now;
         return move;
     }
 
-    public void CastSpell(SpellRank spell, SpellTarget target)
-    {
-        if (Game is null)
-            throw new InvalidOperationException("Game has not started.");
+    public void CastSpell(SpellRank spell, SpellTarget target) => StartedGame.CastSpell(spell, target);
 
-        Game.CastSpell(spell, target);
+    public void SelectCardsForReroll(IReadOnlyList<CardChess.CardRank> cards) =>
+        StartedGame.SelectCardsForReroll(cards);
+
+    protected override IReadOnlyList<ChessMove> AvailableMoves => StartedGame.AvailableMoves;
+
+    protected override IReadOnlyList<ChessMove> MoveHistory => StartedGame.MoveHistory;
+
+    protected override CardChessSectionDto CardChessSection
+    {
+        get
+        {
+            var game = StartedGame;
+            return new CardChessSectionDto(
+                game.HandOf(Side.White),
+                game.HandOf(Side.Black),
+                game.PendingRerollOf(Side.White),
+                game.PendingRerollOf(Side.Black),
+                game.EmergencyMoveAvailable,
+                game.HandHasNoPlayableCard,
+                game.HpOf(Side.White),
+                game.HpOf(Side.Black));
+        }
     }
 
-    public void SelectCardsForReroll(IReadOnlyList<CardChess.CardRank> cards)
+    protected override ArcaneChessSectionDto ArcaneSection
     {
-        if (Game is null)
-            throw new InvalidOperationException("Game has not started.");
-
-        Game.SelectCardsForReroll(cards);
-    }
-
-    public void DeclareTimeoutIfExpired(DateTimeOffset now)
-    {
-        if (Game is not { IsGameOver: false } || TurnStartedAt is not { } startedAt)
-            return;
-
-        var elapsedSinceTurnStart = now - startedAt;
-        if (elapsedSinceTurnStart >= Game.Clock.Remaining(Game.SideToMove))
-            Game.Clock.Deduct(Game.SideToMove, elapsedSinceTurnStart);
-
-        Game.DeclareTimeoutIfFlagged();
+        get
+        {
+            var game = StartedGame;
+            return new ArcaneChessSectionDto(
+                game.SpellHandOf(Side.White),
+                game.SpellHandOf(Side.Black),
+                game.ManaOf(Side.White),
+                game.ManaOf(Side.Black),
+                game.IsOpponentHandRevealedTo(Side.White),
+                game.IsOpponentHandRevealedTo(Side.Black),
+                game.ActiveEffects);
+        }
     }
 }

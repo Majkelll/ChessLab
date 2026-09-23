@@ -1,5 +1,5 @@
-using System.Collections.Concurrent;
 using ChessLab.Core.Chess;
+using System.Collections.Concurrent;
 using ChessLab.Core.Rooms;
 using ChessLab.Data;
 using Microsoft.EntityFrameworkCore;
@@ -42,18 +42,12 @@ public sealed class GameArchive(IServiceScopeFactory scopeFactory, ILogger<GameA
         }
     }
 
-    private static GameRecord? Snapshot(IRoomSession session) => session switch
-    {
-        GameSession { Game: { IsGameOver: true } game } =>
-            Build(session.Room, game.EndResult!.Value, game.MoveHistory, game.ToFen()),
-        CardChessSession { Game: { IsGameOver: true } game } =>
-            Build(session.Room, game.EndResult!.Value, game.MoveHistory, game.ToFen()),
-        ArcaneChessSession { Game: { IsGameOver: true } game } =>
-            Build(session.Room, game.EndResult!.Value, game.MoveHistory, game.ToFen()),
-        _ => null,
-    };
+    private static GameRecord? Snapshot(IRoomSession session) =>
+        session.Game is { IsGameOver: true } game
+            ? Build(session.Room, game.EndResult!.Value, game.MoveNotations, game.PositionText)
+            : null;
 
-    private static GameRecord Build(Room room, GameEndResult result, IReadOnlyList<ChessMove> moves, string finalFen) => new()
+    private static GameRecord Build(Room room, GameEndResult result, IReadOnlyList<string> moves, string finalPosition) => new()
     {
         Id = Guid.NewGuid(),
         RoomCode = room.Code,
@@ -62,8 +56,8 @@ public sealed class GameArchive(IServiceScopeFactory scopeFactory, ILogger<GameA
         EndReason = result.Reason,
         Winner = result.Winner,
         MoveCount = moves.Count,
-        MovesSan = string.Join(' ', moves.Select(m => m.San)),
-        FinalFen = finalFen,
+        MovesSan = string.Join(' ', moves),
+        FinalFen = finalPosition,
         Players = room.Seats
             .Where(seat => seat.Value.Kind != OccupantKind.Empty)
             .Select(seat => new GameRecordPlayer

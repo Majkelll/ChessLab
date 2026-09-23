@@ -272,8 +272,6 @@ else
 
         Game.RoomUpdated += OnRoomUpdated;
         Game.GameUpdated += OnGameUpdated;
-        Game.CardChessGameUpdated += OnCardChessGameUpdated;
-        Game.ArcaneChessGameUpdated += OnArcaneChessGameUpdated;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -395,18 +393,7 @@ else
         isStarting = true;
         try
         {
-            switch (room!.Kind)
-            {
-                case GameKind.CardChess:
-                    await Game.StartCardChessGameAsync(Code);
-                    break;
-                case GameKind.ArcaneChess:
-                    await Game.StartArcaneChessGameAsync(Code);
-                    break;
-                default:
-                    await Game.StartGameAsync(Code);
-                    break;
-            }
+            await Game.StartGameAsync(Code);
         }
         catch (Exception ex) { error = ex.Message; isStarting = false; }
     }
@@ -430,26 +417,14 @@ else
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnGameUpdated(GameUpdateDto dto)
+    private void OnGameUpdated(GameUpdateEnvelopeDto dto)
     {
-        InvokeAsync(() => Nav.NavigateTo($"/game/{Code}"));
-    }
-
-    private void OnCardChessGameUpdated(CardChessUpdateDto dto)
-    {
-        InvokeAsync(() => Nav.NavigateTo($"/cardchess/{Code}"));
-    }
-
-    private void OnArcaneChessGameUpdated(ArcaneChessUpdateDto dto)
-    {
-        InvokeAsync(() => Nav.NavigateTo($"/arcanechess/{Code}"));
+        InvokeAsync(() => Nav.NavigateTo(GamePageUrl(dto.Kind)));
     }
 
     public void Dispose()
     {
         Game.RoomUpdated -= OnRoomUpdated;
         Game.GameUpdated -= OnGameUpdated;
-        Game.CardChessGameUpdated -= OnCardChessGameUpdated;
-        Game.ArcaneChessGameUpdated -= OnArcaneChessGameUpdated;
     }
 }

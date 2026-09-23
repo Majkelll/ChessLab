@@ -1,13 +1,13 @@
 using ChessLab.Core.CardChess;
 using ChessLab.Core.Chess;
-using ChessLab.Core.HandBrain;
+using ChessLab.Core.Games;
 
 namespace ChessLab.Core.ArcaneChess;
 
 /// <summary>Card Chess plus a second, spell-card layer on top. Wraps a <see cref="CardChess.GameState"/>
 /// by composition — the rank-card hand, HP, and reroll rules are entirely Card Chess's; this type only
 /// adds mana, spell hands, and the handful of extra restrictions/mutations spells cause.</summary>
-public sealed class GameState
+public sealed class GameState : IGameEngineState
 {
     public const int SpellHandSize = 3;
     public const int MaxMana = 3;
@@ -35,6 +35,10 @@ public sealed class GameState
     public IReadOnlyList<CardRank> HandOf(Side side) => inner.HandOf(side);
     public IReadOnlyList<CardRank> PendingRerollOf(Side side) => inner.PendingRerollOf(side);
     public string ToFen() => inner.ToFen();
+
+    public IReadOnlyList<string> MoveNotations => [.. MoveHistory.Select(move => move.San)];
+
+    public string PositionText => ToFen();
 
     public int ManaOf(Side side) => mana[side];
     public IReadOnlyList<SpellRank> SpellHandOf(Side side) => spellHands[side];

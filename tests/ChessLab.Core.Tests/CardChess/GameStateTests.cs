@@ -1,5 +1,6 @@
 using ChessLab.Core.CardChess;
 using ChessLab.Core.Chess;
+using ChessLab.Core.Games;
 using ChessLab.Core.HandBrain;
 using GameState = ChessLab.Core.CardChess.GameState;
 

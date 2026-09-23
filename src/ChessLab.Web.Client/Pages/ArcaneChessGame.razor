@@ -4,6 +4,7 @@
 @using ChessLab.Core.CardChess
 @using ChessLab.Core.Chess
 @using ChessLab.Core.Contracts
+@using ChessLab.Core.Games
 @using ChessLab.Core.Rooms
 @using ChessLab.Web.Client.Components
 @using ChessLab.Web.Client.Services
@@ -68,7 +69,7 @@ else
             }
 
             <div class="board-fit min-h-0 w-full flex-1 max-lg:max-h-[75dvh] max-lg:flex-none max-lg:aspect-square">
-                <ChessBoard Fen="@state.Fen"
+                <ChessBoard Fen="@state.PositionText"
                             AvailableMoves="@state.AvailableMoves"
                             Interactive="@(isBoardInteractive && !IsTargetingSquares)"
                             FlipBoard="@(mySeat?.Side == Side.Black)"
@@ -114,13 +115,13 @@ else
             </div>
 
             <div class="mt-2 min-h-10 shrink-0 max-lg:mt-0 max-lg:min-h-0">
-                @if (state.EmergencyMoveAvailable && isMyTurn)
+                @if (cards.EmergencyMoveAvailable && isMyTurn)
                 {
                     <p data-testid="emergency-move-banner" class="border border-rust/40 bg-rust/5 px-3 py-2 font-mono text-sm text-rust">
                         No card can save you — move any piece to escape check (costs 1 HP, unless Deep Breath is active).
                     </p>
                 }
-                else if (state.HandHasNoPlayableCard && isMyTurn)
+                else if (cards.HandHasNoPlayableCard && isMyTurn)
                 {
                     <p data-testid="no-playable-card-banner" class="border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm text-espresso-soft">
                         No card in your hand can move right now — pick any piece, free of charge.
@@ -307,10 +308,10 @@ else
                         </div>
                     }
 
-                    @if (state.ActiveEffects.Count > 0)
+                    @if (arcane.ActiveEffects.Count > 0)
                     {
                         <ul data-testid="active-effects" class="mt-2 flex flex-wrap gap-2 font-mono text-[10px] text-espresso-soft/70">
-                            @foreach (var effect in state.ActiveEffects)
+                            @foreach (var effect in arcane.ActiveEffects)
                             {
                                 <li class="border border-espresso/16 bg-white/40 px-2 py-0.5">@EffectLabel(effect)</li>
                             }
@@ -334,7 +335,7 @@ else
     [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
 
     private RoomStateDto? room;
-    private ArcaneChessStateDto? state;
+    private GameStateEnvelopeDto? state;
     private List<ChessMove> moveHistory = [];
     private Guid myUserId;
     private SeatId? mySeat;
@@ -350,6 +351,10 @@ else
     private bool blackHpJustDropped;
     private bool whiteManaJustSpent;
     private bool blackManaJustSpent;
+
+    private CardChessSectionDto cards => state!.CardChess!;
+
+    private ArcaneChessSectionDto arcane => state!.Arcane!;
 
     private bool isMyTurn => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
 
@@ -372,7 +377,7 @@ else
 
         GameContext.Set("Arcane Chess");
         Game.RoomUpdated += OnRoomUpdated;
-        Game.ArcaneChessGameUpdated += OnGameUpdated;
+        Game.GameUpdated += OnGameUpdated;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -398,7 +403,7 @@ else
 
             room = joined;
             mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
-            SetFullState(await Game.GetArcaneChessStateAsync(Code));
+            SetFullState(await Game.GetGameStateAsync(Code));
             StateHasChanged();
         }
         catch (Exception ex)
@@ -422,14 +427,14 @@ else
 
     private string ManaHitClass(Side side) => (side == Side.White ? whiteManaJustSpent : blackManaJustSpent) ? "hp-hit" : "";
 
-    private IReadOnlyList<CardRank> HandOf(Side side) => side == Side.White ? state!.WhiteHand : state!.BlackHand;
+    private IReadOnlyList<CardRank> HandOf(Side side) => side == Side.White ? cards.WhiteHand : cards.BlackHand;
 
     private IReadOnlyList<CardRank> PendingRerollOf(Side side) =>
-        side == Side.White ? state!.WhitePendingReroll : state!.BlackPendingReroll;
+        side == Side.White ? cards.WhitePendingReroll : cards.BlackPendingReroll;
 
-    private IReadOnlyList<SpellRank> SpellHandOf(Side side) => side == Side.White ? state!.WhiteSpellHand : state!.BlackSpellHand;
+    private IReadOnlyList<SpellRank> SpellHandOf(Side side) => side == Side.White ? arcane.WhiteSpellHand : arcane.BlackSpellHand;
 
-    private int ManaOf(Side side) => side == Side.White ? state!.WhiteMana : state!.BlackMana;
+    private int ManaOf(Side side) => side == Side.White ? arcane.WhiteMana : arcane.BlackMana;
 
     private string ManaPips(Side side)
     {
@@ -439,7 +444,7 @@ else
 
     private string HpHearts(Side side)
     {
-        var hp = side == Side.White ? state!.WhiteHp : state!.BlackHp;
+        var hp = side == Side.White ? cards.WhiteHp : cards.BlackHp;
         return string.Concat(Enumerable.Repeat("♥", Math.Max(0, hp)).Concat(Enumerable.Repeat("♡", Math.Max(0, ChessLab.Core.CardChess.GameState.StartingHp - hp))));
     }
 
@@ -447,9 +452,9 @@ else
 
     private string TurnStatusText()
     {
-        if (state!.EmergencyMoveAvailable)
+        if (cards.EmergencyMoveAvailable)
             return "in check, no card helps — Emergency Move";
-        if (state.HandHasNoPlayableCard)
+        if (cards.HandHasNoPlayableCard)
             return "no hand card can move — picking freely";
         return "choosing a move from hand";
     }
@@ -561,7 +566,7 @@ else
                 _ => default,
             };
 
-            await Game.CastArcaneSpellAsync(Code, spell, target);
+            await Game.PerformActionAsync(Code, GameAction.CastSpell(spell, target));
             if (mySeat is { } mine)
             {
                 if (mine.Side == Side.White) whiteCastSpellThisTurn = true;
@@ -588,7 +593,7 @@ else
 
     private async Task MakeMoveAsync(ChessMove move)
     {
-        try { await Game.MakeArcaneChessMoveAsync(Code, move.From, move.To, move.PromoteTo); }
+        try { await Game.PerformActionAsync(Code, GameAction.MovePiece(move.From, move.To, move.PromoteTo)); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -610,13 +615,13 @@ else
             current.Add(card);
         }
 
-        try { await Game.SelectArcaneChessRerollAsync(Code, current); }
+        try { await Game.PerformActionAsync(Code, GameAction.SelectReroll(current)); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task ResignAsync()
     {
-        try { await Game.ResignArcaneChessAsync(Code); }
+        try { await Game.ResignAsync(Code); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -629,7 +634,7 @@ else
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnGameUpdated(ArcaneChessUpdateDto dto)
+    private void OnGameUpdated(GameUpdateEnvelopeDto dto)
     {
         if (dto.MoveHistoryCount == moveHistory.Count + 1 && dto.LatestMove is { } move)
             moveHistory.Add(move);
@@ -644,7 +649,7 @@ else
     {
         try
         {
-            SetFullState(await Game.GetArcaneChessStateAsync(Code));
+            SetFullState(await Game.GetGameStateAsync(Code));
         }
         catch (Exception ex)
         {
@@ -653,26 +658,24 @@ else
         await InvokeAsync(StateHasChanged);
     }
 
-    private void ApplyUpdate(ArcaneChessUpdateDto dto)
+    private void ApplyUpdate(GameUpdateEnvelopeDto dto)
     {
         if (state is not null)
         {
-            if (dto.WhiteHp < state.WhiteHp)
+            if (dto.CardChess!.WhiteHp < cards.WhiteHp)
                 TriggerHpHit(Side.White);
-            if (dto.BlackHp < state.BlackHp)
+            if (dto.CardChess!.BlackHp < cards.BlackHp)
                 TriggerHpHit(Side.Black);
-            if (dto.WhiteMana < state.WhiteMana)
+            if (dto.Arcane!.WhiteMana < arcane.WhiteMana)
                 TriggerManaHit(Side.White);
-            if (dto.BlackMana < state.BlackMana)
+            if (dto.Arcane!.BlackMana < arcane.BlackMana)
                 TriggerManaHit(Side.Black);
         }
 
-        state = new ArcaneChessStateDto(
-            dto.SideToMove, dto.WhiteHand, dto.BlackHand, dto.WhitePendingReroll, dto.BlackPendingReroll,
-            dto.EmergencyMoveAvailable, dto.HandHasNoPlayableCard, dto.AvailableMoves, moveHistory, dto.Fen,
-            dto.WhiteHp, dto.BlackHp, dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
-            dto.WhiteSpellHand, dto.BlackSpellHand, dto.WhiteMana, dto.BlackMana,
-            dto.WhiteSeesBlackHand, dto.BlackSeesWhiteHand, dto.ActiveEffects);
+        state = new GameStateEnvelopeDto(
+            dto.Kind, dto.SideToMove, dto.PositionText, dto.AvailableMoves, moveHistory,
+            dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
+            CardChess: dto.CardChess, Arcane: dto.Arcane);
         TrackSpellCastTurn(dto.SideToMove);
     }
 
@@ -712,7 +715,7 @@ else
         await InvokeAsync(StateHasChanged);
     }
 
-    private void SetFullState(ArcaneChessStateDto dto)
+    private void SetFullState(GameStateEnvelopeDto dto)
     {
         state = dto;
         moveHistory = [.. dto.MoveHistory];
@@ -732,6 +735,6 @@ else
     public void Dispose()
     {
         Game.RoomUpdated -= OnRoomUpdated;
-        Game.ArcaneChessGameUpdated -= OnGameUpdated;
+        Game.GameUpdated -= OnGameUpdated;
     }
 }

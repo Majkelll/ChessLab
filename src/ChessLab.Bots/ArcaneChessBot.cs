@@ -1,5 +1,6 @@
 using ChessLab.Core.ArcaneChess;
 using ChessLab.Core.Chess;
+using ChessLab.Core.Games;
 using ChessLab.Core.Rooms;
 using GameState = ChessLab.Core.ArcaneChess.GameState;
 
@@ -12,9 +13,27 @@ namespace ChessLab.Bots;
 /// the opponent). It never attempts Swap, Teleport, Execution, Mind Swap, Time Freeze, or Extra
 /// Turn — picking a good target for those needs real board evaluation, which isn't worth building
 /// for a bot opponent.</summary>
-public sealed class ArcaneChessBot(StockfishEngine engine)
+public sealed class ArcaneChessBot(StockfishEngine engine) : IGameBot
 {
     private const double CastChance = 0.3;
+
+    private int spellTriedAtMoveCount = -1;
+
+    public async Task<GameAction> ChooseActionAsync(IRoomSession session, BotDifficulty difficulty,
+        CancellationToken ct = default)
+    {
+        var game = ((ArcaneChessSession)session).Game!;
+
+        if (spellTriedAtMoveCount != game.MoveHistory.Count)
+        {
+            spellTriedAtMoveCount = game.MoveHistory.Count;
+            if (ChooseSpell(game, game.SideToMove) is { } cast)
+                return GameAction.CastSpell(cast.Spell, cast.Target);
+        }
+
+        var move = await ChooseMoveAsync(game, difficulty, ct);
+        return GameAction.MovePiece(move.From, move.To, move.PromoteTo);
+    }
 
     public async Task<ChessMove> ChooseMoveAsync(GameState game, BotDifficulty difficulty, CancellationToken ct = default)
     {

@@ -3,6 +3,7 @@
 @using ChessLab.Core.CardChess
 @using ChessLab.Core.Chess
 @using ChessLab.Core.Contracts
+@using ChessLab.Core.Games
 @using ChessLab.Core.Rooms
 @using ChessLab.Web.Client.Components
 @using ChessLab.Web.Client.Services
@@ -66,7 +67,7 @@ else
             }
 
             <div class="board-fit min-h-0 w-full flex-1 max-lg:max-h-[75dvh] max-lg:flex-none max-lg:aspect-square">
-                <ChessBoard Fen="@state.Fen"
+                <ChessBoard Fen="@state.PositionText"
                             AvailableMoves="@state.AvailableMoves"
                             Interactive="@isBoardInteractive"
                             FlipBoard="@(mySeat?.Side == Side.Black)"
@@ -109,13 +110,13 @@ else
             </div>
 
             <div class="mt-2 min-h-10 shrink-0 max-lg:mt-0 max-lg:min-h-0">
-                @if (state.EmergencyMoveAvailable && isMyTurn)
+                @if (cards.EmergencyMoveAvailable && isMyTurn)
                 {
                     <p data-testid="emergency-move-banner" class="border border-rust/40 bg-rust/5 px-3 py-2 font-mono text-sm text-rust">
                         No card can save you — move any piece to escape check (costs 1 HP).
                     </p>
                 }
-                else if (state.HandHasNoPlayableCard && isMyTurn)
+                else if (cards.HandHasNoPlayableCard && isMyTurn)
                 {
                     <p data-testid="no-playable-card-banner" class="border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm text-espresso-soft">
                         No card in your hand can move right now — pick any piece, free of charge.
@@ -220,7 +221,7 @@ else
     [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
 
     private RoomStateDto? room;
-    private CardChessStateDto? state;
+    private GameStateEnvelopeDto? state;
     private List<ChessMove> moveHistory = [];
     private Guid myUserId;
     private SeatId? mySeat;
@@ -228,6 +229,8 @@ else
     private bool roomIsGone;
     private bool whiteHpJustDropped;
     private bool blackHpJustDropped;
+
+    private CardChessSectionDto cards => state!.CardChess!;
 
     private bool isMyTurn => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
 
@@ -240,7 +243,7 @@ else
 
         GameContext.Set("Card Chess");
         Game.RoomUpdated += OnRoomUpdated;
-        Game.CardChessGameUpdated += OnGameUpdated;
+        Game.GameUpdated += OnGameUpdated;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -266,7 +269,7 @@ else
 
             room = joined;
             mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
-            SetFullState(await Game.GetCardChessStateAsync(Code));
+            SetFullState(await Game.GetGameStateAsync(Code));
             StateHasChanged();
         }
         catch (Exception ex)
@@ -286,14 +289,14 @@ else
 
     private static string HpTestId(Side side) => side == Side.White ? "hp-white" : "hp-black";
 
-    private IReadOnlyList<CardRank> HandOf(Side side) => side == Side.White ? state!.WhiteHand : state!.BlackHand;
+    private IReadOnlyList<CardRank> HandOf(Side side) => side == Side.White ? cards.WhiteHand : cards.BlackHand;
 
     private IReadOnlyList<CardRank> PendingRerollOf(Side side) =>
-        side == Side.White ? state!.WhitePendingReroll : state!.BlackPendingReroll;
+        side == Side.White ? cards.WhitePendingReroll : cards.BlackPendingReroll;
 
     private string HpHearts(Side side)
     {
-        var hp = side == Side.White ? state!.WhiteHp : state!.BlackHp;
+        var hp = side == Side.White ? cards.WhiteHp : cards.BlackHp;
         return string.Concat(Enumerable.Repeat("♥", Math.Max(0, hp)).Concat(Enumerable.Repeat("♡", Math.Max(0, GameState.StartingHp - hp))));
     }
 
@@ -303,9 +306,9 @@ else
 
     private string TurnStatusText()
     {
-        if (state!.EmergencyMoveAvailable)
+        if (cards.EmergencyMoveAvailable)
             return "in check, no card helps — Emergency Move (costs 1 HP)";
-        if (state.HandHasNoPlayableCard)
+        if (cards.HandHasNoPlayableCard)
             return "no hand card can move — picking freely";
         return "choosing a move from hand";
     }
@@ -326,7 +329,7 @@ else
 
     private async Task MakeMoveAsync(ChessMove move)
     {
-        try { await Game.MakeCardChessMoveAsync(Code, move.From, move.To, move.PromoteTo); }
+        try { await Game.PerformActionAsync(Code, GameAction.MovePiece(move.From, move.To, move.PromoteTo)); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -348,13 +351,13 @@ else
             current.Add(card);
         }
 
-        try { await Game.SelectCardChessRerollAsync(Code, current); }
+        try { await Game.PerformActionAsync(Code, GameAction.SelectReroll(current)); }
         catch (Exception ex) { error = ex.Message; }
     }
 
     private async Task ResignAsync()
     {
-        try { await Game.ResignCardChessAsync(Code); }
+        try { await Game.ResignAsync(Code); }
         catch (Exception ex) { error = ex.Message; }
     }
 
@@ -367,7 +370,7 @@ else
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnGameUpdated(CardChessUpdateDto dto)
+    private void OnGameUpdated(GameUpdateEnvelopeDto dto)
     {
         if (dto.MoveHistoryCount == moveHistory.Count + 1 && dto.LatestMove is { } move)
             moveHistory.Add(move);
@@ -382,7 +385,7 @@ else
     {
         try
         {
-            SetFullState(await Game.GetCardChessStateAsync(Code));
+            SetFullState(await Game.GetGameStateAsync(Code));
         }
         catch (Exception ex)
         {
@@ -391,17 +394,17 @@ else
         await InvokeAsync(StateHasChanged);
     }
 
-    private void ApplyUpdate(CardChessUpdateDto dto)
+    private void ApplyUpdate(GameUpdateEnvelopeDto dto)
     {
-        if (state is not null && dto.WhiteHp < state.WhiteHp)
+        if (state is not null && dto.CardChess!.WhiteHp < cards.WhiteHp)
             TriggerHpHit(Side.White);
-        if (state is not null && dto.BlackHp < state.BlackHp)
+        if (state is not null && dto.CardChess!.BlackHp < cards.BlackHp)
             TriggerHpHit(Side.Black);
 
-        state = new CardChessStateDto(
-            dto.SideToMove, dto.WhiteHand, dto.BlackHand, dto.WhitePendingReroll, dto.BlackPendingReroll,
-            dto.EmergencyMoveAvailable, dto.HandHasNoPlayableCard, dto.AvailableMoves, moveHistory, dto.Fen,
-            dto.WhiteHp, dto.BlackHp, dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner);
+        state = new GameStateEnvelopeDto(
+            dto.Kind, dto.SideToMove, dto.PositionText, dto.AvailableMoves, moveHistory,
+            dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
+            CardChess: dto.CardChess);
     }
 
     private void TriggerHpHit(Side side)
@@ -426,7 +429,7 @@ else
         await InvokeAsync(StateHasChanged);
     }
 
-    private void SetFullState(CardChessStateDto dto)
+    private void SetFullState(GameStateEnvelopeDto dto)
     {
         state = dto;
         moveHistory = [.. dto.MoveHistory];
@@ -435,6 +438,6 @@ else
     public void Dispose()
     {
         Game.RoomUpdated -= OnRoomUpdated;
-        Game.CardChessGameUpdated -= OnGameUpdated;
+        Game.GameUpdated -= OnGameUpdated;
     }
 }
