@@ -142,6 +142,7 @@ public sealed class PieceBoard
     public ChessMove Apply(ChessMove move, bool annotate = true)
     {
         var piece = At(move.From) ?? throw new InvalidOperationException($"No piece at {move.From}.");
+        var isCastling = IsCastlingMove(piece, move);
         var captured = At(move.To);
         var isEnPassant = piece.Has(MovePower.Pawn) && captured is null &&
             move.From.File != move.To.File && EnPassantTarget == move.To;
@@ -164,7 +165,7 @@ public sealed class PieceBoard
 
         Set(move.To, moved);
 
-        if (piece.IsRoyal && Math.Abs(move.To.File - move.From.File) == 2)
+        if (isCastling)
             MoveCastlingRook(move.To);
 
         UpdateCastlingRights(move.From, move.To);
@@ -189,6 +190,31 @@ public sealed class PieceBoard
         var isMate = isCheck && LegalMoves(opponent).Count == 0;
         var suffix = isMate ? "#" : isCheck ? "+" : "";
         return move with { IsCheck = isCheck, IsCheckmate = isMate, San = move.San + suffix };
+    }
+
+    /// <summary>Castling is a king stepping two squares along its home rank with its own rook still
+    /// waiting in the corner — which has to be checked rather than assumed, because in Absorption
+    /// Chess a king that swallowed a rook can slide two squares as an ordinary move.</summary>
+    private bool IsCastlingMove(BoardPiece piece, ChessMove move)
+    {
+        if (!piece.IsRoyal)
+            return false;
+
+        var rank = piece.Side == Side.White ? 0 : 7;
+        if (move.From != new Square(4, rank) || move.To.Rank != rank ||
+            Math.Abs(move.To.File - move.From.File) != 2)
+        {
+            return false;
+        }
+
+        var kingSide = move.To.File == 6;
+        var right = piece.Side == Side.White
+            ? kingSide ? CastlingRights.WhiteKingSide : CastlingRights.WhiteQueenSide
+            : kingSide ? CastlingRights.BlackKingSide : CastlingRights.BlackQueenSide;
+
+        return Castling.HasFlag(right) &&
+            At(new Square(kingSide ? 7 : 0, rank)) is { IsRoyal: false } rook &&
+            rook.Side == piece.Side && rook.Has(MovePower.Rook);
     }
 
     private void MoveCastlingRook(Square kingTo)
@@ -381,8 +407,11 @@ public sealed class PieceBoard
 
     private static string San(ChessMove move, IReadOnlyList<ChessMove> ambiguous)
     {
-        if (move.Piece == PieceKind.King && Math.Abs(move.To.File - move.From.File) == 2)
+        if (move.Piece == PieceKind.King && move.From.File == 4 && move.To.Rank == move.From.Rank &&
+            move.From.Rank is 0 or 7 && Math.Abs(move.To.File - move.From.File) == 2)
+        {
             return move.To.File == 6 ? "O-O" : "O-O-O";
+        }
 
         var builder = new StringBuilder();
 

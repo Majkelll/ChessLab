@@ -9,4 +9,5 @@ public enum GameKind
     BiddingChess,
     ProgressiveChess,
     AliceChess,
+    AbsorptionChess,
 }

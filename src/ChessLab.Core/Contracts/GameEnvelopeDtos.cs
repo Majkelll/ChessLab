@@ -25,7 +25,8 @@ public sealed record GameStateEnvelopeDto(
     ArcaneChessSectionDto? Arcane = null,
     BiddingSectionDto? Bidding = null,
     ProgressiveSectionDto? Progressive = null,
-    AliceSectionDto? Alice = null);
+    AliceSectionDto? Alice = null,
+    AbsorptionSectionDto? Absorption = null);
 
 /// <summary>The same thing as <see cref="GameStateEnvelopeDto"/>, but carrying only the latest move
 /// and the resulting history length, so a client that's been following along doesn't have the whole
@@ -47,4 +48,5 @@ public sealed record GameUpdateEnvelopeDto(
     ArcaneChessSectionDto? Arcane = null,
     BiddingSectionDto? Bidding = null,
     ProgressiveSectionDto? Progressive = null,
-    AliceSectionDto? Alice = null);
+    AliceSectionDto? Alice = null,
+    AbsorptionSectionDto? Absorption = null);

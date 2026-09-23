@@ -43,3 +43,5 @@ public sealed record BiddingSectionDto(
 public sealed record ProgressiveSectionDto(int SeriesNumber, int MovesPlayedInSeries, int MovesLeftInSeries);
 
 public sealed record AliceSectionDto(string BoardAFen, string BoardBFen, bool IsInCheck);
+
+public sealed record AbsorptionSectionDto(string Fen, string PowersText, bool IsInCheck);
