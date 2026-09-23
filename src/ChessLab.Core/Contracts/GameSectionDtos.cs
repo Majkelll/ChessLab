@@ -45,3 +45,10 @@ public sealed record ProgressiveSectionDto(int SeriesNumber, int MovesPlayedInSe
 public sealed record AliceSectionDto(string BoardAFen, string BoardBFen, bool IsInCheck);
 
 public sealed record AbsorptionSectionDto(string Fen, string PowersText, bool IsInCheck);
+
+public sealed record MartianPyramidDto(Square Square, int Value);
+
+public sealed record MartianSectionDto(
+    IReadOnlyList<MartianPyramidDto> Pyramids,
+    int WhiteScore,
+    int BlackScore);

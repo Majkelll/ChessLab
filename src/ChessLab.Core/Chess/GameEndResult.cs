@@ -18,6 +18,10 @@ public enum GameEndReason
     /// the opposing king off the board.</summary>
     KingCaptured,
 
+    /// <summary>Martian Chess only: play stops the moment either half of the board is empty, and
+    /// the higher score wins.</summary>
+    BoardHalfEmptied,
+
     /// <summary>Drawn because the mode's cap on how long a game may run was reached. Modes that
     /// reload positions or don't track repetition at all rely on this instead of the usual draws.</summary>
     MoveLimit,

@@ -35,6 +35,7 @@ public sealed class RoomRegistry
         GameKind.ProgressiveChess => new ProgressiveChessSession(room),
         GameKind.AliceChess => new AliceChessSession(room),
         GameKind.AbsorptionChess => new AbsorptionChessSession(room),
+        GameKind.MartianChess => new MartianChessSession(room),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown game kind."),
     };
 

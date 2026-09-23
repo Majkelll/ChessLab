@@ -44,6 +44,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
 
     protected virtual AbsorptionSectionDto? AbsorptionSection => null;
 
+    protected virtual MartianSectionDto? MartianSection => null;
+
     public void DeclareTimeoutIfExpired(DateTimeOffset now)
     {
         if (Game is not { IsGameOver: false } game || TurnStartedAt is not { } startedAt)
@@ -79,7 +81,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
             BiddingSection,
             ProgressiveSection,
             AliceSection,
-            AbsorptionSection);
+            AbsorptionSection,
+            MartianSection);
     }
 
     public GameUpdateEnvelopeDto ToUpdateDto()
@@ -104,7 +107,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
             BiddingSection,
             ProgressiveSection,
             AliceSection,
-            AbsorptionSection);
+            AbsorptionSection,
+            MartianSection);
     }
 
     protected TGame StartedGame => Game ?? throw new InvalidOperationException("Game has not started.");
