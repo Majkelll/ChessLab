@@ -44,9 +44,6 @@ public sealed class AuthenticationTests(WebAppFixture app, PlaywrightFixture pla
         await using var context = await playwright.Browser.NewContextAsync();
         var page = await context.NewPageAsync();
 
-        // [Authorize] + the default challenge scheme means the server redirects straight to
-        // Google rather than rendering our page at all — assert we end up on Google's login,
-        // without trying to complete a real Google sign-in (that can't be automated here).
         await page.GotoAsync($"{app.BaseUrl}{path}");
 
         Assert.StartsWith("https://accounts.google.com/", page.Url, StringComparison.Ordinal);

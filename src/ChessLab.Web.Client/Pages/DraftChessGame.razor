@@ -118,8 +118,6 @@
             await view.Perform(GameAction.PlacePiece(kind, square));
     }
 
-    /// <summary>During the draft there is nothing to show; while the armies are being laid out each
-    /// side only sees its own, and once play starts the real position takes over.</summary>
     private static string BoardFen(GameView view)
     {
         var draft = view.State.Draft!;

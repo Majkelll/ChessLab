@@ -141,8 +141,6 @@ public class GeraChessRulesEngineTests
     [Fact]
     public void HasLegalMove_ForTheOtherSide_StillWorksEvenWhileTheSideToMoveIsInCheck()
     {
-        // White to move, in check — probing Black (the side not to move) must not blow up just
-        // because the position looks "illegal" from Black's hypothetical point of view.
         var engine = GeraChessRulesEngine.FromFen("4qk2/8/8/8/8/8/8/4K3 w - - 0 1");
 
         Assert.True(engine.IsInCheck(Side.White));

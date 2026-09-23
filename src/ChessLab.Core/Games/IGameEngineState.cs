@@ -2,13 +2,6 @@ using ChessLab.Core.Chess;
 
 namespace ChessLab.Core.Games;
 
-/// <summary>
-/// The part of a game's state that every mode shares, whatever its rules are: whose turn it is,
-/// the clock, whether it's over and how, plus a textual record of the position and the moves so
-/// far. Position and move notation are strings rather than FEN/<see cref="ChessMove"/> because
-/// modes like Martian Chess aren't played on an 8x8 chess board at all — the archive and the
-/// history pages only ever need something printable.
-/// </summary>
 public interface IGameEngineState
 {
     Side SideToMove { get; }
@@ -18,8 +11,6 @@ public interface IGameEngineState
     IReadOnlyList<string> MoveNotations { get; }
     string PositionText { get; }
 
-    /// <summary>Whose clocks are running right now. Normally just the side to move, but a mode
-    /// where both sides act at once (Bidding Chess's sealed bids) charges both of them.</summary>
     IReadOnlyList<Side> SidesOnTheClock { get; }
 
     void Resign(Side side);

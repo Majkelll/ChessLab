@@ -6,12 +6,6 @@ using GameState = ChessLab.Core.Draft.GameState;
 
 namespace ChessLab.Bots;
 
-/// <summary>
-/// Builds an army before it plays one: spends the budget on the heaviest pieces it can still fit on
-/// the back rank, fills what's left with pawns, then lays everything out in a plain, symmetrical
-/// shape — king in the middle, heavy pieces beside it, pawns across the second rank. The game
-/// afterwards is played greedily, one move at a time.
-/// </summary>
 public sealed class DraftChessBot : IGameBot
 {
     private static readonly PieceKind[] ByWeight =

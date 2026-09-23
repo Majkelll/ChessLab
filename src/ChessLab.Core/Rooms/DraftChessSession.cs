@@ -11,8 +11,6 @@ public sealed class DraftChessSession(Room room) : RoomSession<GameState>(room)
     private static readonly PieceKind[] PoolKinds =
         [PieceKind.Queen, PieceKind.Rook, PieceKind.Bishop, PieceKind.Knight, PieceKind.Pawn];
 
-    /// <summary>One seat during the draft and the game, both while the armies are being laid out —
-    /// each side does that on its own, without waiting for the other.</summary>
     public override IReadOnlyList<SeatId> ActiveSeats =>
         [.. StartedGame.SidesOnTheClock.Select(side => new SeatId(side, SeatRole.Player))];
 
@@ -49,8 +47,6 @@ public sealed class DraftChessSession(Room room) : RoomSession<GameState>(room)
                 throw new InvalidOperationException($"{action.Kind} is not an action in Draft Chess.");
         }
 
-        // Building an army is on the clock too, so a side can't stall the room before the first
-        // move; whoever just acted is charged for the wait they caused.
         game.Clock.Deduct(seat.Side, ElapsedSinceTurnStart(now));
         TurnStartedAt = now;
     }

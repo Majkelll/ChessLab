@@ -2,7 +2,6 @@ using System.Diagnostics;
 
 namespace ChessLab.E2E.Tests.Infrastructure;
 
-/// <summary>Finds a usable `stockfish` binary, if any, so bot-dependent tests can self-skip cleanly.</summary>
 internal static class StockfishLocator
 {
     public static string? Find()

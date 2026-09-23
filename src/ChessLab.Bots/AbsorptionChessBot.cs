@@ -4,9 +4,6 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Bots;
 
-/// <summary>Greedy, with one Absorption-specific twist: a capture is worth more than the piece it
-/// takes, because the capturing piece keeps those moves for the rest of the game — so taking a
-/// queen with a pawn is the best thing that can happen to that pawn.</summary>
 public sealed class AbsorptionChessBot : IGameBot
 {
     private readonly Random random = new();

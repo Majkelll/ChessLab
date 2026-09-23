@@ -1,11 +1,5 @@
 namespace ChessLab.E2E.Tests.Tests;
 
-/// <summary>
-/// One game per new mode, played in a real browser against a real bot — the modes whose bots don't
-/// need Stockfish, so these run anywhere. Each test drives the part of the UI that only that mode
-/// has: two boards for Alice, pyramids for Martian, sealed bids for Bidding, a pool and a layout for
-/// Draft.
-/// </summary>
 [Collection(AppCollection.Name)]
 public sealed class VariantModesTests(WebAppFixture app, PlaywrightFixture playwright)
 {
@@ -84,8 +78,6 @@ public sealed class VariantModesTests(WebAppFixture app, PlaywrightFixture playw
 
         await Expect(white.Page.GetByTestId("last-bids")).ToBeVisibleAsync(new() { Timeout = 20000 });
 
-        // Whoever won moves; if it was us, the board is ours to use, and either way the first move
-        // of the game lands in the history.
         if (await white.MoveHistoryCountAsync() == 0)
             await white.MoveAsync("e2", "e4");
 

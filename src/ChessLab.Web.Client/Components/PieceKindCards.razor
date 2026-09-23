@@ -23,8 +23,6 @@
     [Parameter] public IReadOnlyList<PieceKind> AvailableKinds { get; set; } = [];
     [Parameter] public bool Interactive { get; set; }
 
-    /// <summary>The piece kind the Brain already announced this turn, if any — highlighted
-    /// regardless of <see cref="Interactive"/> so it stays visible once selection is done.</summary>
     [Parameter] public PieceKind? SelectedKind { get; set; }
 
     [Parameter] public EventCallback<PieceKind> OnKindSelected { get; set; }

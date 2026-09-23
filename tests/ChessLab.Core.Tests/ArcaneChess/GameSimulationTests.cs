@@ -6,15 +6,6 @@ using ArcaneGameState = ChessLab.Core.ArcaneChess.GameState;
 
 namespace ChessLab.Core.Tests.ArcaneChess;
 
-/// <summary>Plays many full, realistic Arcane Chess games — real chess engine, real decks, random
-/// legal moves, and every spell type attempted whenever it's affordable and in hand — asserting the
-/// board always keeps exactly one king per side and that only the documented
-/// <see cref="InvalidOperationException"/> validation failures ever surface. Exists because a
-/// production report ("a player cast Reshuffle and the game broke for them") wasn't reproducible from
-/// reading the code or from the existing one-spell-at-a-time unit tests: playing out long sequences of
-/// interacting spells/moves/reroll/effects the way a real game actually accumulates them is what
-/// found the two real bugs those narrower tests couldn't — see GameStateTests' Swap/MindSwap
-/// back-rank regressions, and CardChess.GameState.RefreshAvailableMoves' king-capture filter.</summary>
 public class GameSimulationTests
 {
     [Fact]
@@ -57,7 +48,6 @@ public class GameSimulationTests
                     }
                     catch (InvalidOperationException)
                     {
-                        // Expected: e.g. would leave own king in check, no active effect to dispel.
                     }
                     catch (Exception ex)
                     {

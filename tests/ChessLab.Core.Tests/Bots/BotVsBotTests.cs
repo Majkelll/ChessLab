@@ -4,8 +4,6 @@ using Xunit.Sdk;
 
 namespace ChessLab.Core.Tests.Bots;
 
-/// <summary>The modes whose bots don't need Stockfish play each other here, start to finish, so the
-/// bots are held to the same bar as the rules: never an illegal action, never a stalled room.</summary>
 public class BotVsBotTests
 {
     [Theory]

@@ -54,9 +54,6 @@ public sealed class ArcaneChessTests(WebAppFixture app, PlaywrightFixture playwr
         await white.WaitForTurnTextAsync("white", timeoutMs: 20000);
     }
 
-    // Spell hands are dealt 3-of-19 at random, so a test that needs a specific spell to show up
-    // skips rather than flakes when this particular game didn't deal it — the other tests already
-    // cover the general "a room full of Arcane Chess plays" path regardless of which spells appear.
     [SkippableFact]
     public async Task Casting_a_no_target_spell_spends_mana_and_redraws_the_card()
     {
@@ -76,8 +73,6 @@ public sealed class ArcaneChessTests(WebAppFixture app, PlaywrightFixture playwr
         await Expect(white.SpellCard(castable)).ToHaveCountAsync(0);
         Assert.Equal(3, (await white.GetSpellHandRanksAsync()).Count);
 
-        // The client disables every spell card the moment one has been cast this turn — the
-        // server-side "one spell per turn" rule itself is covered by the Core unit tests.
         foreach (var spell in await white.GetSpellHandRanksAsync())
             await Expect(white.SpellCard(spell)).ToBeDisabledAsync();
     }

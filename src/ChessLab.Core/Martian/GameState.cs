@@ -3,16 +3,6 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.Martian;
 
-/// <summary>
-/// Martian Chess (Looney Labs): not chess at all, and the one mode here with no king, no check and
-/// no colours. The board is four files by eight ranks, split into two halves, and you own whatever
-/// stands in your half — so a piece you push across the middle becomes your opponent's. Pyramids
-/// come in three sizes: a 1 steps one square diagonally, a 2 moves one or two squares straight, and
-/// a 3 moves any distance in any direction; none of them jump. Landing on a piece in the opponent's
-/// half takes it for its face value in points, landing on one in your own half is simply not a move,
-/// and you may not undo your opponent's last move by pushing the same piece straight back. When
-/// either half falls empty the game stops and the higher score wins.
-/// </summary>
 public sealed class GameState : IGameEngineState
 {
     public const int Files = 4;
@@ -70,16 +60,10 @@ public sealed class GameState : IGameEngineState
 
     public int ScoreOf(Side side) => scores[side];
 
-    /// <summary>The pyramid standing on <paramref name="square"/> as its point value, or 0 for an
-    /// empty square.</summary>
     public int PyramidAt(Square square) => pyramids[square.File, square.Rank];
 
-    /// <summary>Whose half <paramref name="square"/> belongs to — which is the only sense in which a
-    /// piece belongs to anyone.</summary>
     public static Side HalfOf(Square square) => square.Rank < Ranks / 2 ? Side.White : Side.Black;
 
-    /// <summary>A plain-text board with a digit per pyramid, ranks from the top down, plus both
-    /// scores — there's no FEN for a game with no colours and no kings.</summary>
     public string PositionText
     {
         get
@@ -253,8 +237,6 @@ public sealed class GameState : IGameEngineState
         return new ChessMove(from, to, KindOf(value), captured == 0 ? null : KindOf(captured), null, false, false, san);
     }
 
-    /// <summary>Pyramids aren't chess pieces, but every mode speaks <see cref="ChessMove"/>, so each
-    /// size travels as the chess piece the UI draws for it.</summary>
     public static PieceKind KindOf(int value) => value switch
     {
         1 => PieceKind.Pawn,

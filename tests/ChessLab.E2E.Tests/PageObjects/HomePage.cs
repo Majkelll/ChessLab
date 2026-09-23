@@ -5,7 +5,6 @@ using Microsoft.Playwright;
 
 namespace ChessLab.E2E.Tests.PageObjects;
 
-/// <summary>The "/" landing page: create a room, or join one by code.</summary>
 public sealed class HomePage(IPage page)
 {
     public IPage Page { get; } = page;

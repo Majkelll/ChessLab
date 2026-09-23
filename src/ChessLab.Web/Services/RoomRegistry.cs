@@ -4,13 +4,10 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace ChessLab.Web.Services;
 
-/// <summary>Live, in-memory room/game state for this process. No persistence — matches ongoing games only.</summary>
 public sealed class RoomRegistry
 {
-    // Excludes 0/O/1/I/L to avoid ambiguous invite codes.
     private const string CodeAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
-    // Every game kind shares one code space — a code is unique regardless of which game it's for.
     private readonly ConcurrentDictionary<string, IRoomSession> sessions = new();
 
     public IRoomSession CreateRoom(GameKind kind, Guid hostUserId, TimeSpan? initialClock = null,
@@ -48,12 +45,8 @@ public sealed class RoomRegistry
         return session;
     }
 
-    /// <summary>Lookup that treats a missing room as an expected answer rather than a failure:
-    /// rooms only live in memory, so any code a player still has stops resolving once the server
-    /// restarts, and the client turns that into a "this room is gone" screen instead of an error.</summary>
     public IRoomSession? Find(string code) => sessions.TryGetValue(code, out var session) ? session : null;
 
-    /// <summary>Sessions with a game currently in progress — used by the clock watchdog.</summary>
     public IEnumerable<IRoomSession> ActiveSessions() => sessions.Values.Where(s => s.HasActiveGame);
 
     private static string GenerateCode() =>

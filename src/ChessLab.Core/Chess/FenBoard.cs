@@ -1,8 +1,5 @@
 namespace ChessLab.Core.Chess;
 
-/// <summary>Textual edits to a FEN position's piece placement — the only way to put a piece
-/// somewhere the normal move rules would never allow (teleport, swap, forced removal). Used
-/// exclusively by Arcane Chess spells; regular chess moves go through <see cref="IChessRulesEngine.ApplyMove"/>.</summary>
 public static class FenBoard
 {
     public static char? PieceAt(string fen, Square square) => ParsePlacement(fen)[square.File, square.Rank];
@@ -25,8 +22,6 @@ public static class FenBoard
         return side == Side.White ? char.ToUpperInvariant(symbol) : symbol;
     }
 
-    /// <summary>Forces whose turn it is without moving any piece, clearing the en-passant target
-    /// (which wouldn't apply to a hypothetical turn). Used by the Arcane Chess "Extra Turn" spell.</summary>
     public static string WithSideToMove(string fen, Side side)
     {
         var fields = fen.Split(' ');
@@ -35,9 +30,6 @@ public static class FenBoard
         return string.Join(' ', fields);
     }
 
-    /// <summary>Moves the piece at <paramref name="from"/> to <paramref name="to"/> (which must be
-    /// empty), or removes it entirely when <paramref name="to"/> is null. Clears the en-passant
-    /// target and revokes castling rights tied to any home square this edit touches.</summary>
     public static string MovePiece(string fen, Square from, Square? to)
     {
         var grid = ParsePlacement(fen);
@@ -56,8 +48,6 @@ public static class FenBoard
         return Rebuild(fen, grid, touched);
     }
 
-    /// <summary>Swaps the pieces occupying <paramref name="a"/> and <paramref name="b"/> — both must
-    /// be occupied.</summary>
     public static string SwapPieces(string fen, Square a, Square b)
     {
         var grid = ParsePlacement(fen);

@@ -42,8 +42,6 @@
 
     private Square? selected;
 
-    /// <summary>The moves currently on offer, as "a3a5", so a browser test can play a real game
-    /// without having to work the pyramids out from the picture.</summary>
     private string MoveList() =>
         string.Join(' ', AvailableMoves.Select(move => $"{move.From}{move.To}").Distinct());
 

@@ -3,15 +3,6 @@ using ChessLab.Core.Chess;
 
 namespace ChessLab.Core.Tests.Chess;
 
-/// <summary>
-/// Regression coverage for a real bug: <see cref="Square"/> declares its constructor manually
-/// (not via positional-record syntax) so it could validate its arguments, and File/Rank have no
-/// public setters. Without [JsonConstructor] pinning down which constructor to use,
-/// System.Text.Json silently picked the struct's implicit parameterless constructor instead,
-/// deserializing every Square as default — (0,0), i.e. "a1" — with no error at all. This broke
-/// every move sent to a Blazor WASM client: "From" squares all collapsed to a1, so no piece
-/// except one actually on a1 could ever be selected or dragged.
-/// </summary>
 public class SquareJsonTests
 {
     [Theory]

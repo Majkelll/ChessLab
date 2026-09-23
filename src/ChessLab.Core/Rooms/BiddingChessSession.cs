@@ -8,8 +8,6 @@ namespace ChessLab.Core.Rooms;
 
 public sealed class BiddingChessSession(Room room) : RoomSession<GameState>(room)
 {
-    /// <summary>While bids are open both sides act, and each one drops out of this list as soon as
-    /// its own bid is in — which is also what stops a side bidding twice.</summary>
     public override IReadOnlyList<SeatId> ActiveSeats
     {
         get
@@ -55,8 +53,6 @@ public sealed class BiddingChessSession(Room room) : RoomSession<GameState>(room
         var game = StartedGame;
         game.SubmitBid(side, amount, ElapsedSinceTurnStart(now));
 
-        // Both bids are in, so the clock for the move that follows starts from here rather than
-        // from the start of the bidding both sides were just charged for.
         if (game.Phase == BiddingPhase.Moving)
             TurnStartedAt = now;
     }

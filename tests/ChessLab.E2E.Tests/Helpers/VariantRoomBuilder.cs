@@ -13,9 +13,6 @@ public sealed record StartedVariantGame(
     public VariantGamePage this[Side side] => Games[side];
 }
 
-/// <summary>Seats and starts a room for any of the six modes that share the board shell — the only
-/// thing that changes between them is which card on the home page opens the room and which route
-/// the game lives at.</summary>
 public sealed class VariantRoomBuilder(IBrowser browser, string baseUrl, GameKind kind)
 {
     private readonly List<(Side Side, string Name)> humanSeats = [];

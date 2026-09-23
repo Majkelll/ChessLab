@@ -6,12 +6,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ChessLab.Web.Services;
 
-/// <summary>
-/// Writes a finished game to the database so it outlives the room, which only exists in memory and
-/// disappears with the next restart. Called from every path that can end a game (a hub action, a
-/// bot's move, the clock watchdog), so it has to tolerate being called repeatedly for the same
-/// room and for games that are still in progress.
-/// </summary>
 public sealed class GameArchive(IServiceScopeFactory scopeFactory, ILogger<GameArchive> logger)
 {
     private readonly ConcurrentDictionary<string, byte> archived = new();

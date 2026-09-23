@@ -53,8 +53,6 @@ else
         <div class="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
             @foreach (var side in new[] { Side.White, Side.Black })
             {
-                // The two sides get their own accent color throughout their column — amber for White,
-                // moss for Black — so the two teams read apart at a glance without adding a third color.
                 var sideAccentText = side == Side.White ? "text-amber-700" : "text-moss";
                 var sideHoverBorder = side == Side.White ? "hover:border-amber-600/60" : "hover:border-moss/60";
                 var sideJoinClasses = side == Side.White
@@ -258,9 +256,6 @@ else
     private string? error;
     private bool isStarting;
 
-    // Seeded once from the room's current clock settings, then only ever changed by the host's
-    // own edits — re-syncing from every RoomUpdated broadcast (e.g. another player joining a
-    // seat) would otherwise risk clobbering an in-progress edit before it's committed.
     private int clockMinutes = 10;
     private int clockIncrementSeconds;
     private bool clockSettingsInitialized;

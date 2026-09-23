@@ -5,14 +5,10 @@ using Microsoft.Playwright;
 
 namespace ChessLab.E2E.Tests.PageObjects;
 
-/// <summary>The "/room/{code}" lobby: seats, bots, and starting the game.</summary>
 public sealed class RoomPage
 {
     public IPage Page { get; }
 
-    /// <summary>Captured once at construction — reading it live off <see cref="Page"/>.Url would race
-    /// with the navigation to /game/{code} that <see cref="StartGameAsync"/>/<see cref="WaitForGameStartedAsync"/>
-    /// are themselves waiting on.</summary>
     public string Code { get; }
 
     public RoomPage(IPage page)
@@ -28,11 +24,8 @@ public sealed class RoomPage
     public ILocator StartGameButton => Page.GetByTestId("start-game-btn");
     public ILocator WaitingForHostMessage => Page.GetByTestId("waiting-for-host");
 
-    /// <summary>Shown instead of the seat grid once this room's one game has already finished —
-    /// rooms aren't reusable for a rematch, so there's nothing left to configure here.</summary>
     public ILocator RoomRetiredMessage => Page.GetByTestId("room-retired");
 
-    /// <summary>Host-only editable clock inputs. Non-host seats see <see cref="ClockSettingsDisplay"/> instead.</summary>
     public ILocator ClockMinutesInput => Page.GetByTestId("clock-initial-minutes");
     public ILocator ClockIncrementInput => Page.GetByTestId("clock-increment-seconds");
     public ILocator ClockSettingsDisplay => Page.GetByTestId("clock-settings-display");
@@ -41,8 +34,6 @@ public sealed class RoomPage
     public ILocator SeatJoinButton(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-join-btn");
     public ILocator SeatAddBotButton(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-add-bot-btn");
 
-    /// <summary>Only present once the seat holds a bot — adding one always starts it at Medium
-    /// (see <see cref="AddBotAsync"/>), and this lets the difficulty be changed afterward.</summary>
     public ILocator SeatBotSelect(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-bot-select");
 
     public ILocator SeatRemoveButton(Side side, SeatRole role) => Seat(side, role).GetByTestId("seat-remove-btn");
@@ -55,15 +46,12 @@ public sealed class RoomPage
         await SeatOccupantName(side, role).WaitForAsync();
     }
 
-    /// <summary>Clicks "Add bot", which seats a Medium-difficulty bot — the only way to add one.</summary>
     public async Task AddBotAsync(Side side, SeatRole role)
     {
         await SeatAddBotButton(side, role).ClickAsync();
         await SeatBotSelect(side, role).WaitForAsync();
     }
 
-    /// <summary>Adds a bot (always starts at Medium) and, if a different difficulty was asked for,
-    /// adjusts it via the seat's difficulty dropdown.</summary>
     public async Task SetBotAsync(Side side, SeatRole role, BotDifficulty difficulty)
     {
         await AddBotAsync(side, role);
@@ -81,8 +69,6 @@ public sealed class RoomPage
         await SeatJoinButton(side, role).WaitForAsync();
     }
 
-    /// <summary>Host-only: changes both the initial minutes and the per-move increment together,
-    /// matching how the two inputs are wired in the UI (each onchange sends both current values).</summary>
     public async Task SetClockSettingsAsync(int minutes, int incrementSeconds)
     {
         await ClockMinutesInput.FillAsync(minutes.ToString());
@@ -103,49 +89,42 @@ public sealed class RoomPage
     public async Task<bool> IsStartGameEnabledAsync() =>
         await StartGameButton.GetAttributeAsync("aria-disabled") == "false";
 
-    /// <summary>Host-only: clicks "Start game" and follows the navigation to the board.</summary>
     public async Task<GamePage> StartGameAsync()
     {
         await StartGameButton.ClickAsync();
         return await WaitForGameStartedAsync();
     }
 
-    /// <summary>Non-host seats: the room navigates them to the board automatically once the host starts.</summary>
     public async Task<GamePage> WaitForGameStartedAsync(int timeoutMs = 15000)
     {
         await Page.WaitForURLAsync(new Regex($"/game/{Regex.Escape(Code)}$"), new() { Timeout = timeoutMs });
         return new GamePage(Page);
     }
 
-    /// <summary>Host-only: clicks "Start game" for a Card Chess room and follows the navigation to the board.</summary>
     public async Task<CardChessGamePage> StartCardChessGameAsync()
     {
         await StartGameButton.ClickAsync();
         return await WaitForCardChessGameStartedAsync();
     }
 
-    /// <summary>Non-host seats: the room navigates them to the Card Chess board automatically once the host starts.</summary>
     public async Task<CardChessGamePage> WaitForCardChessGameStartedAsync(int timeoutMs = 15000)
     {
         await Page.WaitForURLAsync(new Regex($"/cardchess/{Regex.Escape(Code)}$"), new() { Timeout = timeoutMs });
         return new CardChessGamePage(Page);
     }
 
-    /// <summary>Host-only: clicks "Start game" for an Arcane Chess room and follows the navigation to the board.</summary>
     public async Task<ArcaneChessGamePage> StartArcaneChessGameAsync()
     {
         await StartGameButton.ClickAsync();
         return await WaitForArcaneChessGameStartedAsync();
     }
 
-    /// <summary>Non-host seats: the room navigates them to the Arcane Chess board automatically once the host starts.</summary>
     public async Task<ArcaneChessGamePage> WaitForArcaneChessGameStartedAsync(int timeoutMs = 15000)
     {
         await Page.WaitForURLAsync(new Regex($"/arcanechess/{Regex.Escape(Code)}$"), new() { Timeout = timeoutMs });
         return new ArcaneChessGamePage(Page);
     }
 
-    /// <summary>Host-only: starts a room for one of the modes that share the board shell.</summary>
     public async Task<VariantGamePage> StartVariantGameAsync(GameKind kind)
     {
         await StartGameButton.ClickAsync();

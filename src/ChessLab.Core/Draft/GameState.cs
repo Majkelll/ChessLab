@@ -11,20 +11,11 @@ public enum DraftPhase
     Playing,
 }
 
-/// <summary>
-/// Draft Chess: the armies are built before a piece ever moves. Both sides spend a points budget
-/// picking from one shared pool in snake order — pick, opponent picks twice, you pick twice, and so
-/// on — and passing puts you out of the draft for good. Each side then lays its army out on its own
-/// two ranks in secret, king included, pawns on the second rank only, and the game that follows is
-/// ordinary chess with no castling, since nobody's king starts on e1.
-/// </summary>
 public sealed class GameState : IGameEngineState
 {
     public const int Budget = 39;
     public const int MaxPawns = 8;
 
-    /// <summary>Everything that isn't a pawn shares the back rank with the king, so seven is all
-    /// there is room for — which also means a legal draft can always be laid out.</summary>
     public const int MaxOfficers = 7;
     public const int MoveLimit = 300;
 
@@ -76,7 +67,6 @@ public sealed class GameState : IGameEngineState
 
     public DraftPhase Phase { get; private set; } = DraftPhase.Drafting;
 
-    /// <summary>Whose pick it is, or null once the draft is done.</summary>
     public Side? SideToPick { get; private set; }
 
     public Side SideToMove => board?.SideToMove ?? Side.White;
@@ -89,7 +79,6 @@ public sealed class GameState : IGameEngineState
 
     public IReadOnlyList<string> MoveNotations => notations;
 
-    /// <summary>The drafted position, once there is one to play.</summary>
     public string? Fen => board?.ToFen();
 
     public string PositionText => Fen ?? DraftText();
@@ -116,7 +105,6 @@ public sealed class GameState : IGameEngineState
 
     public IReadOnlyDictionary<Square, PieceKind> PlacementsOf(Side side) => placements[side];
 
-    /// <summary>A side is done laying out once its king and every piece it drafted is on the board.</summary>
     public bool HasFinishedPlacing(Side side) =>
         placements[side].Count == picks[side].Count + 1 && placements[side].ContainsValue(PieceKind.King);
 
@@ -172,8 +160,6 @@ public sealed class GameState : IGameEngineState
     private bool CanPickAnything(Side side) =>
         !passed[side] && Costs.Keys.Any(kind => CanPick(side, kind));
 
-    /// <summary>Snake order: White, Black, Black, White, White, and so on — a side that has passed
-    /// or run out of budget is skipped over rather than stalling the draft.</summary>
     private void AdvanceDraft()
     {
         while (CanPickAnything(Side.White) || CanPickAnything(Side.Black))
@@ -234,7 +220,6 @@ public sealed class GameState : IGameEngineState
             throw new InvalidOperationException($"{side} has nothing on {square}.");
     }
 
-    /// <summary>How many of <paramref name="kind"/> this side still has waiting to be laid out.</summary>
     public int Remaining(Side side, PieceKind kind)
     {
         var owned = kind == PieceKind.King ? 1 : picks[side].Count(pick => pick == kind);
@@ -255,8 +240,6 @@ public sealed class GameState : IGameEngineState
         board.SetSideToMove(Side.White);
         Phase = DraftPhase.Playing;
 
-        // Anything that asked for the moves while the armies were still being built got an empty
-        // list, and that answer is cached — there is a real board to read now.
         availableMoves = null;
 
         CountPosition();

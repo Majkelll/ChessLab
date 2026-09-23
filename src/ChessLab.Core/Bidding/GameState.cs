@@ -10,19 +10,10 @@ public enum BiddingPhase
     Moving,
 }
 
-/// <summary>
-/// Bidding Chess (Richman chess): there is no turn order. Before every move both sides secretly bid
-/// some of their chips, the higher bid wins the right to move and pays what it bid to the loser, and
-/// a tie goes to whoever holds the tiebreak marker, which then changes hands. Because a side can win
-/// several bids in a row, check and checkmate don't exist here — the game is won by capturing the
-/// opposing king outright.
-/// </summary>
 public sealed class GameState : IGameEngineState
 {
     public const int StartingChips = 100;
 
-    /// <summary>Without check or mate there is no natural draw here, so a game that neither side
-    /// can finish is called off once both sides have had this many moves between them.</summary>
     public const int MoveLimit = 300;
 
     private readonly PieceBoard board;
@@ -46,7 +37,6 @@ public sealed class GameState : IGameEngineState
 
     public Side SideToMove { get; private set; } = Side.White;
 
-    /// <summary>Who wins a tied bid — and hands the marker over by doing so.</summary>
     public Side MarkerHolder { get; private set; } = Side.White;
 
     public int? LastWhiteBid { get; private set; }
@@ -71,13 +61,9 @@ public sealed class GameState : IGameEngineState
 
     public bool HasBid(Side side) => pendingBids[side] is not null;
 
-    /// <summary>Everything the side that won the bid may play — every move the pieces can physically
-    /// make, including ones that leave its own king attacked and ones that take the opposing king.</summary>
     public IReadOnlyList<ChessMove> AvailableMoves =>
         Phase == BiddingPhase.Moving && !IsGameOver ? MovesFor(SideToMove) : [];
 
-    /// <summary>What a side could play if it won the bid — worth knowing while bids are still open,
-    /// since that's the whole question being bid on.</summary>
     public IReadOnlyList<ChessMove> MovesFor(Side side) => IsGameOver ? [] : board.PseudoLegalMoves(side);
 
     public void SubmitBid(Side side, int amount, TimeSpan elapsed)

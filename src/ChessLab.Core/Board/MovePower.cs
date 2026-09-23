@@ -2,9 +2,6 @@ using ChessLab.Core.Chess;
 
 namespace ChessLab.Core.Board;
 
-/// <summary>What a piece is allowed to do, as a set rather than a single kind: Absorption Chess
-/// stacks the powers of everything a piece has captured onto it, so one piece can move as a knight
-/// and a rook at once. Ordinary chess pieces carry exactly one of these.</summary>
 [Flags]
 public enum MovePower
 {
@@ -17,9 +14,6 @@ public enum MovePower
     King = 32,
 }
 
-/// <summary><see cref="IsRoyal"/> is kept apart from <see cref="MovePower.King"/> because the two
-/// aren't the same thing: a piece that absorbed a king's moves still isn't the piece whose capture
-/// loses the game.</summary>
 public readonly record struct BoardPiece(Side Side, MovePower Powers, bool IsRoyal)
 {
     public static BoardPiece Of(Side side, PieceKind kind) =>
@@ -29,8 +23,6 @@ public readonly record struct BoardPiece(Side Side, MovePower Powers, bool IsRoy
 
     public BoardPiece With(MovePower added) => this with { Powers = Powers | added };
 
-    /// <summary>The kind this piece is named and drawn as — its most valuable power, except that a
-    /// royal piece always reads as a king.</summary>
     public PieceKind PrimaryKind
     {
         get

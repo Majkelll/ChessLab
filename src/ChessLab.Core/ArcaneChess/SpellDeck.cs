@@ -1,8 +1,5 @@
 namespace ChessLab.Core.ArcaneChess;
 
-/// <summary>One copy of each <see cref="SpellRank"/>, drawn and reshuffled the same way as Card
-/// Chess's rank <see cref="ChessLab.Core.CardChess.Deck"/> — kept as a separate small type rather
-/// than sharing that one, since spells don't need Card Chess's "keep drawing until playable" logic.</summary>
 public sealed class SpellDeck
 {
     private readonly List<SpellRank> drawPile;

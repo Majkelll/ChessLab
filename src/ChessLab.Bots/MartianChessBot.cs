@@ -5,8 +5,6 @@ using GameState = ChessLab.Core.Martian.GameState;
 
 namespace ChessLab.Bots;
 
-/// <summary>Takes the points on offer and, failing that, keeps its pyramids at home: a piece pushed
-/// across the middle for nothing is a piece handed to the opponent.</summary>
 public sealed class MartianChessBot : IGameBot
 {
     private readonly Random random = new();

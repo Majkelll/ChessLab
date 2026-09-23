@@ -15,7 +15,6 @@ namespace ChessLab.Data.Migrations
     [Migration("20260902121742_InitialCreate")]
     partial class InitialCreate
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

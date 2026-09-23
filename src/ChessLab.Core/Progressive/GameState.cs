@@ -3,18 +3,8 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.Progressive;
 
-/// <summary>
-/// Progressive Chess, Scottish rules: White plays one move, Black two, White three, and so on. A
-/// series stops the moment the player gives check, so check may only ever be delivered by the last
-/// move of a series, and a player who is in check has to get out of it with the first move of
-/// theirs. Checkmate is therefore "in check with no legal first move" — which is exactly what the
-/// underlying library already reports, so the rules ride on top of it.
-/// </summary>
 public sealed class GameState : IGameEngineState
 {
-    /// <summary>Reloading the position to give a side another move costs the library its move
-    /// history, so repetition and the fifty-move rule can't be detected here. This cap takes their
-    /// place: by series 150 each side is being handed 75 moves at a time anyway.</summary>
     public const int SeriesLimit = 150;
 
     private readonly IChessRulesEngine engine;
@@ -30,8 +20,6 @@ public sealed class GameState : IGameEngineState
 
     public Clock Clock { get; }
 
-    /// <summary>Which series is being played, counting from White's opening single move. It's also
-    /// how many moves that series is worth.</summary>
     public int SeriesNumber { get; private set; } = 1;
 
     public int MovesPlayedInSeries { get; private set; }
@@ -86,10 +74,6 @@ public sealed class GameState : IGameEngineState
         return applied;
     }
 
-    /// <summary>Hands the same side another move by putting it back on the clock in the position it
-    /// just created, and says whether it actually has one to play. A side that has run out of moves
-    /// mid-series has simply finished its series — the position is handed straight back so the
-    /// library never gets to call that stalemate.</summary>
     private bool ContinueSeries(Side mover)
     {
         if (IsGameOver)

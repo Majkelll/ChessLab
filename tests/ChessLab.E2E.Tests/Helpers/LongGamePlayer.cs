@@ -4,12 +4,6 @@ using Microsoft.Playwright;
 
 namespace ChessLab.E2E.Tests.Helpers;
 
-/// <summary>
-/// Plays a whole game of one mode through the browser, move after move, and fails if the room
-/// stops responding before it has played its fifty. Everything mode-specific lives here — the
-/// sealed bids, the draft and its layout, the Brain's announcement — so the tests themselves are
-/// one line each.
-/// </summary>
 public sealed class LongGamePlayer(WebAppFixture app, IBrowser browser)
 {
     public const int TargetPlies = 50;
@@ -129,9 +123,6 @@ public sealed class LongGamePlayer(WebAppFixture app, IBrowser browser)
         return new Dictionary<Side, IPage> { [Side.White] = white.Page, [Side.Black] = black.Page };
     }
 
-    /// <summary>Nobody moves in Bidding Chess until both sides have put chips on it, and a page
-    /// only shows its bid box once its own turn to bid has arrived — so this keeps asking until
-    /// neither side is still holding one.</summary>
     public static async Task BidForBothSidesAsync(IReadOnlyDictionary<Side, GameDriver> drivers, Random rng)
     {
         for (var round = 0; round < 20; round++)
@@ -155,9 +146,6 @@ public sealed class LongGamePlayer(WebAppFixture app, IBrowser browser)
         }
     }
 
-    /// <summary>Runs the draft the way two players would: whoever's pick it is takes something,
-    /// and once both armies are big enough they pass, which is what moves the room on to laying the
-    /// pieces out.</summary>
     public static async Task DraftAndLayOutBothArmiesAsync(
         IReadOnlyDictionary<Side, GameDriver> drivers, Random rng)
     {
@@ -234,9 +222,6 @@ public sealed class LongGamePlayer(WebAppFixture app, IBrowser browser)
         return true;
     }
 
-    /// <summary>Lays one army out square by square. The squares come from the test's own list
-    /// rather than from reading the board back: every placement uses a fresh one, so nothing has to
-    /// be verified between clicks.</summary>
     private static async Task LayOutOneArmyAsync(Side side, GameDriver driver)
     {
         await driver.Page.GetByTestId("placement-tray").WaitForAsync(new() { Timeout = 30000 });
@@ -275,8 +260,6 @@ public sealed class LongGamePlayer(WebAppFixture app, IBrowser browser)
             steps.Add($"{kind}->{square}");
         }
 
-        // Either this side is waiting for the other ("ready"), or it laid out last and the room has
-        // already moved on to the game, taking the tray with it.
         var deadline = DateTime.UtcNow.AddSeconds(15);
         while (DateTime.UtcNow < deadline)
         {
@@ -296,8 +279,6 @@ public sealed class LongGamePlayer(WebAppFixture app, IBrowser browser)
             $"{side} never finished laying out. Placed: {string.Join(", ", steps)}. Left: {string.Join(", ", left)}.");
     }
 
-    /// <summary>The Brain has to name a piece kind before the Hand has anything to click, and a
-    /// card the Brain can't announce is greyed out rather than missing.</summary>
     private static async Task<bool> AnnounceAPieceKindAsync(IPage brain, GameDriver hand, Random rng)
     {
         try
@@ -339,8 +320,6 @@ public sealed class LongGamePlayer(WebAppFixture app, IBrowser browser)
         }
     }
 
-    /// <summary>Clicks the control if it is there and usable, and shrugs if it vanished between
-    /// looking and clicking — which a page that re-renders on every update does a lot.</summary>
     private static async Task<bool> ClickIfPossibleAsync(ILocator locator)
     {
         try

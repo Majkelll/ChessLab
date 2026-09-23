@@ -4,9 +4,6 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.ArcaneChess;
 
-/// <summary>Card Chess plus a second, spell-card layer on top. Wraps a <see cref="CardChess.GameState"/>
-/// by composition — the rank-card hand, HP, and reroll rules are entirely Card Chess's; this type only
-/// adds mana, spell hands, and the handful of extra restrictions/mutations spells cause.</summary>
 public sealed class GameState : IGameEngineState
 {
     public const int SpellHandSize = 3;
@@ -66,8 +63,6 @@ public sealed class GameState : IGameEngineState
         deepBreathActive = new Dictionary<Side, bool> { [Side.White] = false, [Side.Black] = false };
         pendingExtraTurn = new Dictionary<Side, bool> { [Side.White] = false, [Side.Black] = false };
 
-        // The side to move first gets their one turn-start mana gain now; the other side gets
-        // theirs the first time AdvanceTurnBookkeeping runs for them.
         mana[inner.SideToMove] = 1;
     }
 
@@ -169,10 +164,6 @@ public sealed class GameState : IGameEngineState
 
         var filtered = moves.ToArray();
 
-        // Effects are meant to narrow the mover's options, never eliminate them entirely — the
-        // underlying chess engine doesn't know about them, so it won't declare stalemate/checkmate
-        // just because Arcane restrictions happen to cover every remaining move. Falling back to
-        // the unfiltered list keeps the mover always able to act instead of getting stuck forever.
         return filtered.Length > 0 ? filtered : allMoves;
     }
 
@@ -339,11 +330,6 @@ public sealed class GameState : IGameEngineState
             throw new InvalidOperationException($"{square} is not empty.");
     }
 
-    // A pawn resting on the back rank isn't a state normal chess rules ever produce (it would have
-    // promoted), and the underlying chess engine can't generate moves for one — it throws deep
-    // inside third-party move-generation instead of failing gracefully. Swap/Teleport/MindSwap are
-    // the only spells that can relocate a piece outside normal move rules, so each must reject a
-    // pawn landing there before applying the edit.
     private static void RequireNotPawnOnBackRank(string fen, Square from, Square to)
     {
         var piece = FenBoard.PieceAt(fen, from)!.Value;

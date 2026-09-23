@@ -98,19 +98,10 @@ public sealed class GameState : IGameEngineState
         }
     }
 
-    /// <summary>Changes a side's HP by <paramref name="delta"/>, clamped to [0, <see cref="StartingHp"/>].
-    /// Exposed for Arcane Chess spells (Mend, Restoration, Deep Breath) that sit on top of Card Chess's
-    /// hand/HP loop — Card Chess itself never calls this.</summary>
     public void AdjustHp(Side side, int delta) => hp[side] = Math.Clamp(hp[side] + delta, 0, StartingHp);
 
-    /// <summary>Cancels a side's currently marked-for-reroll cards without waiting for their next
-    /// turn. Exposed for the Arcane Chess "Feint" spell — Card Chess itself never calls this.</summary>
     public void ClearPendingReroll(Side side) => pendingRerolls[side].Clear();
 
-    /// <summary>Discards one specific card from a hand and immediately draws its replacement, with
-    /// no delay (unlike the normal reroll, which resolves at the start of that side's next turn).
-    /// Exposed for the Arcane Chess "Snap Swap" and "Reshuffle" spells — Card Chess itself never
-    /// calls this.</summary>
     public void ReplaceHandCardNow(Side side, CardRank card)
     {
         var index = hands[side].IndexOf(card);
@@ -124,11 +115,6 @@ public sealed class GameState : IGameEngineState
             RefreshAvailableMoves();
     }
 
-    /// <summary>Replaces the whole position with the result of <paramref name="edit"/> applied to
-    /// the current FEN, then re-validates that the side to move isn't left in check and refreshes
-    /// hand-based available moves exactly as a normal turn start would. Used by Arcane Chess spells
-    /// that mutate the board outside normal move rules (teleport, swap, forced removal, granting an
-    /// extra turn) — Card Chess itself never calls this.</summary>
     public void ApplyExternalFenEdit(Func<string, string> edit)
     {
         var previousFen = engine.ToFen();
@@ -209,12 +195,6 @@ public sealed class GameState : IGameEngineState
 
         var allLegal = engine.LegalMoves();
 
-        // Arcane Chess's out-of-band board edits (Swap/Teleport/MindSwap) can put a king on a square
-        // the underlying engine's incremental check/checkmate tracking doesn't reliably follow —
-        // observed via simulation as the engine occasionally still offering a move that captures the
-        // opposing king outright dozens of turns later, instead of having already ended the game by
-        // checkmate. A king must never actually be captured, so such moves are filtered out here
-        // regardless of source; see the fallback below for what happens when that was the only move.
         var moves = PlayableHandOf(mover).SelectMany(LegalMovesFor).Distinct()
             .Where(m => m.CapturedPiece != PieceKind.King).ToArray();
 
@@ -248,9 +228,6 @@ public sealed class GameState : IGameEngineState
 
         if (nonKingCaptureMoves.Length == 0 && allLegal.Count > 0)
         {
-            // Every move the engine considers legal here captures the opponent's king — the engine
-            // failed to recognize this as checkmate on its own. Call it exactly that instead of ever
-            // letting the capture happen.
             forcedResult = new GameEndResult(GameEndReason.Checkmate, mover);
             AvailableMoves = [];
             return;

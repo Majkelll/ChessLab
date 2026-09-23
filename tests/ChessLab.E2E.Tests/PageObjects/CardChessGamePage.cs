@@ -58,9 +58,6 @@ public sealed class CardChessGamePage(IPage page)
     public async Task<bool> IsMarkedForRerollAsync(CardRank card) =>
         await HandCard(card).GetAttributeAsync("data-marked-for-reroll") == "true";
 
-    /// <summary>Click the piece, then its destination — and try again if the board wasn't listening
-    /// yet. The first click only arms the board's own move input, which a slow render can swallow,
-    /// and a move that did land is never sent twice because the history is checked in between.</summary>
     public async Task MoveAsync(string from, string to)
     {
         var before = await MoveHistoryCountAsync();

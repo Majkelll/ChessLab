@@ -5,14 +5,12 @@ using ChessLab.Core.HandBrain;
 
 namespace ChessLab.Core.Rooms;
 
-/// <summary>Ties a lobby <see cref="Room"/> to its (possibly not-yet-started) <see cref="GameState"/>.</summary>
 public sealed class GameSession(Room room, Func<IChessRulesEngine> engineFactory) : RoomSession<GameState>(room)
 {
     public GameSession(Room room) : this(room, static () => new GeraChessRulesEngine())
     {
     }
 
-    /// <summary>The seat whose occupant is expected to act right now (Brain to announce, or Hand to move).</summary>
     public override IReadOnlyList<SeatId> ActiveSeats
     {
         get

@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace ChessLab.Web.Services;
 
-/// <summary>Ends games by timeout once a side's clock reaches zero, even if nobody calls the hub in the meantime.</summary>
 public sealed class ClockWatchdog(RoomRegistry registry, IHubContext<GameHub> hub, GameArchive archive) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

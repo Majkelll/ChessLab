@@ -17,11 +17,6 @@ public enum GameActionKind
     UnplacePiece,
 }
 
-/// <summary>
-/// Everything a seated player can do on their turn, in one shape the hub can carry for any game
-/// kind. Only the fields the <see cref="Kind"/> calls for are read; a session rejects an action
-/// whose kind its rules don't have.
-/// </summary>
 public sealed record GameAction(
     GameActionKind Kind,
     Square? From = null,

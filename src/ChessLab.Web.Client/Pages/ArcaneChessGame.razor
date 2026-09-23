@@ -363,9 +363,6 @@ else
     private bool hasCastSpellThisTurn => mySeat is { } mine && state is not null &&
         (mine.Side == Side.White ? whiteCastSpellThisTurn : blackCastSpellThisTurn);
 
-    // The DTO doesn't carry a per-side "already cast" flag (it's implied server-side by mana/hand
-    // changes), so the client tracks it locally: reset whenever the side to move changes, set the
-    // moment a cast succeeds. Good enough since a page reload also gets a fresh SideToMove baseline.
     private bool whiteCastSpellThisTurn;
     private bool blackCastSpellThisTurn;
     private Side? lastSeenSideToMove;

@@ -5,12 +5,6 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Bots;
 
-/// <summary>
-/// Bids on how much the next move is worth to it: everything it has when it can take the king,
-/// most of it when its own king is the one hanging, and roughly what the best capture on the board
-/// is worth otherwise. The move itself is greedy — taking the king ends the game, so nothing else
-/// is ever worth more.
-/// </summary>
 public sealed class BiddingChessBot : IGameBot
 {
     private readonly Random random = new();

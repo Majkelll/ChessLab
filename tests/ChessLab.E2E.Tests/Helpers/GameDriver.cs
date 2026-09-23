@@ -2,12 +2,6 @@ using Microsoft.Playwright;
 
 namespace ChessLab.E2E.Tests.Helpers;
 
-/// <summary>
-/// Plays a real game through the browser, one click at a time, for as long as a test asks it to.
-/// Every board publishes the moves currently on offer as <c>data-available-moves</c>, so the driver
-/// picks from that list instead of guessing at the picture — which is what makes a fifty-move game
-/// take seconds rather than needing a chess engine in the test.
-/// </summary>
 public sealed class GameDriver(IPage page, Random random)
 {
     private const int FirstAttemptTimeoutMs = 1200;
@@ -16,8 +10,6 @@ public sealed class GameDriver(IPage page, Random random)
 
     private const int SyncTimeoutMs = 15000;
 
-    /// <summary>The board animates the opponent's move in, and a click that lands mid-animation is
-    /// dropped — this is the wait that turns one retry per move into none.</summary>
     private const int SettleMs = 250;
 
     public IPage Page { get; } = page;
@@ -42,15 +34,12 @@ public sealed class GameDriver(IPage page, Random random)
 
     public Task<bool> IsGameOverAsync() => GameOverBanner.IsVisibleAsync();
 
-    /// <summary>"white", "black", or null once the game is over and nobody is to move.</summary>
     public async Task<string?> SideToMoveAsync() =>
         await TurnIndicator.CountAsync() > 0 ? (await TurnIndicator.First.InnerTextAsync()).Trim() : null;
 
     public async Task<string?> ErrorTextAsync() =>
         await ErrorMessage.CountAsync() > 0 ? await ErrorMessage.InnerTextAsync() : null;
 
-    /// <summary>Every board on this page that currently has something to play — two of them in
-    /// Alice Chess, one everywhere else.</summary>
     public async Task<IReadOnlyList<PlayableBoard>> BoardsWithMovesAsync()
     {
         var boards = new List<PlayableBoard>();
@@ -67,8 +56,6 @@ public sealed class GameDriver(IPage page, Random random)
         return boards;
     }
 
-    /// <summary>Waits until this page is showing a live game — the board has been dealt and either
-    /// somebody is to move or the game is already over.</summary>
     public async Task<bool> WaitForReadyAsync(int timeoutMs = 20000)
     {
         var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
@@ -84,8 +71,6 @@ public sealed class GameDriver(IPage page, Random random)
         return false;
     }
 
-    /// <summary>Waits for a board with something to play on it, since an update is a round trip
-    /// away and the page renders before it arrives.</summary>
     public async Task<IReadOnlyList<PlayableBoard>> WaitForMovesAsync(int timeoutMs = 10000)
     {
         var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
@@ -100,9 +85,6 @@ public sealed class GameDriver(IPage page, Random random)
         }
     }
 
-    /// <summary>Plays one random legal move, and says whether it actually landed. The page is first
-    /// brought level with the game — clicking a board that is still showing the position before the
-    /// opponent's move only gets the click thrown away.</summary>
     public async Task<bool> PlayRandomMoveAsync(int movesPlayedSoFar)
     {
         if (await WaitForMoveCountAsync(movesPlayedSoFar, SyncTimeoutMs))
@@ -157,8 +139,6 @@ public sealed class GameDriver(IPage page, Random random)
         }
         catch (TimeoutException)
         {
-            // The dialog only opens when several moves share the same two squares; when it didn't,
-            // the move has already been sent.
         }
     }
 
@@ -201,6 +181,4 @@ public sealed class GameDriver(IPage page, Random random)
             : board.Locator.Locator($"rect.square[data-square='{square}']");
 }
 
-/// <summary>One board on the page and what can be played on it — Alice Chess draws two, and
-/// Martian Chess draws one that isn't a chessboard at all.</summary>
 public sealed record PlayableBoard(ILocator Locator, bool IsMartian, string[] Moves);

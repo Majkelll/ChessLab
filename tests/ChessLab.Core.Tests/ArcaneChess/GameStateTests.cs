@@ -9,12 +9,6 @@ using CardChessGameState = ChessLab.Core.CardChess.GameState;
 
 namespace ChessLab.Core.Tests.ArcaneChess;
 
-// FakeChessRulesEngine.AllMoves only takes effect on the *next* RefreshAvailableMoves — which
-// CardChess.GameState runs synchronously inside MakeMove, right after flipping SideToMove. So to
-// control what a given turn's AvailableMoves contains, AllMoves must be set *before* the move that
-// causes that side's turn to begin, not after. PlayThenOffer below plays the move that's already
-// valid per the current (still-cached) AvailableMoves, while queuing up AllMoves for whichever side
-// is about to start their turn.
 public class GameStateTests
 {
     private static readonly ChessMove Dummy = Move("h1", "h2", PieceKind.Rook);
@@ -44,9 +38,6 @@ public class GameStateTests
         return (state, engine, inner);
     }
 
-    /// <summary>Plays <paramref name="moveToPlay"/> (which must already be in the current mover's
-    /// AvailableMoves) and arranges for <paramref name="nextTurnOffer"/> to be what the side who
-    /// starts their turn next sees as their options.</summary>
     private static void PlayThenOffer(ArcaneGameState state, FakeChessRulesEngine engine,
         ChessMove moveToPlay, IReadOnlyList<ChessMove> nextTurnOffer)
     {
@@ -159,11 +150,6 @@ public class GameStateTests
         Assert.Contains(state.AvailableMoves, m => m.From == Square.Parse("e7"));
     }
 
-    // Regression: a bot (or human) stuck with zero AvailableMoves never gets to move again — the
-    // chess engine still sees legal moves so IsGameOver stays false, and BotRunner's Stockfish call
-    // throws on an empty candidate list, silently killing that room's bot loop for good (caught by
-    // BotRunner's outer catch-all, logged, never retried). Effects must never be allowed to filter
-    // the mover down to zero options.
     [Fact]
     public void EffectFiltering_WouldLeaveZeroMoves_FallsBackToTheUnfilteredMoves()
     {
@@ -355,10 +341,6 @@ public class GameStateTests
             state.CastSpell(SpellRank.Swap, new SpellTarget(Primary: Square.Parse("a1"), Secondary: Square.Parse("e1"))));
     }
 
-    // Regression: Swap had no back-rank guard (unlike Teleport, which does) — swapping a pawn with
-    // a piece on rank 1/8 left it there, which the underlying chess engine can't generate moves for
-    // and throws deep inside third-party code instead of failing gracefully. Reproduced via a
-    // simulation test that played out full random games; this pins the exact minimal repro.
     [Fact]
     public void Swap_WouldLeaveAPawnOnTheBackRank_Throws()
     {
@@ -442,9 +424,6 @@ public class GameStateTests
         Assert.Equal('N', FenBoard.PieceAt(state.ToFen(), Square.Parse("e1")));
     }
 
-    // Regression: MindSwap had the same missing back-rank guard as Swap — swapping the king (almost
-    // always still on its rank-1/8 home square early in a game) with a pawn leaves that pawn on the
-    // back rank.
     [Fact]
     public void MindSwap_WouldLeaveAPawnOnTheBackRank_Throws()
     {

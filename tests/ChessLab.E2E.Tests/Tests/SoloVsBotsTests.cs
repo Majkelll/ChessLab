@@ -22,9 +22,6 @@ public sealed class SoloVsBotsTests(WebAppFixture app, PlaywrightFixture playwri
 
         await brain.SelectPieceKindAsync(PieceKind.Pawn);
 
-        // The bot hand plays White's move, then the bot brain and bot hand play the whole of
-        // Black's turn, before control returns to the human — give the engines plenty of room
-        // to start up and think rather than pin this to a tight deadline.
         await Expect(brain.MoveHistory.Locator("li")).ToHaveCountAsync(2, new() { Timeout = 30000 });
 
         await Expect(brain.TurnStatus).ToContainTextAsync("white");

@@ -14,12 +14,6 @@ internal sealed class FakeChessRulesEngine : IChessRulesEngine
     public string Fen { get; set; } = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     public bool InCheck { get; set; } = true;
 
-    /// <summary>When true, every card is immediately dealable/keepable (see
-    /// <see cref="HasLegalMove"/>) regardless of <see cref="MovesByKind"/> — lets a test deal a
-    /// hand deterministically (no burn-through-the-deck reshuffling) without also having to make
-    /// every rank's <see cref="LegalMoves(PieceKind)"/> non-empty, which would defeat tests relying
-    /// on "no hand card has a legal move" fallback behavior. Defaults to false to keep existing
-    /// tests' behavior unchanged.</summary>
     public bool AlwaysHasLegalMove { get; set; }
 
     public bool IsInCheck(Side side) => InCheck;

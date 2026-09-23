@@ -4,9 +4,6 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.Rooms;
 
-/// <summary>Everything a session does that has nothing to do with a particular game's rules:
-/// holding the room and the started game, charging the clock for the time a turn took, and turning
-/// the state into the wire shape. Subclasses supply the rules and their own section of that shape.</summary>
 public abstract class RoomSession<TGame>(Room room) : IRoomSession
     where TGame : class, IGameEngineState
 {

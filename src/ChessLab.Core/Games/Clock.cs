@@ -2,7 +2,6 @@ using ChessLab.Core.Chess;
 
 namespace ChessLab.Core.Games;
 
-/// <summary>Per-side chess clock with a Fischer increment. Pure data — ticking is driven externally.</summary>
 public sealed class Clock
 {
     public TimeSpan Increment { get; }

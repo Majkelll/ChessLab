@@ -8,30 +8,16 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ChessLab.E2E.Tests.Infrastructure;
 
-/// <summary>
-/// Boots the real ChessLab.Web app (<see cref="Program.CreateApp"/>) on a real Kestrel
-/// socket — not <c>WebApplicationFactory</c>'s in-memory TestServer, which doesn't speak
-/// WebSockets and proved unreliable at reporting the actual bound port — so SignalR and the
-/// WASM client work exactly like production. Each instance gets its own throwaway SQLite
-/// database and a Google-login bypass (<c>/TestAuth/Login</c>) enabled via E2E_TEST_AUTH.
-///
-/// Subclass and override <see cref="InitialClockSeconds"/>/<see cref="ClockIncrementSeconds"/>
-/// for tests that need to reach a game-clock timeout without waiting on real minutes.
-/// </summary>
 public class WebAppFixture : IAsyncLifetime
 {
     private WebApplication? app;
     private string? dbPath;
 
-    // Matches the app's own default (10 min, no increment) — this just seeds newly-created
-    // rooms, same as production; individual tests that need a different clock use
-    // RoomPage.SetClockSettingsAsync to change it per-room, exactly like a real host would.
     protected virtual double InitialClockSeconds => 600;
     protected virtual double ClockIncrementSeconds => 0;
 
     public string BaseUrl { get; private set; } = "";
 
-    /// <summary>Null when no `stockfish` binary could be found — bot-move tests should skip.</summary>
     public string? StockfishPath { get; private set; }
 
     public bool HasStockfish => StockfishPath is not null;
@@ -82,6 +68,6 @@ public class WebAppFixture : IAsyncLifetime
 
     private static void TryDelete(string path)
     {
-        try { File.Delete(path); } catch { /* best effort cleanup */ }
+        try { File.Delete(path); } catch { }
     }
 }

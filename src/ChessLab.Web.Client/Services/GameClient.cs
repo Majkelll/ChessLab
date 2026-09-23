@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.SignalR.Client;
 
 namespace ChessLab.Web.Client.Services;
 
-/// <summary>Thin wrapper around the SignalR connection to GameHub, shared by the Lobby and Game pages.</summary>
 public sealed class GameClient : IAsyncDisposable
 {
     public HubConnection Connection { get; }

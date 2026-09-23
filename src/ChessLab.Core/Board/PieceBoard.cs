@@ -3,13 +3,6 @@ using ChessLab.Core.Chess;
 
 namespace ChessLab.Core.Board;
 
-/// <summary>
-/// A chess position ChessLab owns outright, for the modes the underlying chess library can't
-/// express: Bidding Chess needs moves that ignore check and a king that can actually be captured,
-/// Absorption Chess needs pieces whose powers stack, and Alice Chess needs legality decided across
-/// two boards at once. Ordinary chess is the special case where every piece has exactly one power,
-/// which is what the equivalence tests against the library check.
-/// </summary>
 public sealed class PieceBoard
 {
     private static readonly (int File, int Rank)[] KnightDeltas =
@@ -29,15 +22,12 @@ public sealed class PieceBoard
 
     public CastlingRights Castling { get; private set; } = CastlingRights.All;
 
-
     public Square? EnPassantTarget { get; private set; }
 
     public int HalfmoveClock { get; private set; }
 
     public int FullmoveNumber { get; private set; } = 1;
 
-    /// <summary>When set, a capturing piece keeps its own powers and gains the captured piece's —
-    /// the whole point of Absorption Chess, and off everywhere else.</summary>
     public bool AbsorbOnCapture { get; set; }
 
     public static PieceBoard StandardStart() => FromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -92,9 +82,6 @@ public sealed class PieceBoard
         return false;
     }
 
-    /// <summary>Every move the side to move could make if nothing but the geometry of the pieces
-    /// mattered: leaving your own royal piece attacked is allowed, and so is capturing the
-    /// opponent's. That's exactly the rule set Bidding Chess plays by.</summary>
     public IReadOnlyList<ChessMove> PseudoLegalMoves() => PseudoLegalMoves(SideToMove);
 
     public IReadOnlyList<ChessMove> PseudoLegalMoves(Side side)
@@ -114,8 +101,6 @@ public sealed class PieceBoard
         return moves;
     }
 
-    /// <summary>Pseudo-legal moves minus the ones that would leave this side's own royal piece
-    /// under attack — ordinary chess legality, decided by this board rather than a library.</summary>
     public IReadOnlyList<ChessMove> LegalMoves() => LegalMoves(SideToMove);
 
     public IReadOnlyList<ChessMove> LegalMoves(Side side)
@@ -137,8 +122,6 @@ public sealed class PieceBoard
         return legal;
     }
 
-    /// <summary>Plays <paramref name="move"/> and returns it with the notation filled in — the check
-    /// and mate marks can only be known once the move has actually been made.</summary>
     public ChessMove Apply(ChessMove move, bool annotate = true)
     {
         var piece = At(move.From) ?? throw new InvalidOperationException($"No piece at {move.From}.");
@@ -192,9 +175,6 @@ public sealed class PieceBoard
         return move with { IsCheck = isCheck, IsCheckmate = isMate, San = move.San + suffix };
     }
 
-    /// <summary>Castling is a king stepping two squares along its home rank with its own rook still
-    /// waiting in the corner — which has to be checked rather than assumed, because in Absorption
-    /// Chess a king that swallowed a rook can slide two squares as an ordinary move.</summary>
     private bool IsCastlingMove(BoardPiece piece, ChessMove move)
     {
         if (!piece.IsRoyal)
@@ -537,9 +517,6 @@ public sealed class PieceBoard
         return board;
     }
 
-    /// <summary>A standard FEN of this position. Pieces that have absorbed extra powers are written
-    /// as whatever they read as (see <see cref="BoardPiece.PrimaryKind"/>), so a board with stacked
-    /// powers round-trips only through <see cref="PowersText"/> alongside it.</summary>
     public string ToFen()
     {
         var placement = new StringBuilder();
@@ -578,8 +555,6 @@ public sealed class PieceBoard
         return $"{placement} {side} {castling} {enPassant} {HalfmoveClock} {FullmoveNumber}";
     }
 
-    /// <summary>The powers every piece that has more than its own carries, as "e4:RN" entries — the
-    /// part of an Absorption Chess position a plain FEN can't hold.</summary>
     public string PowersText()
     {
         var entries = new List<string>();

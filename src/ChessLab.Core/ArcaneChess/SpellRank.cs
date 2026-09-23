@@ -2,7 +2,6 @@ namespace ChessLab.Core.ArcaneChess;
 
 public enum SpellRank
 {
-    // Cost 1
     Shield,
     FreezeSquare,
     Peek,
@@ -11,7 +10,6 @@ public enum SpellRank
     Jam,
     DeepBreath,
 
-    // Cost 2
     Swap,
     Teleport,
     PinDown,
@@ -20,7 +18,6 @@ public enum SpellRank
     Dispel,
     Reshuffle,
 
-    // Cost 3
     ExtraTurn,
     Execution,
     Restoration,

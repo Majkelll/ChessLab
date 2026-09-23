@@ -4,18 +4,8 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.Alice;
 
-/// <summary>
-/// Alice Chess (Lewis Carroll, 1953): the game runs on two boards at once. A move has to be legal
-/// on the board the piece is standing on, the square it lands on has to be empty on the
-/// <em>other</em> board, and the piece then vanishes through the looking-glass and reappears on
-/// that other board. Check is whatever threatens your king on the board it happens to be on.
-/// Castling is off here, and en passant can't come up at all — a pawn that just stepped two squares
-/// is on the far board by the time anyone could take it.
-/// </summary>
 public sealed class GameState : IGameEngineState
 {
-    /// <summary>Repetition is hard to pin down across two boards and nobody's counting halfmoves,
-    /// so an endless game is called off instead.</summary>
     public const int MoveLimit = 300;
 
     private readonly PieceBoard[] boards;
@@ -48,15 +38,12 @@ public sealed class GameState : IGameEngineState
 
     public IReadOnlyList<string> MoveNotations => notations;
 
-    /// <summary>Both boards, since neither on its own is the position.</summary>
     public string PositionText => $"{FenOf(0)} | {FenOf(1)}";
 
     public IReadOnlyList<Side> SidesOnTheClock => [SideToMove];
 
     public string FenOf(int board) => boards[board].ToFen();
 
-    /// <summary>Which board the piece on <paramref name="square"/> stands on, or null when that
-    /// square is empty on both — a square is never occupied on both at once.</summary>
     public int? BoardOf(Square square) =>
         boards[0].At(square) is not null ? 0 : boards[1].At(square) is not null ? 1 : null;
 
@@ -136,8 +123,6 @@ public sealed class GameState : IGameEngineState
         return legal;
     }
 
-    /// <summary>Plays the move on the board the piece stands on, then sends the piece through to the
-    /// other board — which is the whole move, not an afterthought to it.</summary>
     private static ChessMove Play(PieceBoard[] state, ChessMove move)
     {
         var index = state[0].At(move.From) is not null ? 0 : 1;

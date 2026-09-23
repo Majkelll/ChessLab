@@ -86,12 +86,6 @@ public class GameSessionTests
         Assert.Equal(BlackBrain, Assert.Single(session.ActiveSeats));
     }
 
-    /// <summary>
-    /// Regression coverage for a real bug: <see cref="Clock"/> only holds the remaining time as
-    /// of the last move — nothing decrements it just from wall-clock time passing — so a side
-    /// that simply stops playing (no resignation, no move, nothing) would otherwise never be
-    /// flagged, no matter how long the background watchdog waited.
-    /// </summary>
     [Fact]
     public void DeclareTimeoutIfExpired_WhenNoOneEverMoves_StillEndsTheGameByTimeout()
     {

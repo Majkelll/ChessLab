@@ -18,10 +18,6 @@ public sealed class GameHub(
 {
     private const string CurrentRoomGroupKey = "CurrentRoomGroup";
 
-    // Seeds a new room's clock (10 min / no increment by default) — the host can then change it
-    // per-room from the lobby via SetClockSettings, any time before the game starts. Also
-    // configurable at the server level (not just for production tuning) so E2E tests can seed a
-    // near-instant clock to exercise the timeout path without waiting on a real 10 minutes.
     private TimeSpan DefaultInitialClock =>
         TimeSpan.FromSeconds(configuration.GetValue("Game:InitialClockSeconds", 600));
 
@@ -43,8 +39,6 @@ public sealed class GameHub(
 
     public Task<GameHistoryDetailDto?> GetGameHistoryEntry(Guid id) => history.ByIdAsync(id);
 
-    /// <summary>Lets a stale room link land on the finished game it used to be, now that the room
-    /// itself is gone — the record outlives the in-memory room.</summary>
     public Task<GameHistoryDetailDto?> GetGameHistoryByRoomCode(string code) => history.ByRoomCodeAsync(code);
 
     public async Task<RoomStateDto?> JoinRoom(string code)
@@ -125,9 +119,6 @@ public sealed class GameHub(
         }
         catch (InvalidOperationException ex)
         {
-            // A rejected action is the player picking something the rules don't allow — an illegal
-            // spell target, a card that isn't in hand — not a server fault. Send the rule that
-            // rejected it so the UI can show it where the player acted.
             throw new HubException(ex.Message);
         }
 

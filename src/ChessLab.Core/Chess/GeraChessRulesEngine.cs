@@ -2,7 +2,6 @@ using Chess;
 
 namespace ChessLab.Core.Chess;
 
-/// <summary>IChessRulesEngine backed by the Gera.Chess library.</summary>
 public sealed class GeraChessRulesEngine : IChessRulesEngine
 {
     private ChessBoard board;
@@ -13,7 +12,6 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
 
     private GeraChessRulesEngine(ChessBoard board) => this.board = board;
 
-    /// <summary>Creates an engine from a FEN position. Mainly useful for tests that need a specific position.</summary>
     public static GeraChessRulesEngine FromFen(string fen) =>
         new(ChessBoard.LoadFromFen(fen, AutoEndgameRules.All));
 
@@ -39,12 +37,6 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
     public IReadOnlyList<ChessMove> LegalMoves(PieceKind kind) =>
         LegalMoves().Where(m => m.Piece == kind).ToArray();
 
-    /// <summary>For the side to move, this is just <see cref="LegalMoves(PieceKind)"/>. For the
-    /// other side, there's no direct way to ask the underlying library "what if it were your turn" —
-    /// so this loads a throwaway board from the current FEN with the active color swapped (and the
-    /// en passant target cleared, since it wouldn't apply to a hypothetical turn) and asks that one
-    /// instead. The library doesn't validate that the side not moving is out of check, so this is
-    /// safe even when the real side to move is currently in check.</summary>
     public bool HasLegalMove(Side side, PieceKind kind)
     {
         if (side == SideToMove)

@@ -2,13 +2,8 @@ using ChessLab.Core.Chess;
 
 namespace ChessLab.Core.Rooms;
 
-/// <summary>A lobby identified by an invite code. Seat shape depends on <see cref="Kind"/>: Hand &amp;
-/// Brain uses 4 seats (White/Black x Brain/Hand), other game kinds may use fewer — see
-/// <see cref="SeatIds"/>.</summary>
 public sealed class Room
 {
-    /// <summary>The 4 Hand &amp; Brain seats — kept as the static default for backward compatibility
-    /// (existing callers/tests that never pass a <see cref="GameKind"/> get this shape).</summary>
     public static IReadOnlyList<SeatId> AllSeatIds { get; } =
     [
         new(Side.White, SeatRole.Brain),
@@ -17,7 +12,6 @@ public sealed class Room
         new(Side.Black, SeatRole.Hand),
     ];
 
-    /// <summary>The 2 seats every game kind but Hand &amp; Brain uses — one per side, no role split.</summary>
     public static IReadOnlyList<SeatId> CardChessSeatIds { get; } =
     [
         new(Side.White, SeatRole.Player),
@@ -33,13 +27,10 @@ public sealed class Room
     public Guid HostUserId { get; }
     public GameKind Kind { get; }
 
-    /// <summary>This room's seats, in a stable order — the shape depends on <see cref="Kind"/>.</summary>
     public IReadOnlyList<SeatId> SeatIds { get; }
 
     public bool IsLocked { get; private set; }
 
-    /// <summary>Defaults to 10 minutes with no increment; the host can change this from the
-    /// lobby (via <see cref="SetClockSettings"/>) any time before the game starts.</summary>
     public TimeSpan InitialClock { get; private set; }
     public TimeSpan ClockIncrement { get; private set; }
 
@@ -79,7 +70,6 @@ public sealed class Room
         if (seats[seatId].Kind != OccupantKind.Empty)
             throw new InvalidOperationException("Seat is already taken.");
 
-        // A player occupies at most one seat at a time.
         foreach (var (id, occupant) in seats)
         {
             if (occupant.Kind == OccupantKind.Human && occupant.UserId == userId)

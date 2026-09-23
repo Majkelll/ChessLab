@@ -6,8 +6,6 @@ public readonly record struct DifficultyPreset(int Elo, int MovetimeMs);
 
 public static class DifficultyPresets
 {
-    // Elo comes from BotDifficultyElo — the single source of truth shared with the lobby UI's
-    // display labels, so the number shown to players is the actual engine target.
     public static DifficultyPreset For(BotDifficulty difficulty) => difficulty switch
     {
         BotDifficulty.Easy => new DifficultyPreset(BotDifficultyElo.Approximate(difficulty), MovetimeMs: 200),

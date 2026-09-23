@@ -5,7 +5,6 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Bots;
 
-/// <summary>Decides bot moves for both Hand&amp;Brain roles on top of a single Stockfish engine.</summary>
 public sealed class HandBrainBot(StockfishEngine engine) : IGameBot
 {
     public async Task<GameAction> ChooseActionAsync(IRoomSession session, SeatId seat, BotDifficulty difficulty,
@@ -20,10 +19,6 @@ public sealed class HandBrainBot(StockfishEngine engine) : IGameBot
         return GameAction.MovePiece(move.From, move.To, move.PromoteTo);
     }
 
-    /// <summary>
-    /// For each piece kind with a legal move, finds that kind's best available move and its evaluation,
-    /// then announces whichever kind yields the best outcome for the bot's side.
-    /// </summary>
     public async Task<PieceKind> ChooseBrainAnnouncementAsync(GameState game, BotDifficulty difficulty, CancellationToken ct = default)
     {
         var preset = DifficultyPresets.For(difficulty);

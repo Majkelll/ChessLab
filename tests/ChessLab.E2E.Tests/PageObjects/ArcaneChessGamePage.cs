@@ -53,9 +53,6 @@ public sealed class ArcaneChessGamePage(IPage page)
         return testIds.Select(id => Enum.Parse<SpellRank>(id["spell-card-".Length..])).ToArray();
     }
 
-    /// <summary>Click the piece, then its destination — and try again if the board wasn't listening
-    /// yet. The first click only arms the board's own move input, which a slow render can swallow,
-    /// and a move that did land is never sent twice because the history is checked in between.</summary>
     public async Task MoveAsync(string from, string to)
     {
         var before = await MoveHistoryCountAsync();
@@ -72,7 +69,6 @@ public sealed class ArcaneChessGamePage(IPage page)
         }
     }
 
-    /// <summary>Casts a spell with no target (e.g. Peek, Mend, Jam, Feint, Reshuffle, ExtraTurn).</summary>
     public async Task CastNoTargetSpellAsync(SpellRank spell)
     {
         await SpellCard(spell).ClickAsync();
@@ -80,7 +76,6 @@ public sealed class ArcaneChessGamePage(IPage page)
         await CastSpellButton.ClickAsync();
     }
 
-    /// <summary>Casts a spell that needs one square (e.g. Shield, Freeze Square, Pin Down, Disarm, Dispel, Execution, Mind Swap).</summary>
     public async Task CastOneSquareSpellAsync(SpellRank spell, string square)
     {
         await SpellCard(spell).ClickAsync();
@@ -89,7 +84,6 @@ public sealed class ArcaneChessGamePage(IPage page)
         await CastSpellButton.ClickAsync();
     }
 
-    /// <summary>Casts a spell that needs two squares (Swap, Teleport, Time Freeze).</summary>
     public async Task CastTwoSquareSpellAsync(SpellRank spell, string firstSquare, string secondSquare)
     {
         await SpellCard(spell).ClickAsync();

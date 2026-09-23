@@ -15,7 +15,6 @@ namespace ChessLab.Data.Migrations
     [Migration("20260914161035_AddGameRecordsAndDataProtectionKeys")]
     partial class AddGameRecordsAndDataProtectionKeys
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

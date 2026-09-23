@@ -6,13 +6,6 @@ using GameState = ChessLab.Core.ArcaneChess.GameState;
 
 namespace ChessLab.Bots;
 
-/// <summary>Move selection mirrors <see cref="CardChessBot"/> (Stockfish over the current hand's
-/// available moves). Spell casting is a simple, non-exhaustive heuristic — not every spell needs a
-/// bot that can pick a good target, so this only ever casts the ones where a reasonable target is
-/// cheap to find (heal when hurt, escape an emergency move for free, otherwise occasionally poke at
-/// the opponent). It never attempts Swap, Teleport, Execution, Mind Swap, Time Freeze, or Extra
-/// Turn — picking a good target for those needs real board evaluation, which isn't worth building
-/// for a bot opponent.</summary>
 public sealed class ArcaneChessBot(StockfishEngine engine) : IGameBot
 {
     private const double CastChance = 0.3;
@@ -47,7 +40,6 @@ public sealed class ArcaneChessBot(StockfishEngine engine) : IGameBot
         return moves.First(m => m.From == from && m.To == to && m.PromoteTo == promotion);
     }
 
-    /// <summary>Returns a spell to cast this turn, or null to skip straight to moving.</summary>
     public (SpellRank Spell, SpellTarget Target)? ChooseSpell(GameState game, Side side)
     {
         var hand = game.SpellHandOf(side);

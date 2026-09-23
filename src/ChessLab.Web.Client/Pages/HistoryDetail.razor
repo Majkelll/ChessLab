@@ -93,8 +93,6 @@ else
 
     protected override void OnInitialized() => GameContext.Set("History");
 
-    /// <summary>Only chess-shaped modes record a plain FEN. Alice keeps both of its boards in one
-    /// string, Absorption appends what each piece has eaten, and Martian isn't a FEN at all.</summary>
     private static string BoardPart(string position) => position.Split(" | ")[0];
 
     private static string? PowersPart(string position)

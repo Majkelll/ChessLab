@@ -3,13 +3,6 @@ using Microsoft.Playwright;
 
 namespace ChessLab.E2E.Tests.PageObjects;
 
-/// <summary>
-/// The board page of the modes that share <c>GameShell</c> — Bidding, Progressive, Alice,
-/// Absorption, Martian and Draft Chess. The shell gives them one set of test ids for the clocks,
-/// the status line, the move history and resigning, so one page object covers all six; what differs
-/// is the panel each one puts beside the board, which is why the mode-specific locators live here
-/// too rather than in six near-identical classes.
-/// </summary>
 public sealed class VariantGamePage(IPage page)
 {
     public IPage Page { get; } = page;
@@ -46,7 +39,6 @@ public sealed class VariantGamePage(IPage page)
     public ILocator Square(string square) =>
         ChessBoardRoot.Locator($"rect.square[data-square='{square}']");
 
-    /// <summary>Alice Chess draws two boards, so a square has to be asked for by board as well.</summary>
     public ILocator SquareOn(ILocator board, string square) =>
         board.Locator($"rect.square[data-square='{square}']");
 
@@ -68,9 +60,6 @@ public sealed class VariantGamePage(IPage page)
     public Task MoveMartianAsync(string from, string to) =>
         ClickThroughAsync(() => MartianSquare(from), () => MartianSquare(to));
 
-    /// <summary>Click the piece, then its destination — and try again if the board wasn't listening
-    /// yet. The first click only arms the board's own move input, which a slow render can swallow,
-    /// and a move that did land is never sent twice because the history is checked in between.</summary>
     private async Task ClickThroughAsync(Func<ILocator> from, Func<ILocator> to)
     {
         var before = await MoveHistoryCountAsync();

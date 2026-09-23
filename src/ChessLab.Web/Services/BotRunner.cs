@@ -6,10 +6,6 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace ChessLab.Web.Services;
 
-/// <summary>
-/// Drives bot-occupied seats: whenever the active seat of a room's game is a bot, plays its turn
-/// and broadcasts the result, chaining through consecutive bot turns.
-/// </summary>
 public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, GameArchive archive, IConfiguration configuration, ILogger<BotRunner> logger)
     : IAsyncDisposable
 {
@@ -20,7 +16,6 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, G
     private readonly ConcurrentDictionary<string, IGameBot> bots = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> roomLocks = new();
 
-    /// <summary>Fire-and-forget: processes any pending bot turns for the room in the background.</summary>
     public void ScheduleBotTurns(string code) => _ = RunPendingBotTurnsAsync(code);
 
     private async Task RunPendingBotTurnsAsync(string code)
@@ -63,8 +58,6 @@ public sealed class BotRunner(RoomRegistry registry, IHubContext<GameHub> hub, G
                     }
                     catch (InvalidOperationException ex)
                     {
-                        // A bot heuristic guessing an illegal target isn't a fault worth stopping
-                        // the room for — it gets another go at the same seat on the next pass.
                         logger.LogDebug(ex, "Bot action {Action} rejected in room {Code}.", action.Kind, code);
                     }
                 }

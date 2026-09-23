@@ -21,22 +21,16 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
         var whiteHand = game[Side.White, SeatRole.Hand];
         var blackBrain = game[Side.Black, SeatRole.Brain];
 
-        // Game just started: it's White's turn to announce a piece. Only a handful of piece
-        // kinds have a legal opening move, and only White Brain's cards should be clickable.
         await Expect(whiteBrain.TurnStatus).ToContainTextAsync("white");
         await Expect(whiteBrain.TurnStatus).ToContainTextAsync("Brain is announcing a piece");
         Assert.True(await whiteBrain.IsPieceCardEnabledAsync(PieceKind.Pawn));
         Assert.False(await whiteBrain.IsPieceCardEnabledAsync(PieceKind.Queen));
 
-        // Black Brain doesn't get a card grid at all while it's White's turn — that's White's own
-        // pick, not something for the other team to watch below their own board.
         await Expect(blackBrain.PieceKindCards).ToBeHiddenAsync();
 
         await whiteBrain.SelectPieceKindAsync(PieceKind.Pawn);
         await whiteHand.WaitForTurnTextAsync("Hand is making a move");
 
-        // Attempting to move a piece other than the announced kind (a knight, here) is simply a
-        // no-op client-side: the board's legal-move list from the server only contains pawn moves.
         await whiteHand.MoveAsync("g1", "f3");
         Assert.Contains("Hand is making a move", await whiteHand.GetTurnStatusAsync());
         Assert.Equal(0, await whiteHand.MoveHistoryCountAsync());
@@ -44,7 +38,6 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
         await whiteHand.MoveAsync("e2", "e4");
         await Expect(whiteHand.MoveHistory.Locator("li")).ToHaveCountAsync(1);
 
-        // Turn passed to Black — White's own seats go quiet, Black Brain lights up.
         await blackBrain.WaitForTurnTextAsync("Brain is announcing a piece");
         await Expect(blackBrain.TurnStatus).ToContainTextAsync("black");
         await Expect(whiteBrain.PieceKindCards).ToBeHiddenAsync();
@@ -95,9 +88,6 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
             .WithClock(minutes: 3, incrementSeconds: 2)
             .StartAsync();
 
-        // Black's clock only starts ticking once it's Black's turn, so it stays exactly 03:00 —
-        // White's has been visibly counting down since the game started, so allow a little drift
-        // for however long setup + the assertion's own retries took.
         var whiteBrain = game[Side.White, SeatRole.Brain];
         await Expect(whiteBrain.ClockWhite).ToHaveTextAsync(new Regex(@"white 02:5\d|white 03:00"));
         await Expect(whiteBrain.ClockBlack).ToHaveTextAsync("black 03:00");
@@ -110,19 +100,16 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
         var whiteBrain = game[Side.White, SeatRole.Brain];
         var whiteHand = game[Side.White, SeatRole.Hand];
 
-        // Before an announcement, the Hand has nothing to show yet.
         await Expect(whiteHand.PieceKindCards).ToBeHiddenAsync();
 
         await whiteBrain.SelectPieceKindAsync(PieceKind.Knight);
         await whiteHand.WaitForTurnTextAsync("Hand is making a move");
 
-        // The Hand sees the announced kind highlighted, not just an ambiguous "make a move".
         await Expect(whiteHand.PieceKindCards).ToBeVisibleAsync();
         Assert.True(await whiteHand.IsPieceCardAnnouncedAsync(PieceKind.Knight));
         Assert.False(await whiteHand.IsPieceCardAnnouncedAsync(PieceKind.Pawn));
         await Expect(whiteHand.TurnStatus).ToContainTextAsync("Hand is making a move (Knight)");
 
-        // Brain sees the exact same highlight on their own (now non-interactive) card grid.
         Assert.True(await whiteBrain.IsPieceCardAnnouncedAsync(PieceKind.Knight));
         Assert.False(await whiteBrain.IsPieceCardEnabledAsync(PieceKind.Knight));
     }
@@ -135,19 +122,15 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
         var blackBrain = game[Side.Black, SeatRole.Brain];
         var blackHand = game[Side.Black, SeatRole.Hand];
 
-        // Before White has announced anything, Black hasn't got a pick to peek at yet.
         await Expect(blackBrain.OpponentPick).ToBeHiddenAsync();
 
         await whiteBrain.SelectPieceKindAsync(PieceKind.Pawn);
         var whiteHand = game[Side.White, SeatRole.Hand];
         await whiteHand.WaitForTurnTextAsync("Hand is making a move");
 
-        // Both Black seats see a read-only badge naming what White's Hand is about to move with —
-        // it lives next to White's clock on Black's screen, not mixed into Black's own card grid.
         await Expect(blackBrain.OpponentPick).ToHaveTextAsync(new Regex("opponent:.*Pawn"));
         await Expect(blackHand.OpponentPick).ToHaveTextAsync(new Regex("opponent:.*Pawn"));
 
-        // White's own seats don't get an "opponent" badge for their own team's pick.
         await Expect(whiteBrain.OpponentPick).ToBeHiddenAsync();
     }
 
@@ -156,10 +139,6 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
     {
         var game = await StartFourHumanGameAsync();
 
-        // A short cooperative line — Black's replies are irrelevant fillers — that walks White's
-        // b-pawn, capturing twice along the way, onto a8. That's the one situation with more than
-        // one legal move sharing the same from/to (one per promotion piece), so the board has to
-        // show a promotion dialog instead of just completing the move on the second click.
         await ChessScripts.PlayTurnAsync(game, Side.White, PieceKind.Pawn, "e2", "e4");
         await ChessScripts.PlayTurnAsync(game, Side.Black, PieceKind.Pawn, "e7", "e5");
         await ChessScripts.PlayTurnAsync(game, Side.White, PieceKind.Pawn, "b2", "b4");
@@ -180,7 +159,6 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
         await Expect(whiteHand.PromotionPicker).ToBeHiddenAsync();
         await whiteHand.MoveAsync("b7", "a8"); // captures Black's still-unmoved rook
         await Expect(whiteHand.PromotionPicker).ToBeVisibleAsync();
-        // The move isn't finished yet — nobody else's turn should start until a piece is chosen.
         Assert.Equal(10, await whiteHand.MoveHistoryCountAsync());
 
         await whiteHand.PromoteToAsync(PieceKind.Queen);

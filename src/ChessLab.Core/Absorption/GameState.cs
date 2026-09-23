@@ -4,13 +4,6 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.Absorption;
 
-/// <summary>
-/// Absorption Chess: whatever a piece captures, it becomes as well. A knight that takes a rook
-/// moves as a knight and a rook from then on, and a pawn that takes a queen keeps its pawn step
-/// too. The king absorbs like everything else but stays the piece whose safety decides the game, so
-/// check, checkmate and stalemate work exactly as in ordinary chess — it's only what each piece can
-/// do that grows.
-/// </summary>
 public sealed class GameState : IGameEngineState
 {
     public const int MoveLimit = 300;
@@ -44,7 +37,6 @@ public sealed class GameState : IGameEngineState
 
     public string Fen => board.ToFen();
 
-    /// <summary>Which pieces carry powers beyond their own, as "e4:RN" entries.</summary>
     public string PowersText => board.PowersText();
 
     public string PositionText => PowersText.Length == 0 ? Fen : $"{Fen} | {PowersText}";
@@ -56,8 +48,6 @@ public sealed class GameState : IGameEngineState
 
     public bool IsInCheck(Side side) => board.IsRoyalAttacked(side);
 
-    /// <summary>Every power the piece on <paramref name="square"/> has, so the UI can show what a
-    /// piece has eaten rather than only what it started as.</summary>
     public MovePower PowersAt(Square square) => board.At(square)?.Powers ?? MovePower.None;
 
     public ChessMove MakeMove(Square from, Square to, PieceKind? promoteTo, TimeSpan elapsed)

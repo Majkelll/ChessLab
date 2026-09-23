@@ -2,7 +2,6 @@ using Microsoft.Playwright;
 
 namespace ChessLab.E2E.Tests.Infrastructure;
 
-/// <summary>One headless Chromium instance shared by every test in a collection.</summary>
 public sealed class PlaywrightFixture : IAsyncLifetime
 {
     private IPlaywright playwright = null!;

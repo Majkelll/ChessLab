@@ -5,8 +5,6 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Web.Client.Components;
 
-/// <summary>What a game page needs from the shell around it: the state as it last arrived, which
-/// seat the viewer is in, and the one way to do anything about it.</summary>
 public sealed class GameView
 {
     public required RoomStateDto Room { get; init; }

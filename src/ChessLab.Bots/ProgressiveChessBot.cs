@@ -3,9 +3,6 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Bots;
 
-/// <summary>Every move of a series is an ordinary chess move in an ordinary chess position, so this
-/// just asks Stockfish for each one in turn — it never sees that the same side is about to move
-/// again, which is exactly the blind spot a human opponent gets to exploit.</summary>
 public sealed class ProgressiveChessBot(StockfishEngine engine) : IGameBot
 {
     public async Task<GameAction> ChooseActionAsync(IRoomSession session, SeatId seat, BotDifficulty difficulty,

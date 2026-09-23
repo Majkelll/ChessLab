@@ -3,11 +3,6 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.HandBrain;
 
-/// <summary>
-/// Orchestrates a Hand &amp; Brain chess game on top of an <see cref="IChessRulesEngine"/>:
-/// each side's turn alternates between the Brain announcing a piece kind and the Hand
-/// moving one of the pieces of that kind.
-/// </summary>
 public sealed class GameState : IGameEngineState
 {
     private readonly IChessRulesEngine engine;
@@ -36,7 +31,6 @@ public sealed class GameState : IGameEngineState
         Clock = clock;
     }
 
-    /// <summary>Piece kinds the Brain may currently announce (each has at least one legal move).</summary>
     public IReadOnlyList<PieceKind> AvailablePieceKinds()
     {
         EnsurePhase(TurnPhase.BrainSelecting);
@@ -55,17 +49,12 @@ public sealed class GameState : IGameEngineState
         Phase = TurnPhase.HandMoving;
     }
 
-    /// <summary>Legal moves the Hand may currently choose from, restricted to the announced piece kind.</summary>
     public IReadOnlyList<ChessMove> AvailableMoves()
     {
         EnsurePhase(TurnPhase.HandMoving);
         return engine.LegalMoves(SelectedPieceKind!.Value);
     }
 
-    /// <summary>
-    /// Legal moves for a given piece kind, regardless of the current phase. Used by bots evaluating
-    /// candidate announcements before actually committing to one via <see cref="SelectPieceKind"/>.
-    /// </summary>
     public IReadOnlyList<ChessMove> LegalMovesFor(PieceKind kind) => engine.LegalMoves(kind);
 
     public ChessMove MakeMove(Square from, Square to, PieceKind? promoteTo, TimeSpan elapsed)
@@ -107,7 +96,6 @@ public sealed class GameState : IGameEngineState
         engine.Resign(side);
     }
 
-    /// <summary>Call periodically from outside (e.g. a server-side timer) to end the game if a side's clock hit zero.</summary>
     public void DeclareTimeoutIfFlagged()
     {
         if (IsGameOver)

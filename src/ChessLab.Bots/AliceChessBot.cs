@@ -3,9 +3,6 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Bots;
 
-/// <summary>Plays Alice Chess one move deep: take the best thing available, and prefer keeping
-/// pieces on the board the opponent's king is not on, which is as much long-term plan as a
-/// one-move search can hold.</summary>
 public sealed class AliceChessBot : IGameBot
 {
     private readonly Random random = new();

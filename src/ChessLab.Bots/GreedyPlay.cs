@@ -3,11 +3,6 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Bots;
 
-/// <summary>
-/// Move choice for the modes no chess engine understands. It looks exactly one move ahead: take the
-/// most valuable thing on offer, otherwise do something harmless. Difficulty decides how often it
-/// bothers — an easy bot mostly plays at random, an expert one always takes the best it can see.
-/// </summary>
 internal static class GreedyPlay
 {
     public static int ValueOf(PieceKind kind) => kind switch

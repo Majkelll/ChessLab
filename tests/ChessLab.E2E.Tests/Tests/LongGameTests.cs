@@ -1,11 +1,5 @@
 namespace ChessLab.E2E.Tests.Tests;
 
-/// <summary>
-/// A whole game of each of the three original modes, played click by click in a real browser until
-/// fifty moves have gone by or it ends on its own. These answer a different question from the rest
-/// of the suite: not "does this feature work" but "can this mode be played, move after move,
-/// without the board, the hub or the page getting stuck".
-/// </summary>
 [Trait("Category", "LongGame")]
 [Collection(LongGameClassicsCollection.Name)]
 public sealed class ClassicModeLongGameTests(WebAppFixture app, PlaywrightFixture playwright)
@@ -24,7 +18,6 @@ public sealed class ClassicModeLongGameTests(WebAppFixture app, PlaywrightFixtur
         Player.PlayTwoSeatGameAsync(GameKind.ArcaneChess, "/arcanechess/");
 }
 
-/// <summary>The new modes that are still played on one chessboard.</summary>
 [Trait("Category", "LongGame")]
 [Collection(LongGameChessLikeCollection.Name)]
 public sealed class ChessLikeModeLongGameTests(WebAppFixture app, PlaywrightFixture playwright)
@@ -44,8 +37,6 @@ public sealed class ChessLikeModeLongGameTests(WebAppFixture app, PlaywrightFixt
         Player.PlayTwoSeatGameAsync(GameKind.AbsorptionChess, "/absorption/");
 }
 
-/// <summary>The modes that don't look like a game of chess: two boards, pyramids, or an army that
-/// has to be built before anything can move.</summary>
 [Trait("Category", "LongGame")]
 [Collection(LongGameOddOnesCollection.Name)]
 public sealed class UnusualModeLongGameTests(WebAppFixture app, PlaywrightFixture playwright)

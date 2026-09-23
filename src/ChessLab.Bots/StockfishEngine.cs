@@ -2,7 +2,6 @@ using System.Diagnostics;
 
 namespace ChessLab.Bots;
 
-/// <summary>A single Stockfish process driven over UCI. Requests are serialized — one engine handles one game at a time.</summary>
 public sealed class StockfishEngine : IAsyncDisposable
 {
     private readonly Process process;
@@ -34,8 +33,6 @@ public sealed class StockfishEngine : IAsyncDisposable
         return engine;
     }
 
-    /// <summary>Searches only among <paramref name="searchMovesUci"/> and returns the best one plus its evaluation
-    /// (centipawns from the side-to-move's perspective; mate scores are mapped to large magnitudes).</summary>
     public async Task<(string BestMoveUci, int? ScoreCentipawns)> GoAsync(
         string fen, IReadOnlyList<string> searchMovesUci, int elo, int movetimeMs, CancellationToken ct = default)
     {
@@ -47,9 +44,6 @@ public sealed class StockfishEngine : IAsyncDisposable
         {
             if (currentElo != elo)
             {
-                // UCI_LimitStrength switches Stockfish from "Skill Level" (an arbitrary 0-20
-                // scale with no real-world meaning) to targeting an actual approximate Elo via
-                // UCI_Elo, which is what the difficulty labels shown to players are based on.
                 await WriteLineAsync("setoption name UCI_LimitStrength value true");
                 await WriteLineAsync($"setoption name UCI_Elo value {elo}");
                 currentElo = elo;
@@ -127,7 +121,6 @@ public sealed class StockfishEngine : IAsyncDisposable
         }
         catch
         {
-            // Process may already be gone, or ignored quit — fall through to a hard kill.
         }
         finally
         {

@@ -3,8 +3,6 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Web.Hubs;
 
-/// <summary>Shared by GameHub and the lobby so they all broadcast the exact same wire shape. The
-/// game state itself is mapped by the session — only the room around it is mapped here.</summary>
 internal static class GameDtoMapper
 {
     public static RoomStateDto ToRoomDto(IRoomSession session) => new(

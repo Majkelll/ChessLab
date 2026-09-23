@@ -480,13 +480,6 @@ public class GameStateTests
         state.MakeMove(move.From, move.To, move.PromoteTo, TimeSpan.FromSeconds(1));
     }
 
-    // Regression: a simulation of many full Arcane Chess games (GameSimulationTests) found that
-    // Gera.Chess can occasionally still offer a move that captures the opponent's king outright
-    // instead of having already ended the game by checkmate — reproducible after Arcane Chess's
-    // MindSwap relocates a king to a square the engine's incremental check tracking doesn't follow
-    // reliably. A king must never actually be captured, so such moves are filtered out of
-    // AvailableMoves regardless of source, and if that was the only "legal" move left, the game is
-    // declared over by checkmate in the mover's favor instead of leaving them stuck.
     [Fact]
     public void EveryEngineLegalMove_WouldCaptureTheKing_DeclaresCheckmateForTheMoverInstead()
     {

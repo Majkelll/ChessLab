@@ -1,8 +1,5 @@
 namespace ChessLab.E2E.Tests.Tests;
 
-/// <summary>Uses <see cref="ShortClockWebAppFixture"/> (a 2-second clock, no increment) so the
-/// game-ending timeout path — driven entirely by the server's <c>ClockWatchdog</c> background
-/// service, with no player action at all — can be exercised without waiting on a real 10 minutes.</summary>
 [Collection(ShortClockAppCollection.Name)]
 public sealed class TimeoutGameEndingTests(ShortClockWebAppFixture app, PlaywrightFixture playwright)
 {
@@ -16,8 +13,6 @@ public sealed class TimeoutGameEndingTests(ShortClockWebAppFixture app, Playwrig
             .WithHuman(Side.Black, SeatRole.Hand, "Dave")
             .StartAsync();
 
-        // Nobody acts. White is to move first, so White's 2-second clock is the one that flags;
-        // the ClockWatchdog polls every second, so the game should end within a few seconds.
         foreach (var seatGame in game.Games.Values)
         {
             var (reason, winner) = await seatGame.WaitForGameOverAsync(timeoutMs: 10000);
