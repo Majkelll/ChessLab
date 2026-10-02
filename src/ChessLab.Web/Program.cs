@@ -2,6 +2,7 @@ using System.Security.Claims;
 using ChessLab.Data;
 using ChessLab.Web.Client.Pages;
 using ChessLab.Web.Components;
+using ChessLab.Web.HealthChecks;
 using ChessLab.Web.Hubs;
 using ChessLab.Web.Services;
 using Microsoft.AspNetCore.Authentication;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.OAuth.Claims;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
@@ -49,6 +51,9 @@ public partial class Program
         });
         builder.Services.AddScoped<UserService>();
         builder.Services.AddScoped<GameHistoryService>();
+
+        builder.Services.AddHealthChecks()
+            .AddCheck<DatabaseHealthCheck>("database");
 
         builder.Services.AddDataProtection().PersistKeysToDbContext<ChessLabDbContext>();
 
@@ -131,6 +136,8 @@ public partial class Program
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseAntiforgery();
+
+        app.MapHealthChecks("/hc", new HealthCheckOptions { ResponseWriter = HealthReportWriter.WriteAsync }).AllowAnonymous();
 
         app.MapStaticAssets();
         app.MapRazorComponents<App>()
