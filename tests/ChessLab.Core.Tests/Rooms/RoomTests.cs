@@ -167,4 +167,25 @@ public class RoomTests
         Assert.Equal(OccupantKind.Bot, room.Seats[seatId].Kind);
         Assert.Equal(BotDifficulty.Medium, room.Seats[seatId].Difficulty);
     }
+
+    [Fact]
+    public void ClearSeat_ForASeatOutsideTheRoomsLayout_ThrowsAndAddsNoSeat()
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid());
+        var foreignSeat = new SeatId(Side.White, SeatRole.Player);
+
+        Assert.Throws<InvalidOperationException>(() => room.ClearSeat(foreignSeat));
+        Assert.Equal(4, room.Seats.Count);
+    }
+
+    [Fact]
+    public void ClaimSeat_ForASeatOutsideTheRoomsLayout_Throws()
+    {
+        var room = new Room("ABCDEF", Guid.NewGuid());
+        var foreignSeat = new SeatId(Side.White, SeatRole.Player);
+
+        Assert.Throws<InvalidOperationException>(() => room.ClaimSeat(foreignSeat, Guid.NewGuid(), "Ala"));
+        Assert.Throws<InvalidOperationException>(() => room.SetBot(foreignSeat, BotDifficulty.Easy));
+        Assert.Throws<InvalidOperationException>(() => room.LeaveSeat(foreignSeat, Guid.NewGuid()));
+    }
 }

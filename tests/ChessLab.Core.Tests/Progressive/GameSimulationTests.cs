@@ -46,7 +46,7 @@ public class GameSimulationTests
 
                 log.Add(game.MoveNotations[^1]);
 
-                var seriesEnded = game.SeriesNumber != seriesBefore;
+                var seriesEnded = game.SeriesNumber != seriesBefore || game.IsGameOver;
                 if (seriesEnded)
                 {
                     var wasLastAllowedMove = playedBefore + 1 >= seriesBefore;

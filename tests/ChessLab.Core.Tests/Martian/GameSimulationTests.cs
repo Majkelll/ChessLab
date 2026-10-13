@@ -36,7 +36,7 @@ public class GameSimulationTests
 
                 try
                 {
-                    session.MakeMove(move.From, move.To, DateTimeOffset.UtcNow);
+                    session.MakeMove(move.From, move.To, null, DateTimeOffset.UtcNow);
                 }
                 catch (InvalidOperationException ex)
                 {

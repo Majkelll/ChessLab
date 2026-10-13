@@ -2,6 +2,7 @@ using ChessLab.Core.Contracts;
 using ChessLab.Core.Games;
 using ChessLab.Core.Rooms;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace ChessLab.Web.Client.Services;
@@ -12,6 +13,8 @@ public sealed class GameClient : IAsyncDisposable
 
     public event Action<RoomStateDto>? RoomUpdated;
     public event Action<GameUpdateEnvelopeDto>? GameUpdated;
+    public event Func<Task>? Reconnected;
+    public event Action<string>? NoticeReceived;
 
     public GameClient(NavigationManager navigationManager)
     {
@@ -24,6 +27,17 @@ public sealed class GameClient : IAsyncDisposable
         Connection.On<RoomStateDto>("RoomUpdated", dto => RoomUpdated?.Invoke(dto));
         Connection.On<GameUpdateEnvelopeDto>("GameStarted", dto => GameUpdated?.Invoke(dto));
         Connection.On<GameUpdateEnvelopeDto>("GameUpdated", dto => GameUpdated?.Invoke(dto));
+        Connection.On<string>("RoomNotice", message => NoticeReceived?.Invoke(message));
+        Connection.Reconnected += _ => NotifyReconnectedAsync();
+    }
+
+    private async Task NotifyReconnectedAsync()
+    {
+        if (Reconnected is not { } handlers)
+            return;
+
+        foreach (var handler in handlers.GetInvocationList().Cast<Func<Task>>())
+            await handler();
     }
 
     public async Task EnsureConnectedAsync()
@@ -33,40 +47,63 @@ public sealed class GameClient : IAsyncDisposable
     }
 
     public Task<RoomStateDto> CreateRoomAsync(GameKind kind = GameKind.HandAndBrain) =>
-        Connection.InvokeAsync<RoomStateDto>("CreateRoom", kind);
+        CallAsync<RoomStateDto>("CreateRoom", kind);
 
-    public Task<RoomStateDto?> JoinRoomAsync(string code) => Connection.InvokeAsync<RoomStateDto?>("JoinRoom", code);
+    public Task<RoomStateDto?> JoinRoomAsync(string code) => CallAsync<RoomStateDto?>("JoinRoom", code);
 
     public Task<IReadOnlyList<GameHistoryEntryDto>> GetMyGameHistoryAsync(int limit = 50) =>
-        Connection.InvokeAsync<IReadOnlyList<GameHistoryEntryDto>>("GetMyGameHistory", limit);
+        CallAsync<IReadOnlyList<GameHistoryEntryDto>>("GetMyGameHistory", limit);
 
     public Task<GameHistoryDetailDto?> GetGameHistoryEntryAsync(Guid id) =>
-        Connection.InvokeAsync<GameHistoryDetailDto?>("GetGameHistoryEntry", id);
+        CallAsync<GameHistoryDetailDto?>("GetGameHistoryEntry", id);
 
     public Task<GameHistoryDetailDto?> GetGameHistoryByRoomCodeAsync(string code) =>
-        Connection.InvokeAsync<GameHistoryDetailDto?>("GetGameHistoryByRoomCode", code);
+        CallAsync<GameHistoryDetailDto?>("GetGameHistoryByRoomCode", code);
 
-    public Task ClaimSeatAsync(string code, SeatId seatId) => Connection.InvokeAsync("ClaimSeat", code, seatId);
+    public Task ClaimSeatAsync(string code, SeatId seatId) => CallAsync("ClaimSeat", code, seatId);
 
-    public Task LeaveSeatAsync(string code, SeatId seatId) => Connection.InvokeAsync("LeaveSeat", code, seatId);
+    public Task LeaveSeatAsync(string code, SeatId seatId) => CallAsync("LeaveSeat", code, seatId);
 
     public Task SetSeatBotAsync(string code, SeatId seatId, BotDifficulty difficulty) =>
-        Connection.InvokeAsync("SetSeatBot", code, seatId, difficulty);
+        CallAsync("SetSeatBot", code, seatId, difficulty);
 
-    public Task ClearSeatAsync(string code, SeatId seatId) => Connection.InvokeAsync("ClearSeat", code, seatId);
+    public Task ClearSeatAsync(string code, SeatId seatId) => CallAsync("ClearSeat", code, seatId);
 
     public Task SetClockSettingsAsync(string code, int initialSeconds, int incrementSeconds) =>
-        Connection.InvokeAsync("SetClockSettings", code, initialSeconds, incrementSeconds);
+        CallAsync("SetClockSettings", code, initialSeconds, incrementSeconds);
 
-    public Task StartGameAsync(string code) => Connection.InvokeAsync("StartGame", code);
+    public Task StartGameAsync(string code) => CallAsync("StartGame", code);
 
     public Task<GameStateEnvelopeDto> GetGameStateAsync(string code) =>
-        Connection.InvokeAsync<GameStateEnvelopeDto>("GetGameState", code);
+        CallAsync<GameStateEnvelopeDto>("GetGameState", code);
 
-    public Task PerformActionAsync(string code, GameAction action) =>
-        Connection.InvokeAsync("PerformAction", code, action);
+    public Task PerformActionAsync(string code, GameAction action) => CallAsync("PerformAction", code, action);
 
-    public Task ResignAsync(string code) => Connection.InvokeAsync("Resign", code);
+    public Task ResignAsync(string code) => CallAsync("Resign", code);
+
+    private async Task CallAsync(string method, params object?[] arguments)
+    {
+        try
+        {
+            await Connection.InvokeCoreAsync(method, arguments);
+        }
+        catch (HubException rejection)
+        {
+            throw new HubException(HubRejection.MessageOf(rejection));
+        }
+    }
+
+    private async Task<TResult> CallAsync<TResult>(string method, params object?[] arguments)
+    {
+        try
+        {
+            return await Connection.InvokeCoreAsync<TResult>(method, arguments);
+        }
+        catch (HubException rejection)
+        {
+            throw new HubException(HubRejection.MessageOf(rejection));
+        }
+    }
 
     public async ValueTask DisposeAsync() => await Connection.DisposeAsync();
 }

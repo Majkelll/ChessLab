@@ -25,11 +25,11 @@
             @onmousedown="() => { }" @onmousedown:preventDefault="true"
             @onclick="CopyLinkAsync"
             class="border border-espresso/16 bg-white/40 px-3 py-1.5 font-mono text-sm hover:border-moss/60 transition duration-300 hover:cursor-pointer">
-        Copy link
+        @(linkCopied ? "Copied" : "Copy link")
     </button>
 </div>
 
-@if (error is not null)
+@if (room is null && error is not null)
 {
     <p data-testid="lobby-error" class="mt-4 text-sm text-rust">@error</p>
     <a href="" class="mt-4 inline-block border border-amber-700/40 bg-amber-700/5 px-4 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
@@ -42,12 +42,22 @@ else if (room is null)
 }
 else if (room.IsLocked)
 {
+    if (error is not null)
+    {
+        <button type="button" data-testid="lobby-error" title="Dismiss" @onclick="() => error = null" class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 border border-rust bg-paper px-4 py-2 font-mono text-sm text-rust hover:cursor-pointer">@error</button>
+    }
+
     <p data-testid="room-retired" class="mt-6 text-espresso/42">
         This room's game has ended. <a href="/" class="text-amber-700 underline hover:text-amber-600">Start a new room</a> to play again.
     </p>
 }
 else
 {
+    if (error is not null)
+    {
+        <button type="button" data-testid="lobby-error" title="Dismiss" @onclick="() => error = null" class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 border border-rust bg-paper px-4 py-2 font-mono text-sm text-rust hover:cursor-pointer">@error</button>
+    }
+
     @if (room.Kind == GameKind.HandAndBrain)
     {
         <div class="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2">
@@ -81,18 +91,22 @@ else
                                             class="border px-2 py-1 font-mono text-sm transition duration-300 hover:cursor-pointer @sideJoinClasses">
                                         Join
                                     </button>
-                                    <button data-testid="seat-add-bot-btn"
-                                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                                            @onclick="() => AddBotAsync(seatId)"
-                                            class="border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-sm @sideHoverBorder transition duration-300 hover:cursor-pointer">
-                                        Add bot
-                                    </button>
+                                    @if (IsHost)
+                                    {
+                                        <button data-testid="seat-add-bot-btn"
+                                                @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                                @onclick="() => AddBotAsync(seatId)"
+                                                class="border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-sm @sideHoverBorder transition duration-300 hover:cursor-pointer">
+                                            Add bot
+                                        </button>
+                                    }
                                 </div>
                             }
                             else if (seat.Kind == OccupantKind.Bot)
                             {
                                 <span class="flex items-center gap-2 text-sm">
                                     <select data-testid="seat-bot-select"
+                                            disabled="@(!IsHost)"
                                             class="border border-espresso/16 bg-white/60 px-1 py-1 font-mono text-xs focus:outline-none @sideFocusBorder"
                                             @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
                                         <option value="Easy" selected="@(seat.Difficulty == BotDifficulty.Easy)">Easy (@EloLabel(BotDifficulty.Easy))</option>
@@ -100,9 +114,12 @@ else
                                         <option value="Hard" selected="@(seat.Difficulty == BotDifficulty.Hard)">Hard (@EloLabel(BotDifficulty.Hard))</option>
                                         <option value="Expert" selected="@(seat.Difficulty == BotDifficulty.Expert)">Expert (@EloLabel(BotDifficulty.Expert))</option>
                                     </select>
-                                    <button data-testid="seat-remove-btn"
-                                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                                            @onclick="() => ClearSeatAsync(seatId)" class="-m-2 p-2 text-xs text-espresso-soft underline hover:text-rust">remove</button>
+                                    @if (IsHost)
+                                    {
+                                        <button data-testid="seat-remove-btn"
+                                                @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                                @onclick="() => ClearSeatAsync(seatId)" class="-m-2 p-2 text-xs text-espresso-soft underline hover:text-rust">remove</button>
+                                    }
                                 </span>
                             }
                             else
@@ -114,6 +131,12 @@ else
                                         <button data-testid="seat-leave-btn"
                                                 @onmousedown="() => { }" @onmousedown:preventDefault="true"
                                                 @onclick="() => LeaveSeatAsync(seatId)" class="-m-2 ml-0 p-2 text-xs text-espresso-soft underline hover:text-rust">leave</button>
+                                    }
+                                    else if (IsHost)
+                                    {
+                                        <button data-testid="seat-kick-btn"
+                                                @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                                @onclick="() => ClearSeatAsync(seatId)" class="-m-2 ml-0 p-2 text-xs text-espresso-soft underline hover:text-rust">remove</button>
                                     }
                                 </span>
                             }
@@ -154,18 +177,22 @@ else
                                         class="border px-2 py-1 font-mono text-sm transition duration-300 hover:cursor-pointer @sideJoinClasses">
                                     Join
                                 </button>
-                                <button data-testid="seat-add-bot-btn"
-                                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                                        @onclick="() => AddBotAsync(seatId)"
-                                        class="border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-sm @sideHoverBorder transition duration-300 hover:cursor-pointer">
-                                    Add bot
-                                </button>
+                                @if (IsHost)
+                                {
+                                    <button data-testid="seat-add-bot-btn"
+                                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                            @onclick="() => AddBotAsync(seatId)"
+                                            class="border border-espresso/16 bg-white/60 px-2 py-1 font-mono text-sm @sideHoverBorder transition duration-300 hover:cursor-pointer">
+                                        Add bot
+                                    </button>
+                                }
                             </div>
                         }
                         else if (seat.Kind == OccupantKind.Bot)
                         {
                             <span class="flex items-center gap-2 text-sm">
                                 <select data-testid="seat-bot-select"
+                                        disabled="@(!IsHost)"
                                         class="border border-espresso/16 bg-white/60 px-1 py-1 font-mono text-xs focus:outline-none @sideFocusBorder"
                                         @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
                                     <option value="Easy" selected="@(seat.Difficulty == BotDifficulty.Easy)">Easy (@EloLabel(BotDifficulty.Easy))</option>
@@ -173,9 +200,12 @@ else
                                     <option value="Hard" selected="@(seat.Difficulty == BotDifficulty.Hard)">Hard (@EloLabel(BotDifficulty.Hard))</option>
                                     <option value="Expert" selected="@(seat.Difficulty == BotDifficulty.Expert)">Expert (@EloLabel(BotDifficulty.Expert))</option>
                                 </select>
-                                <button data-testid="seat-remove-btn"
-                                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                                        @onclick="() => ClearSeatAsync(seatId)" class="-m-2 p-2 text-xs text-espresso-soft underline hover:text-rust">remove</button>
+                                @if (IsHost)
+                                {
+                                    <button data-testid="seat-remove-btn"
+                                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                            @onclick="() => ClearSeatAsync(seatId)" class="-m-2 p-2 text-xs text-espresso-soft underline hover:text-rust">remove</button>
+                                }
                             </span>
                         }
                         else
@@ -187,6 +217,12 @@ else
                                     <button data-testid="seat-leave-btn"
                                             @onmousedown="() => { }" @onmousedown:preventDefault="true"
                                             @onclick="() => LeaveSeatAsync(seatId)" class="-m-2 ml-0 p-2 text-xs text-espresso-soft underline hover:text-rust">leave</button>
+                                }
+                                else if (IsHost)
+                                {
+                                    <button data-testid="seat-kick-btn"
+                                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                                            @onclick="() => ClearSeatAsync(seatId)" class="-m-2 ml-0 p-2 text-xs text-espresso-soft underline hover:text-rust">remove</button>
                                 }
                             </span>
                         }
@@ -255,6 +291,7 @@ else
     private Guid myUserId;
     private string? error;
     private bool isStarting;
+    private bool linkCopied;
 
     private int clockMinutes = 10;
     private int clockIncrementSeconds;
@@ -267,6 +304,8 @@ else
 
         Game.RoomUpdated += OnRoomUpdated;
         Game.GameUpdated += OnGameUpdated;
+        Game.Reconnected += OnReconnectedAsync;
+        Game.NoticeReceived += OnNoticeReceived;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -294,7 +333,7 @@ else
             GameContext.Set(GameName(room.Kind));
             if (room.HasStarted)
             {
-                Nav.NavigateTo(GamePageUrl(room.Kind));
+                Nav.NavigateTo(GameRoutes.PathFor(room.Kind, Code));
                 return;
             }
             InitializeClockSettingsOnce(room);
@@ -306,6 +345,8 @@ else
             StateHasChanged();
         }
     }
+
+    private bool IsHost => room is not null && room.HostUserId == myUserId;
 
     private bool IsFull() => room is not null && room.Seats.All(s => s.Kind != OccupantKind.Empty);
 
@@ -388,19 +429,6 @@ else
         catch (Exception ex) { error = ex.Message; isStarting = false; }
     }
 
-    private string GamePageUrl(GameKind kind) => kind switch
-    {
-        GameKind.CardChess => $"/cardchess/{Code}",
-        GameKind.ArcaneChess => $"/arcanechess/{Code}",
-        GameKind.BiddingChess => $"/bidding/{Code}",
-        GameKind.ProgressiveChess => $"/progressive/{Code}",
-        GameKind.AliceChess => $"/alice/{Code}",
-        GameKind.AbsorptionChess => $"/absorption/{Code}",
-        GameKind.MartianChess => $"/martian/{Code}",
-        GameKind.DraftChess => $"/draft/{Code}",
-        _ => $"/game/{Code}",
-    };
-
     private static string GameName(GameKind kind) => kind switch
     {
         GameKind.CardChess => "Card Chess",
@@ -417,7 +445,15 @@ else
     private async Task CopyLinkAsync()
     {
         var url = Nav.ToAbsoluteUri($"/room/{Code}").ToString();
-        await Js.InvokeVoidAsync("navigator.clipboard.writeText", url);
+        try
+        {
+            await Js.InvokeVoidAsync("navigator.clipboard.writeText", url);
+            linkCopied = true;
+        }
+        catch (JSException)
+        {
+            error = $"Could not copy the link. Share this address: {url}";
+        }
     }
 
     private void OnRoomUpdated(RoomStateDto dto)
@@ -428,11 +464,38 @@ else
 
     private void OnGameUpdated(GameUpdateEnvelopeDto dto)
     {
-        InvokeAsync(() => Nav.NavigateTo(GamePageUrl(dto.Kind)));
+        InvokeAsync(() => Nav.NavigateTo(GameRoutes.PathFor(dto.Kind, Code)));
+    }
+
+    private async Task OnReconnectedAsync()
+    {
+        try
+        {
+            if (await Game.JoinRoomAsync(Code) is not { } rejoined)
+                return;
+
+            if (rejoined.HasStarted)
+                Nav.NavigateTo(GameRoutes.PathFor(rejoined.Kind, Code));
+            else
+                OnRoomUpdated(rejoined);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OnNoticeReceived(string message)
+    {
+        error = message;
+        InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
+        Game.Reconnected -= OnReconnectedAsync;
+        Game.NoticeReceived -= OnNoticeReceived;
         Game.RoomUpdated -= OnRoomUpdated;
         Game.GameUpdated -= OnGameUpdated;
     }

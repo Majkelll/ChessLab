@@ -19,6 +19,7 @@ public sealed class GameState : IGameEngineState
     private readonly Dictionary<Side, bool> deepBreathActive;
     private readonly Dictionary<Side, bool> pendingExtraTurn;
     private readonly List<ArcaneEffect> activeEffects = [];
+    private readonly Random random;
 
     public Clock Clock => inner.Clock;
     public IReadOnlyList<ChessMove> MoveHistory => inner.MoveHistory;
@@ -47,9 +48,11 @@ public sealed class GameState : IGameEngineState
 
     public IReadOnlyList<ChessMove> AvailableMoves => FilterForCurrentMover();
 
-    public GameState(CardChess.GameState inner, SpellDeck whiteSpellDeck, SpellDeck blackSpellDeck)
+    public GameState(CardChess.GameState inner, SpellDeck whiteSpellDeck, SpellDeck blackSpellDeck,
+        Random? random = null)
     {
         this.inner = inner;
+        this.random = random ?? Random.Shared;
         spellDecks = new Dictionary<Side, SpellDeck> { [Side.White] = whiteSpellDeck, [Side.Black] = blackSpellDeck };
         spellHands = new Dictionary<Side, List<SpellRank>>
         {
@@ -114,9 +117,10 @@ public sealed class GameState : IGameEngineState
 
         activeEffects.RemoveAll(e => e.AffectedSide == mover);
 
-        if (wantsBonusTurn)
+        pendingExtraTurn[mover] = false;
+
+        if (wantsBonusTurn && !inner.IsGameOver)
         {
-            pendingExtraTurn[mover] = false;
             inner.ApplyExternalFenEdit(fen => FenBoard.WithSideToMove(fen, mover));
         }
         else
@@ -255,7 +259,7 @@ public sealed class GameState : IGameEngineState
                 var hand = inner.HandOf(opponent);
                 if (hand.Count == 0)
                     throw new InvalidOperationException("Opponent has no cards.");
-                inner.ReplaceHandCardNow(opponent, hand[Random.Shared.Next(hand.Count)]);
+                inner.ReplaceHandCardNow(opponent, hand[random.Next(hand.Count)]);
                 break;
             }
             case SpellRank.ExtraTurn:

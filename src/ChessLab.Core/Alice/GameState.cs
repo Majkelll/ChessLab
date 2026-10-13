@@ -112,6 +112,9 @@ public sealed class GameState : IGameEngineState
                 if (move.CapturedPiece == PieceKind.King || other.At(move.To) is not null)
                     continue;
 
+                if (LeavesRoyalAttackedOnItsOwnBoard(board, move, side))
+                    continue;
+
                 var probe = new[] { boards[0].Clone(), boards[1].Clone() };
                 Play(probe, move);
 
@@ -121,6 +124,13 @@ public sealed class GameState : IGameEngineState
         }
 
         return legal;
+    }
+
+    private static bool LeavesRoyalAttackedOnItsOwnBoard(PieceBoard board, ChessMove move, Side side)
+    {
+        var played = board.Clone();
+        played.Apply(move, annotate: false);
+        return played.RoyalSquare(side) is { } royal && played.IsAttacked(royal, Opponent(side));
     }
 
     private static ChessMove Play(PieceBoard[] state, ChessMove move)

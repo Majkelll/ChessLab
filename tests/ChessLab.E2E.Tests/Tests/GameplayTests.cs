@@ -157,7 +157,7 @@ public sealed class GameplayTests(WebAppFixture app, PlaywrightFixture playwrigh
         await whiteHand.WaitForTurnTextAsync("Hand is making a move");
 
         await Expect(whiteHand.PromotionPicker).ToBeHiddenAsync();
-        await whiteHand.MoveAsync("b7", "a8"); // captures Black's still-unmoved rook
+        await whiteHand.MoveAsync("b7", "a8");
         await Expect(whiteHand.PromotionPicker).ToBeVisibleAsync();
         Assert.Equal(10, await whiteHand.MoveHistoryCountAsync());
 

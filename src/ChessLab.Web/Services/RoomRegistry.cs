@@ -6,9 +6,15 @@ namespace ChessLab.Web.Services;
 
 public sealed class RoomRegistry
 {
+    public const int OpenRoomsPerHost = 5;
+
     private const string CodeAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
-    private readonly ConcurrentDictionary<string, IRoomSession> sessions = new();
+    private static readonly TimeSpan FinishedRoomLifetime = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan UnstartedRoomLifetime = TimeSpan.FromHours(2);
+    private static readonly TimeSpan UnarchivedRoomLifetime = TimeSpan.FromHours(24);
+
+    private readonly ConcurrentDictionary<string, Entry> entries = new();
 
     public IRoomSession CreateRoom(GameKind kind, Guid hostUserId, TimeSpan? initialClock = null,
         TimeSpan? clockIncrement = null)
@@ -18,7 +24,7 @@ public sealed class RoomRegistry
             var code = GenerateCode();
             var room = new Room(code, hostUserId, kind, initialClock, clockIncrement);
             var session = CreateSession(kind, room);
-            if (sessions.TryAdd(code, session))
+            if (entries.TryAdd(code, new Entry(session, DateTimeOffset.UtcNow)))
                 return session;
         }
     }
@@ -37,18 +43,56 @@ public sealed class RoomRegistry
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown game kind."),
     };
 
-    public IRoomSession Get(string code)
+    public IRoomSession Get(string code) =>
+        Find(code) ?? throw new HubException($"Room '{code}' not found.");
+
+    public IRoomSession? Find(string code) => entries.TryGetValue(code, out var entry) ? entry.Session : null;
+
+    public IEnumerable<IRoomSession> ActiveSessions() =>
+        entries.Values.Select(entry => entry.Session).Where(session => session.HasActiveGame);
+
+    public IReadOnlyList<IRoomSession> FinishedSessions() =>
+        [.. entries.Values.Select(entry => entry.Session).Where(session => session.Game is { IsGameOver: true })];
+
+    public int OpenRoomsHostedBy(Guid userId) =>
+        entries.Values.Count(entry =>
+            entry.Session.Room.HostUserId == userId && entry.Session.Game is not { IsGameOver: true });
+
+    public void Remove(string code) => entries.TryRemove(code, out _);
+
+    public IReadOnlyList<string> RemoveStale(DateTimeOffset now, Func<string, bool> isArchived)
     {
-        if (!sessions.TryGetValue(code, out var session))
-            throw new HubException($"Room '{code}' not found.");
+        var removed = new List<string>();
 
-        return session;
+        foreach (var (code, entry) in entries)
+        {
+            var finishedLifetime = isArchived(code) ? FinishedRoomLifetime : UnarchivedRoomLifetime;
+            if (entry.IsStale(now, finishedLifetime, UnstartedRoomLifetime) && entries.TryRemove(code, out _))
+                removed.Add(code);
+        }
+
+        return removed;
     }
-
-    public IRoomSession? Find(string code) => sessions.TryGetValue(code, out var session) ? session : null;
-
-    public IEnumerable<IRoomSession> ActiveSessions() => sessions.Values.Where(s => s.HasActiveGame);
 
     private static string GenerateCode() =>
         new(Enumerable.Range(0, 6).Select(_ => CodeAlphabet[Random.Shared.Next(CodeAlphabet.Length)]).ToArray());
+
+    private sealed class Entry(IRoomSession session, DateTimeOffset createdAt)
+    {
+        private DateTimeOffset? finishedSeenAt;
+
+        public IRoomSession Session { get; } = session;
+
+        public bool IsStale(DateTimeOffset now, TimeSpan finishedLifetime, TimeSpan unstartedLifetime)
+        {
+            if (Session.Game is null)
+                return now - createdAt >= unstartedLifetime;
+
+            if (!Session.Game.IsGameOver)
+                return false;
+
+            finishedSeenAt ??= now;
+            return now - finishedSeenAt >= finishedLifetime;
+        }
+    }
 }

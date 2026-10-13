@@ -70,7 +70,10 @@ public sealed class GameState : IGameEngineState
     }
 
     private CardRank DrawPlayable(Side side, Deck deck, IReadOnlyCollection<CardRank> currentHand) =>
-        deck.Draw(card => engine.HasLegalMove(side, card.ToPieceKind()) && !currentHand.Contains(card));
+        deck.Draw(
+            card => engine.HasLegalMove(side, card.ToPieceKind()) && !currentHand.Contains(card),
+            card => !currentHand.Contains(card),
+            card => engine.HasLegalMove(side, card.ToPieceKind()));
 
     private CardRank DrawRerollReplacement(Side side, CardRank rerolled)
     {
@@ -93,7 +96,6 @@ public sealed class GameState : IGameEngineState
                 continue;
 
             hand[i] = DrawPlayable(side, decks[side], hand);
-            decks[side].Discard(card);
             pendingRerolls[side].Remove(card);
         }
     }
@@ -109,7 +111,6 @@ public sealed class GameState : IGameEngineState
             throw new ArgumentException($"{card} is not currently in {side}'s hand.", nameof(card));
 
         hands[side][index] = DrawRerollReplacement(side, card);
-        decks[side].Discard(card);
         pendingRerolls[side].Remove(card);
         if (side == SideToMove)
             RefreshAvailableMoves();
@@ -160,10 +161,7 @@ public sealed class GameState : IGameEngineState
         {
             var index = hands[side].IndexOf(card);
             if (index >= 0)
-            {
                 hands[side][index] = DrawRerollReplacement(side, card);
-                decks[side].Discard(card);
-            }
         }
 
         pending.Clear();
@@ -268,7 +266,6 @@ public sealed class GameState : IGameEngineState
             var usedCard = hands[mover][usedCardIndex];
             hands[mover].RemoveAt(usedCardIndex);
             hands[mover].Add(DrawPlayable(mover, decks[mover], hands[mover]));
-            decks[mover].Discard(usedCard);
         }
         else if (costsHp)
         {

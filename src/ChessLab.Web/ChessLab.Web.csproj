@@ -26,10 +26,6 @@
     <ProjectReference Include="..\ChessLab.Bots\ChessLab.Bots.csproj" />
   </ItemGroup>
 
-  <!--
-    Tailwind CSS build. Skipped when SkipTailwindBuild=true (the Docker build compiles
-    CSS in a dedicated Node stage and copies wwwroot/css/app.css in before `dotnet publish`).
-  -->
   <Target Name="TailwindInstall" BeforeTargets="TailwindBuild" Condition="'$(SkipTailwindBuild)' != 'true' AND !Exists('node_modules')">
     <Exec Command="npm install" WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>

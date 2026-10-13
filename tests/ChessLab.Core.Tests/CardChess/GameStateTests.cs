@@ -495,4 +495,33 @@ public class GameStateTests
         Assert.Equal(GameEndReason.Checkmate, state.EndResult!.Value.Reason);
         Assert.Equal(Side.White, state.EndResult.Value.Winner);
     }
+
+    [Fact]
+    public void Deck_AfterManyMovesAndRerolls_StillHoldsThirteenCards()
+    {
+        var whiteDeck = new Deck(Deck.AllRanks);
+        var state = new GameState(new GeraChessRulesEngine(), new Clock(TimeSpan.FromMinutes(10), TimeSpan.Zero),
+            whiteDeck, new Deck(Deck.AllRanks));
+
+        for (var i = 0; i < 40 && !state.IsGameOver && state.AvailableMoves.Count > 0; i++)
+        {
+            state.SelectCardsForReroll([state.HandOf(state.SideToMove)[0]]);
+            if (state.AvailableMoves.Count == 0)
+                state.SelectCardsForReroll([]);
+
+            var move = state.AvailableMoves[0];
+            state.MakeMove(move.From, move.To, move.PromoteTo, TimeSpan.Zero);
+        }
+
+        Assert.Equal(Deck.AllRanks.Count, whiteDeck.DrawPileCount + whiteDeck.DiscardPileCount);
+    }
+
+    [Fact]
+    public void NewGame_WhenNoCardIsPlayable_StillDealsFiveDifferentCards()
+    {
+        var (state, _) = NewFakeGame();
+
+        Assert.Equal(GameState.HandSize, state.HandOf(Side.White).Distinct().Count());
+        Assert.Equal(GameState.HandSize, state.HandOf(Side.Black).Distinct().Count());
+    }
 }

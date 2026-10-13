@@ -31,7 +31,7 @@ public sealed class CardChessSession(Room room, Func<IChessRulesEngine> engineFa
                 MakeMove(action.From!.Value, action.To!.Value, action.PromoteTo, now);
                 break;
             case GameActionKind.SelectReroll:
-                SelectCardsForReroll(action.Cards!);
+                SelectCardsForReroll(action.Cards ?? throw new InvalidOperationException("A reroll selection needs a list of cards."));
                 break;
             default:
                 throw new InvalidOperationException($"{action.Kind} is not an action in Card Chess.");
@@ -57,10 +57,10 @@ public sealed class CardChessSession(Room room, Func<IChessRulesEngine> engineFa
         {
             var game = StartedGame;
             return new CardChessSectionDto(
-                game.HandOf(Side.White),
-                game.HandOf(Side.Black),
-                game.PendingRerollOf(Side.White),
-                game.PendingRerollOf(Side.Black),
+                [.. game.HandOf(Side.White)],
+                [.. game.HandOf(Side.Black)],
+                [.. game.PendingRerollOf(Side.White)],
+                [.. game.PendingRerollOf(Side.Black)],
                 game.EmergencyMoveAvailable,
                 game.HandHasNoPlayableCard,
                 game.HpOf(Side.White),

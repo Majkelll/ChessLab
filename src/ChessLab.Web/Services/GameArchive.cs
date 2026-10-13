@@ -12,7 +12,7 @@ public sealed class GameArchive(IServiceScopeFactory scopeFactory, ILogger<GameA
 
     public async Task RecordIfFinishedAsync(IRoomSession session)
     {
-        if (Snapshot(session) is not { } snapshot)
+        if (SnapshotOf(session) is not { } snapshot)
             return;
 
         if (!archived.TryAdd(session.Room.Code, 0))
@@ -34,6 +34,16 @@ public sealed class GameArchive(IServiceScopeFactory scopeFactory, ILogger<GameA
             archived.TryRemove(session.Room.Code, out _);
             logger.LogError(ex, "Failed to archive finished game in room {RoomCode}.", session.Room.Code);
         }
+    }
+
+    public bool IsArchived(string roomCode) => archived.ContainsKey(roomCode);
+
+    public void Forget(string roomCode) => archived.TryRemove(roomCode, out _);
+
+    private static GameRecord? SnapshotOf(IRoomSession session)
+    {
+        lock (session)
+            return Snapshot(session);
     }
 
     private static GameRecord? Snapshot(IRoomSession session) =>

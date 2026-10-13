@@ -1,4 +1,5 @@
 using ChessLab.Core.Chess;
+using ChessLab.Core.Games;
 using ChessLab.Core.Rooms;
 
 namespace ChessLab.Core.Tests.Rooms;
@@ -84,5 +85,15 @@ public class CardChessSessionTests
         Assert.True(session.Game.IsGameOver);
         Assert.Equal(GameEndReason.Timeout, session.Game.EndResult!.Value.Reason);
         Assert.Equal(Side.Black, session.Game.EndResult.Value.Winner);
+    }
+
+    [Fact]
+    public void Apply_ARerollSelectionWithoutCards_ThrowsARuleViolation()
+    {
+        var session = NewFullSession();
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, DateTimeOffset.UtcNow);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            session.Apply(new GameAction(GameActionKind.SelectReroll), White, DateTimeOffset.UtcNow));
     }
 }

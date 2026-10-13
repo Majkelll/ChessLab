@@ -28,16 +28,24 @@
         </a>
     </div>
 }
-else if (error is not null)
-{
-    <p data-testid="game-error" class="text-sm text-rust">@error</p>
-}
 else if (room is null || state is null)
 {
-    <p class="text-espresso/42">Connecting<span class="blink-cursor" aria-hidden="true">_</span></p>
+    if (error is not null)
+    {
+        <p data-testid="game-error" class="text-sm text-rust">@error</p>
+    }
+    else
+    {
+        <p class="text-espresso/42">Connecting<span class="blink-cursor" aria-hidden="true">_</span></p>
+    }
 }
 else
 {
+    if (error is not null)
+    {
+        <button type="button" data-testid="game-error" title="Dismiss" @onclick="() => error = null" class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 border border-rust bg-paper px-4 py-2 font-mono text-sm text-rust hover:cursor-pointer">@error</button>
+    }
+
     <div class="flex h-full min-h-0 flex-col gap-4 max-lg:h-auto max-lg:gap-2 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
         <div class="flex min-h-0 w-full flex-col max-lg:contents">
             @if (mySeat is { } opponentSeat)
@@ -46,6 +54,10 @@ else
                 var opponentHand = HandOf(handOwnerSide);
                 <div class="flex shrink-0 flex-col items-center" data-testid="opponent-hand">
                     <div class="hand-row hand-row-mini -space-x-1">
+                        @if (opponentHand.Count == 0)
+                        {
+                            <span data-testid="opponent-hand-hidden" class="font-mono text-[10px] uppercase tracking-wide text-espresso-soft/40">hidden · Peek reveals it</span>
+                        }
                         @for (var i = 0; i < opponentHand.Count; i++)
                         {
                             var card = opponentHand[i];
@@ -360,12 +372,7 @@ else
 
     private bool isBoardInteractive => state is { IsGameOver: false } && isMyTurn;
 
-    private bool hasCastSpellThisTurn => mySeat is { } mine && state is not null &&
-        (mine.Side == Side.White ? whiteCastSpellThisTurn : blackCastSpellThisTurn);
-
-    private bool whiteCastSpellThisTurn;
-    private bool blackCastSpellThisTurn;
-    private Side? lastSeenSideToMove;
+    private bool hasCastSpellThisTurn => isMyTurn && arcane.SideToMoveHasCast;
 
     protected override async Task OnInitializedAsync()
     {
@@ -375,6 +382,8 @@ else
         GameContext.Set("Arcane Chess");
         Game.RoomUpdated += OnRoomUpdated;
         Game.GameUpdated += OnGameUpdated;
+        Game.Reconnected += OnReconnectedAsync;
+        Game.NoticeReceived += OnNoticeReceived;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -397,6 +406,9 @@ else
                 StateHasChanged();
                 return;
             }
+
+            if (GameRoutes.RedirectIfNotThisRoomsPage(Nav, joined))
+                return;
 
             room = joined;
             mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
@@ -564,25 +576,9 @@ else
             };
 
             await Game.PerformActionAsync(Code, GameAction.CastSpell(spell, target));
-            if (mySeat is { } mine)
-            {
-                if (mine.Side == Side.White) whiteCastSpellThisTurn = true;
-                else blackCastSpellThisTurn = true;
-            }
             SelectSpell(spell);
         }
-        catch (Exception ex) { spellError = StripHubPrefix(ex.Message); }
-    }
-
-    private static string StripHubPrefix(string message)
-    {
-        const string prefix = "An unexpected error occurred invoking 'CastArcaneSpell' on the server. ";
-        if (!message.StartsWith(prefix, StringComparison.Ordinal))
-            return message;
-
-        var detail = message[prefix.Length..];
-        var separator = detail.IndexOf(": ", StringComparison.Ordinal);
-        return separator >= 0 ? detail[(separator + 2)..] : detail;
+        catch (Exception ex) { spellError = ex.Message; }
     }
 
     private static CardRank? ParseHandCard(string text) =>
@@ -607,7 +603,7 @@ else
         else
         {
             if (current.Count >= ChessLab.Core.CardChess.GameState.MaxRerollSelection)
-                return; // already marked the max — ignore until one is un-marked
+                return;
 
             current.Add(card);
         }
@@ -673,7 +669,6 @@ else
             dto.Kind, dto.SideToMove, dto.PositionText, dto.AvailableMoves, moveHistory,
             dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
             CardChess: dto.CardChess, Arcane: dto.Arcane);
-        TrackSpellCastTurn(dto.SideToMove);
     }
 
     private void TriggerHpHit(Side side)
@@ -716,21 +711,33 @@ else
     {
         state = dto;
         moveHistory = [.. dto.MoveHistory];
-        TrackSpellCastTurn(dto.SideToMove);
     }
 
-    private void TrackSpellCastTurn(Side sideToMove)
+    private async Task OnReconnectedAsync()
     {
-        if (lastSeenSideToMove == sideToMove)
-            return;
+        try
+        {
+            if (await Game.JoinRoomAsync(Code) is { } rejoined)
+                OnRoomUpdated(rejoined);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
 
-        lastSeenSideToMove = sideToMove;
-        whiteCastSpellThisTurn = false;
-        blackCastSpellThisTurn = false;
+        await ResyncFullStateAsync();
+    }
+
+    private void OnNoticeReceived(string message)
+    {
+        error = message;
+        InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
+        Game.Reconnected -= OnReconnectedAsync;
+        Game.NoticeReceived -= OnNoticeReceived;
         Game.RoomUpdated -= OnRoomUpdated;
         Game.GameUpdated -= OnGameUpdated;
     }

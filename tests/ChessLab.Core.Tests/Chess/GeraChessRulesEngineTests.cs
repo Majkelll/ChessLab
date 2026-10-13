@@ -134,7 +134,7 @@ public class GeraChessRulesEngineTests
 
         Assert.True(engine.HasLegalMove(Side.White, PieceKind.Pawn));
         Assert.True(engine.HasLegalMove(Side.White, PieceKind.Knight));
-        Assert.False(engine.HasLegalMove(Side.White, PieceKind.King)); // boxed in at the start
+        Assert.False(engine.HasLegalMove(Side.White, PieceKind.King));
         Assert.False(engine.HasLegalMove(Side.White, PieceKind.Queen));
     }
 
@@ -146,13 +146,13 @@ public class GeraChessRulesEngineTests
         Assert.True(engine.IsInCheck(Side.White));
         Assert.True(engine.HasLegalMove(Side.Black, PieceKind.Queen));
         Assert.True(engine.HasLegalMove(Side.Black, PieceKind.King));
-        Assert.False(engine.HasLegalMove(Side.Black, PieceKind.Rook)); // Black has no rook here
+        Assert.False(engine.HasLegalMove(Side.Black, PieceKind.Rook));
     }
 
     [Fact]
     public void HasLegalMove_IsFalse_WhenThatPieceKindNoLongerExistsForThatSide()
     {
-        var engine = GeraChessRulesEngine.FromFen("4k3/8/8/8/8/8/8/4K3 w - - 0 1"); // no queens on the board
+        var engine = GeraChessRulesEngine.FromFen("4k3/8/8/8/8/8/8/4K3 w - - 0 1");
 
         Assert.False(engine.HasLegalMove(Side.White, PieceKind.Queen));
         Assert.False(engine.HasLegalMove(Side.Black, PieceKind.Queen));
@@ -204,5 +204,37 @@ public class GeraChessRulesEngineTests
         Assert.NotNull(engine.EndResult);
         Assert.Equal(GameEndReason.Timeout, engine.EndResult!.Value.Reason);
         Assert.Equal(Side.Black, engine.EndResult!.Value.Winner);
+    }
+
+    [Fact]
+    public void Repetition_IsCountedAcrossMovesPlayedOnOneBoard()
+    {
+        var engine = new GeraChessRulesEngine();
+
+        ShuffleKnightsOutAndBack(engine);
+        ShuffleKnightsOutAndBack(engine);
+
+        Assert.Equal(GameEndReason.Repetition, engine.EndResult?.Reason);
+    }
+
+    [Fact]
+    public void Repetition_StartsOverAfterAPositionIsLoaded()
+    {
+        var engine = new GeraChessRulesEngine();
+
+        ShuffleKnightsOutAndBack(engine);
+        engine.LoadPosition(engine.ToFen());
+        ShuffleKnightsOutAndBack(engine);
+
+        Assert.Null(engine.EndResult);
+    }
+
+    private static void ShuffleKnightsOutAndBack(GeraChessRulesEngine engine)
+    {
+        foreach (var (from, to) in new[] { ("g1", "f3"), ("g8", "f6"), ("f3", "g1"), ("f6", "g8") })
+        {
+            var move = engine.LegalMoves().First(m => m.From == Square.Parse(from) && m.To == Square.Parse(to));
+            engine.ApplyMove(move);
+        }
     }
 }

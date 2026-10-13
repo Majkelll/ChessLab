@@ -147,4 +147,64 @@ public class GameStateTests
 
         Assert.Equal(new GameEndResult(GameEndReason.Timeout, Side.White), game.EndResult);
     }
+
+    [Fact]
+    public void AvailableMoves_WhenTheSameSideMovesAgain_DoNotReuseItsOwnEnPassantSquare()
+    {
+        var game = NewGame();
+        Bid(game, 10, 0);
+        game.MakeMove(Square.Parse("e2"), Square.Parse("e4"), null, TimeSpan.Zero);
+
+        Bid(game, 10, 0);
+
+        Assert.Equal(Side.White, game.SideToMove);
+        Assert.DoesNotContain(game.AvailableMoves, move => move.To == Square.Parse("e3"));
+    }
+
+    [Fact]
+    public void AvailableMoves_WhenTheOtherSideMovesNext_StillOfferEnPassant()
+    {
+        var game = NewGame();
+        Bid(game, 0, 10);
+        game.MakeMove(Square.Parse("d7"), Square.Parse("d5"), null, TimeSpan.Zero);
+        Bid(game, 0, 10);
+        game.MakeMove(Square.Parse("d5"), Square.Parse("d4"), null, TimeSpan.Zero);
+        Bid(game, 10, 0);
+        game.MakeMove(Square.Parse("e2"), Square.Parse("e4"), null, TimeSpan.Zero);
+
+        Bid(game, 0, 10);
+
+        Assert.Contains(game.AvailableMoves, move =>
+            move.From == Square.Parse("d4") && move.To == Square.Parse("e3") && move.CapturedPiece == PieceKind.Pawn);
+    }
+
+    [Fact]
+    public void SubmitBid_BelowZero_Throws()
+    {
+        var game = NewGame();
+
+        Assert.Throws<InvalidOperationException>(() => game.SubmitBid(Side.White, -1, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void MoveNotations_CarryTheWinningBid()
+    {
+        var game = NewGame();
+        Bid(game, 30, 10);
+
+        game.MakeMove(Square.Parse("e2"), Square.Parse("e4"), null, TimeSpan.Zero);
+
+        Assert.Equal(["e4(30)"], game.MoveNotations);
+    }
+
+    [Fact]
+    public void MakeMove_AfterAHundredHalfMovesWithoutACaptureOrPawnMove_IsADraw()
+    {
+        var game = NewGame(PieceBoard.FromFen("4k3/8/8/8/8/8/8/R3K3 w - - 99 60"));
+        Bid(game, 10, 0);
+
+        game.MakeMove(Square.Parse("a1"), Square.Parse("a2"), null, TimeSpan.Zero);
+
+        Assert.Equal(new GameEndResult(GameEndReason.FiftyMoveRule, null), game.EndResult);
+    }
 }
