@@ -114,4 +114,34 @@ public class PieceBoardTests
 
         return total;
     }
+
+    [Fact]
+    public void Apply_ATwoRankMoveAwayFromThePawnRank_SetsNoEnPassantSquare()
+    {
+        var board = PieceBoard.FromFen("4k3/8/8/8/8/8/8/4K3 w - - 0 1");
+        var rookWithPawnPower = BoardPiece.Of(Side.White, PieceKind.Rook).With(MovePower.Pawn);
+        board.Set(Square.Parse("a4"), rookWithPawnPower);
+
+        var move = board.LegalMoves().First(m => m.From == Square.Parse("a4") && m.To == Square.Parse("a6"));
+        board.Apply(move);
+
+        Assert.Null(board.EnPassantTarget);
+    }
+
+    [Fact]
+    public void Apply_ALongDiagonalMoveOntoTheEnPassantSquare_CapturesNothing()
+    {
+        var board = PieceBoard.FromFen("4k3/8/8/8/8/8/3P4/4K3 w - - 0 1");
+        board.Apply(board.LegalMoves().First(m => m.From == Square.Parse("d2") && m.To == Square.Parse("d4")));
+        var bishopWithPawnPower = BoardPiece.Of(Side.Black, PieceKind.Bishop).With(MovePower.Pawn);
+        board.Set(Square.Parse("h7"), bishopWithPawnPower);
+        board.Set(Square.Parse("d7"), BoardPiece.Of(Side.White, PieceKind.Knight));
+
+        var move = board.LegalMoves().First(m => m.From == Square.Parse("h7") && m.To == Square.Parse("d3"));
+        var applied = board.Apply(move);
+
+        Assert.Null(applied.CapturedPiece);
+        Assert.NotNull(board.At(Square.Parse("d7")));
+        Assert.NotNull(board.At(Square.Parse("d4")));
+    }
 }

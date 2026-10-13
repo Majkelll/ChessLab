@@ -22,12 +22,12 @@ public sealed class MartianChessSession(Room room) : RoomSession<GameState>(room
         if (action.Kind != GameActionKind.Move)
             throw new InvalidOperationException($"{action.Kind} is not an action in Martian Chess.");
 
-        MakeMove(action.From!.Value, action.To!.Value, now);
+        MakeMove(action.From!.Value, action.To!.Value, action.PromoteTo, now);
     }
 
-    public ChessMove MakeMove(Square from, Square to, DateTimeOffset now)
+    public ChessMove MakeMove(Square from, Square to, PieceKind? promoteTo, DateTimeOffset now)
     {
-        var move = StartedGame.MakeMove(from, to, null, ElapsedSinceTurnStart(now));
+        var move = StartedGame.MakeMove(from, to, promoteTo, ElapsedSinceTurnStart(now));
         TurnStartedAt = now;
         return move;
     }

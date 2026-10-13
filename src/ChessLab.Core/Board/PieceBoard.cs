@@ -127,12 +127,13 @@ public sealed class PieceBoard
         var piece = At(move.From) ?? throw new InvalidOperationException($"No piece at {move.From}.");
         var isCastling = IsCastlingMove(piece, move);
         var captured = At(move.To);
+        var capturedPawnSquare = new Square(move.To.File, move.From.Rank);
         var isEnPassant = piece.Has(MovePower.Pawn) && captured is null &&
-            move.From.File != move.To.File && EnPassantTarget == move.To;
+            IsPawnCaptureStep(piece, move.From, move.To) && EnPassantTarget == move.To &&
+            IsEnPassantVictim(piece, capturedPawnSquare);
 
         if (isEnPassant)
         {
-            var capturedPawnSquare = new Square(move.To.File, move.From.Rank);
             captured = At(capturedPawnSquare);
             Set(capturedPawnSquare, null);
         }
@@ -153,7 +154,7 @@ public sealed class PieceBoard
 
         UpdateCastlingRights(move.From, move.To);
 
-        EnPassantTarget = piece.Has(MovePower.Pawn) && Math.Abs(move.To.Rank - move.From.Rank) == 2
+        EnPassantTarget = IsPawnDoubleStep(piece, move.From, move.To)
             ? new Square(move.From.File, (move.From.Rank + move.To.Rank) / 2)
             : null;
 
@@ -166,6 +167,20 @@ public sealed class PieceBoard
         var applied = move with { CapturedPiece = captured?.PrimaryKind };
         return annotate ? Annotate(applied, Opponent(piece.Side)) : applied;
     }
+
+    private static int PawnDirection(Side side) => side == Side.White ? 1 : -1;
+
+    private static int PawnHomeRank(Side side) => side == Side.White ? 1 : 6;
+
+    private static bool IsPawnDoubleStep(BoardPiece piece, Square from, Square to) =>
+        piece.Has(MovePower.Pawn) && from.File == to.File && from.Rank == PawnHomeRank(piece.Side) &&
+        to.Rank - from.Rank == 2 * PawnDirection(piece.Side);
+
+    private static bool IsPawnCaptureStep(BoardPiece piece, Square from, Square to) =>
+        Math.Abs(to.File - from.File) == 1 && to.Rank - from.Rank == PawnDirection(piece.Side);
+
+    private bool IsEnPassantVictim(BoardPiece capturer, Square square) =>
+        At(square) is { } victim && victim.Side != capturer.Side && victim.Has(MovePower.Pawn);
 
     private ChessMove Annotate(ChessMove move, Side opponent)
     {
@@ -263,8 +278,8 @@ public sealed class PieceBoard
     private void GeneratePawn(BoardPiece piece, Square from, List<ChessMove> moves,
         HashSet<(Square, Square, PieceKind?)> seen)
     {
-        var direction = piece.Side == Side.White ? 1 : -1;
-        var homeRank = piece.Side == Side.White ? 1 : 6;
+        var direction = PawnDirection(piece.Side);
+        var homeRank = PawnHomeRank(piece.Side);
 
         var oneAhead = Offset(from, 0, direction);
         if (oneAhead is { } ahead && At(ahead) is null)
@@ -283,7 +298,8 @@ public sealed class PieceBoard
             var occupant = At(target);
             if (occupant is { } victim && victim.Side != piece.Side)
                 AddMove(piece, from, target, victim, moves, seen);
-            else if (occupant is null && EnPassantTarget == target)
+            else if (occupant is null && EnPassantTarget == target &&
+                     IsEnPassantVictim(piece, new Square(target.File, from.Rank)))
                 AddMove(piece, from, target, At(new Square(target.File, from.Rank)), moves, seen);
         }
     }

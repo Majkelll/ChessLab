@@ -95,7 +95,7 @@ public static class FenBoard
     {
         var fields = fen.Split(' ');
         fields[0] = ToPlacement(grid);
-        fields[3] = "-"; // en passant target no longer applies after an out-of-band board edit
+        fields[3] = "-";
         fields[2] = RevokeCastlingRights(fields[2], touchedSquares);
         return string.Join(' ', fields);
     }
@@ -136,12 +136,12 @@ public static class FenBoard
 
     private static readonly Dictionary<Square, string> CastlingRightsBySquare = new()
     {
-        [new Square(4, 0)] = "KQ", // e1 — white king home
-        [new Square(0, 0)] = "Q",  // a1 — white queenside rook home
-        [new Square(7, 0)] = "K",  // h1 — white kingside rook home
-        [new Square(4, 7)] = "kq", // e8 — black king home
-        [new Square(0, 7)] = "q",  // a8 — black queenside rook home
-        [new Square(7, 7)] = "k",  // h8 — black kingside rook home
+        [new Square(4, 0)] = "KQ",
+        [new Square(0, 0)] = "Q",
+        [new Square(7, 0)] = "K",
+        [new Square(4, 7)] = "kq",
+        [new Square(0, 7)] = "q",
+        [new Square(7, 7)] = "k",
     };
 
     private static string RevokeCastlingRights(string castling, IReadOnlyList<Square> touchedSquares)

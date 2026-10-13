@@ -66,6 +66,7 @@ public sealed class Room
     public void ClaimSeat(SeatId seatId, Guid userId, string displayName)
     {
         EnsureNotLocked();
+        EnsureSeatExists(seatId);
 
         if (seats[seatId].Kind != OccupantKind.Empty)
             throw new InvalidOperationException("Seat is already taken.");
@@ -82,6 +83,7 @@ public sealed class Room
     public void LeaveSeat(SeatId seatId, Guid userId)
     {
         EnsureNotLocked();
+        EnsureSeatExists(seatId);
 
         if (seats[seatId].Kind == OccupantKind.Human && seats[seatId].UserId == userId)
             seats[seatId] = SeatOccupant.Empty;
@@ -90,6 +92,7 @@ public sealed class Room
     public void SetBot(SeatId seatId, BotDifficulty difficulty)
     {
         EnsureNotLocked();
+        EnsureSeatExists(seatId);
 
         if (seats[seatId].Kind == OccupantKind.Human)
             throw new InvalidOperationException("Seat is occupied by a human player.");
@@ -100,6 +103,7 @@ public sealed class Room
     public void ClearSeat(SeatId seatId)
     {
         EnsureNotLocked();
+        EnsureSeatExists(seatId);
         seats[seatId] = SeatOccupant.Empty;
     }
 
@@ -120,6 +124,12 @@ public sealed class Room
             throw new InvalidOperationException("All seats must be filled before the room can be locked.");
 
         IsLocked = true;
+    }
+
+    private void EnsureSeatExists(SeatId seatId)
+    {
+        if (!seats.ContainsKey(seatId))
+            throw new InvalidOperationException($"Seat {seatId} does not exist in this room.");
     }
 
     private void EnsureNotLocked()

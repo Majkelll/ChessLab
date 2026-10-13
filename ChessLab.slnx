@@ -9,5 +9,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/ChessLab.Core.Tests/ChessLab.Core.Tests.csproj" />
     <Project Path="tests/ChessLab.E2E.Tests/ChessLab.E2E.Tests.csproj" />
+    <Project Path="tests/ChessLab.Web.Tests/ChessLab.Web.Tests.csproj" />
   </Folder>
 </Solution>

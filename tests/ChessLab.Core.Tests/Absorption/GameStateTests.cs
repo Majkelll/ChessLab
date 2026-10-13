@@ -87,4 +87,68 @@ public class GameStateTests
 
         Assert.Throws<InvalidOperationException>(() => Play(game, "e1", "e2"));
     }
+
+    [Fact]
+    public void AvailableMoves_ForAPieceCarryingPawnMovement_OfferTheLastRankOnlyAsAPromotion()
+    {
+        var board = PieceBoard.FromFen("4k3/8/5N2/8/8/8/8/4K3 w - - 0 1");
+        board.AbsorbOnCapture = true;
+        board.Set(Square.Parse("f6"), BoardPiece.Of(Side.White, PieceKind.Knight).With(MovePower.Pawn));
+        var game = NewGame(board);
+
+        var toLastRank = game.AvailableMoves.Where(move => move.From == Square.Parse("f6") && move.To == Square.Parse("g8")).ToArray();
+
+        Assert.Equal(4, toLastRank.Length);
+        Assert.All(toLastRank, move => Assert.NotNull(move.PromoteTo));
+    }
+
+    [Fact]
+    public void MakeMove_PromotingAPawnThatAbsorbedAKnight_KeepsTheKnightMoves()
+    {
+        var board = PieceBoard.FromFen("7k/P7/8/8/8/8/8/4K3 w - - 0 1");
+        board.AbsorbOnCapture = true;
+        board.Set(Square.Parse("a7"), BoardPiece.Of(Side.White, PieceKind.Pawn).With(MovePower.Knight));
+        var game = NewGame(board);
+
+        Play(game, "a7", "a8", PieceKind.Queen);
+
+        Assert.Equal("a8:N", game.PowersText);
+        Assert.StartsWith("Q6k/", game.PositionText);
+    }
+
+    [Fact]
+    public void MakeMove_LeavingTheOpponentWithoutAMoveAndNotInCheck_IsAStalemate()
+    {
+        var game = NewGame(PieceBoard.FromFen("7k/8/5QK1/8/8/8/8/8 w - - 0 1"));
+
+        Play(game, "f6", "f7");
+
+        Assert.Equal(new GameEndResult(GameEndReason.Stalemate, null), game.EndResult);
+    }
+
+    [Fact]
+    public void MakeMove_AfterAHundredHalfMovesWithoutACaptureOrPawnMove_IsADraw()
+    {
+        var game = NewGame(PieceBoard.FromFen("4k3/8/8/8/8/8/8/R3K3 w - - 99 60"));
+
+        Play(game, "a1", "a2");
+
+        Assert.Equal(new GameEndResult(GameEndReason.FiftyMoveRule, null), game.EndResult);
+    }
+
+    [Fact]
+    public void MakeMove_ReachingTheSamePositionForTheThirdTime_IsADraw()
+    {
+        var game = NewGame();
+
+        for (var round = 0; round < 2; round++)
+        {
+            Play(game, "g1", "f3");
+            Play(game, "g8", "f6");
+            Play(game, "f3", "g1");
+            Play(game, "f6", "g8");
+        }
+
+        Assert.Equal(new GameEndResult(GameEndReason.Repetition, null), game.EndResult);
+    }
 }

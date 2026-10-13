@@ -108,6 +108,9 @@ public sealed class GameState : IGameEngineState
         chips[winner] -= paid;
         chips[Opponent(winner)] += paid;
 
+        if (board.SideToMove != winner)
+            board.ClearEnPassant();
+
         SideToMove = winner;
         board.SetSideToMove(winner);
         Phase = BiddingPhase.Moving;

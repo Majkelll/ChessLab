@@ -16,6 +16,8 @@ internal sealed class FakeChessRulesEngine : IChessRulesEngine
 
     public bool AlwaysHasLegalMove { get; set; }
 
+    public GameEndResult? EndResultAfterNextMove { get; set; }
+
     public bool IsInCheck(Side side) => InCheck;
 
     public IReadOnlyList<ChessMove> LegalMoves() => AllMoves;
@@ -28,6 +30,7 @@ internal sealed class FakeChessRulesEngine : IChessRulesEngine
     public void ApplyMove(ChessMove move)
     {
         AppliedMoves.Add(move);
+        EndResult ??= EndResultAfterNextMove;
         SideToMove = SideToMove == Side.White ? Side.Black : Side.White;
     }
 

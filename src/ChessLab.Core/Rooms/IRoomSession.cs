@@ -1,3 +1,4 @@
+using ChessLab.Core.Chess;
 using ChessLab.Core.Contracts;
 using ChessLab.Core.Games;
 
@@ -13,13 +14,15 @@ public interface IRoomSession
 
     IReadOnlyList<SeatId> ActiveSeats { get; }
 
+    IReadOnlyList<SeatId> SeatsAllowedToAct { get; }
+
     void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null);
 
     void Apply(GameAction action, SeatId seat, DateTimeOffset now);
 
     void DeclareTimeoutIfExpired(DateTimeOffset now);
 
-    GameStateEnvelopeDto ToStateDto();
+    GameStateEnvelopeDto ToStateDto(Side? viewer);
 
-    GameUpdateEnvelopeDto ToUpdateDto();
+    GameUpdateEnvelopeDto ToUpdateDto(Side? viewer);
 }

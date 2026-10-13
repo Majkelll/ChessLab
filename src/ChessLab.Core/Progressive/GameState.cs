@@ -91,13 +91,15 @@ public sealed class GameState : IGameEngineState
 
     private void EndSeries(Side mover)
     {
-        if (!IsGameOver)
-            Clock.ApplyIncrement(mover);
+        if (IsGameOver)
+            return;
+
+        Clock.ApplyIncrement(mover);
 
         SeriesNumber++;
         MovesPlayedInSeries = 0;
 
-        if (!IsGameOver && SeriesNumber > SeriesLimit)
+        if (SeriesNumber > SeriesLimit)
             forcedResult = new GameEndResult(GameEndReason.MoveLimit, null);
     }
 

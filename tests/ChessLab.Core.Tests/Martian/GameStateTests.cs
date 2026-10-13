@@ -1,6 +1,7 @@
 using ChessLab.Core.Chess;
 using ChessLab.Core.Games;
 using ChessLab.Core.Martian;
+using ChessLab.Core.Rooms;
 
 namespace ChessLab.Core.Tests.Martian;
 
@@ -124,4 +125,24 @@ public class GameStateTests
                 yield return new Square(file, rank);
         }
     }
+
+    [Fact]
+    public void Apply_AMoveActionNamingAPromotionPiece_Throws()
+    {
+        var white = new SeatId(Side.White, SeatRole.Player);
+        var black = new SeatId(Side.Black, SeatRole.Player);
+        var room = new Room("ABCDEF", Guid.NewGuid(), GameKind.MartianChess);
+        room.ClaimSeat(white, Guid.NewGuid(), "Ala");
+        room.ClaimSeat(black, Guid.NewGuid(), "Bob");
+        var session = new MartianChessSession(room);
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, DateTimeOffset.UtcNow);
+        var move = session.Game!.AvailableMoves[0];
+
+        Assert.Throws<InvalidOperationException>(() =>
+            session.Apply(GameAction.MovePiece(move.From, move.To, PieceKind.Queen), white, DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void PositionText_AtTheStart_ListsTheRanksTheSideToMoveAndTheScore() =>
+        Assert.Equal(".233/.123/.112/..../..../211./321./332. W 0-0", NewGame().PositionText);
 }

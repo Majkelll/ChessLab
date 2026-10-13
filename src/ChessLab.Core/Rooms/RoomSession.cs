@@ -19,6 +19,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
 
     public abstract IReadOnlyList<SeatId> ActiveSeats { get; }
 
+    public virtual IReadOnlyList<SeatId> SeatsAllowedToAct => ActiveSeats;
+
     public abstract void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null);
 
     public abstract void Apply(GameAction action, SeatId seat, DateTimeOffset now);
@@ -45,47 +47,60 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
 
     protected virtual DraftSectionDto? DraftSection => null;
 
+    protected virtual IReadOnlyList<ChessMove> AvailableMovesFor(Side? viewer) => AvailableMoves;
+
+    protected virtual CardChessSectionDto? CardChessSectionFor(Side? viewer) => CardChessSection;
+
+    protected virtual ArcaneChessSectionDto? ArcaneSectionFor(Side? viewer) => ArcaneSection;
+
+    protected virtual DraftSectionDto? DraftSectionFor(Side? viewer) => DraftSection;
+
+    protected virtual DateTimeOffset? TurnStartOf(Side side) => TurnStartedAt;
+
     public void DeclareTimeoutIfExpired(DateTimeOffset now)
     {
-        if (Game is not { IsGameOver: false } game || TurnStartedAt is not { } startedAt)
+        if (Game is not { IsGameOver: false } game)
             return;
 
-        var elapsedSinceTurnStart = now - startedAt;
         foreach (var side in game.SidesOnTheClock)
         {
-            if (elapsedSinceTurnStart >= game.Clock.Remaining(side))
-                game.Clock.Deduct(side, elapsedSinceTurnStart);
+            if (TurnStartOf(side) is not { } startedAt)
+                continue;
+
+            var elapsed = now - startedAt;
+            if (elapsed >= game.Clock.Remaining(side))
+                game.Clock.Deduct(side, elapsed);
         }
 
         game.DeclareTimeoutIfFlagged();
     }
 
-    public GameStateEnvelopeDto ToStateDto()
+    public GameStateEnvelopeDto ToStateDto(Side? viewer)
     {
         var game = StartedGame;
         return new GameStateEnvelopeDto(
             Room.Kind,
             game.SideToMove,
             game.PositionText,
-            AvailableMoves,
-            MoveHistory,
+            AvailableMovesFor(viewer),
+            [.. MoveHistory],
             (long)game.Clock.WhiteRemaining.TotalMilliseconds,
             (long)game.Clock.BlackRemaining.TotalMilliseconds,
             game.IsGameOver,
             game.EndResult?.Reason,
             game.EndResult?.Winner,
             HandBrainSection,
-            CardChessSection,
-            ArcaneSection,
+            CardChessSectionFor(viewer),
+            ArcaneSectionFor(viewer),
             BiddingSection,
             ProgressiveSection,
             AliceSection,
             AbsorptionSection,
             MartianSection,
-            DraftSection);
+            DraftSectionFor(viewer));
     }
 
-    public GameUpdateEnvelopeDto ToUpdateDto()
+    public GameUpdateEnvelopeDto ToUpdateDto(Side? viewer)
     {
         var game = StartedGame;
         var history = MoveHistory;
@@ -93,7 +108,7 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
             Room.Kind,
             game.SideToMove,
             game.PositionText,
-            AvailableMoves,
+            AvailableMovesFor(viewer),
             history.Count > 0 ? history[^1] : null,
             history.Count,
             (long)game.Clock.WhiteRemaining.TotalMilliseconds,
@@ -102,14 +117,14 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
             game.EndResult?.Reason,
             game.EndResult?.Winner,
             HandBrainSection,
-            CardChessSection,
-            ArcaneSection,
+            CardChessSectionFor(viewer),
+            ArcaneSectionFor(viewer),
             BiddingSection,
             ProgressiveSection,
             AliceSection,
             AbsorptionSection,
             MartianSection,
-            DraftSection);
+            DraftSectionFor(viewer));
     }
 
     protected TGame StartedGame => Game ?? throw new InvalidOperationException("Game has not started.");

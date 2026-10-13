@@ -21,7 +21,7 @@ public sealed class ArcaneChessSession(Room room, Func<IChessRulesEngine> engine
         var rng = random ?? Random.Shared;
         var inner = new CardChess.GameState(engineFactory(), new Clock(initial, increment),
             CardChess.Deck.Shuffled(rng), CardChess.Deck.Shuffled(rng));
-        Game = new GameState(inner, SpellDeck.Shuffled(rng), SpellDeck.Shuffled(rng));
+        Game = new GameState(inner, SpellDeck.Shuffled(rng), SpellDeck.Shuffled(rng), rng);
         TurnStartedAt = now;
     }
 
@@ -33,7 +33,7 @@ public sealed class ArcaneChessSession(Room room, Func<IChessRulesEngine> engine
                 MakeMove(action.From!.Value, action.To!.Value, action.PromoteTo, now);
                 break;
             case GameActionKind.SelectReroll:
-                SelectCardsForReroll(action.Cards!);
+                SelectCardsForReroll(action.Cards ?? throw new InvalidOperationException("A reroll selection needs a list of cards."));
                 break;
             case GameActionKind.CastSpell:
                 CastSpell(action.Spell!.Value, action.Target!.Value);
@@ -59,36 +59,42 @@ public sealed class ArcaneChessSession(Room room, Func<IChessRulesEngine> engine
 
     protected override IReadOnlyList<ChessMove> MoveHistory => StartedGame.MoveHistory;
 
-    protected override CardChessSectionDto CardChessSection
+    protected override IReadOnlyList<ChessMove> AvailableMovesFor(Side? viewer) =>
+        StartedGame.IsGameOver || viewer == StartedGame.SideToMove ? AvailableMoves : [];
+
+    protected override CardChessSectionDto CardChessSectionFor(Side? viewer)
     {
-        get
-        {
-            var game = StartedGame;
-            return new CardChessSectionDto(
-                game.HandOf(Side.White),
-                game.HandOf(Side.Black),
-                game.PendingRerollOf(Side.White),
-                game.PendingRerollOf(Side.Black),
-                game.EmergencyMoveAvailable,
-                game.HandHasNoPlayableCard,
-                game.HpOf(Side.White),
-                game.HpOf(Side.Black));
-        }
+        var game = StartedGame;
+        return new CardChessSectionDto(
+            RankHandShownTo(viewer, Side.White),
+            RankHandShownTo(viewer, Side.Black),
+            SeesRankHandOf(viewer, Side.White) ? [.. game.PendingRerollOf(Side.White)] : [],
+            SeesRankHandOf(viewer, Side.Black) ? [.. game.PendingRerollOf(Side.Black)] : [],
+            game.EmergencyMoveAvailable,
+            game.HandHasNoPlayableCard,
+            game.HpOf(Side.White),
+            game.HpOf(Side.Black));
     }
 
-    protected override ArcaneChessSectionDto ArcaneSection
+    protected override ArcaneChessSectionDto ArcaneSectionFor(Side? viewer)
     {
-        get
-        {
-            var game = StartedGame;
-            return new ArcaneChessSectionDto(
-                game.SpellHandOf(Side.White),
-                game.SpellHandOf(Side.Black),
-                game.ManaOf(Side.White),
-                game.ManaOf(Side.Black),
-                game.IsOpponentHandRevealedTo(Side.White),
-                game.IsOpponentHandRevealedTo(Side.Black),
-                game.ActiveEffects);
-        }
+        var game = StartedGame;
+        return new ArcaneChessSectionDto(
+            SeesSpellHandOf(viewer, Side.White) ? [.. game.SpellHandOf(Side.White)] : [],
+            SeesSpellHandOf(viewer, Side.Black) ? [.. game.SpellHandOf(Side.Black)] : [],
+            game.ManaOf(Side.White),
+            game.ManaOf(Side.Black),
+            game.IsOpponentHandRevealedTo(Side.White),
+            game.IsOpponentHandRevealedTo(Side.Black),
+            [.. game.ActiveEffects],
+            game.HasCastSpellThisTurn(game.SideToMove));
     }
+
+    private IReadOnlyList<CardChess.CardRank> RankHandShownTo(Side? viewer, Side owner) =>
+        SeesRankHandOf(viewer, owner) ? [.. StartedGame.HandOf(owner)] : [];
+
+    private bool SeesSpellHandOf(Side? viewer, Side owner) => StartedGame.IsGameOver || viewer == owner;
+
+    private bool SeesRankHandOf(Side? viewer, Side owner) =>
+        SeesSpellHandOf(viewer, owner) || (viewer is { } side && StartedGame.IsOpponentHandRevealedTo(side));
 }

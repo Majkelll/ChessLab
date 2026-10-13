@@ -161,7 +161,7 @@ public class GameStateTests
     }
 
     [Fact]
-    public void Pick_BeyondTheBudget_Throws()
+    public void Pick_UntilNothingIsAffordable_NeverOverspendsTheBudget()
     {
         var game = NewGame();
         DraftUntilDone(game, (_, _) => PieceKind.Queen);
@@ -301,5 +301,40 @@ public class GameStateTests
             else
                 game.Pass(side);
         }
+    }
+
+    [Fact]
+    public void Place_WhenTheLayoutLeavesWhiteCheckmated_EndsTheGameAtOnce()
+    {
+        var game = NewGame();
+        game.Pass(Side.White);
+        game.Pick(Side.Black, PieceKind.Queen);
+        game.Pick(Side.Black, PieceKind.Rook);
+        game.Pass(Side.Black);
+
+        game.Place(Side.White, PieceKind.King, Square.Parse("a1"));
+        game.Place(Side.Black, PieceKind.King, Square.Parse("e8"));
+        game.Place(Side.Black, PieceKind.Rook, Square.Parse("a8"));
+        game.Place(Side.Black, PieceKind.Queen, Square.Parse("b8"));
+
+        Assert.True(game.IsGameOver);
+        Assert.Equal(new GameEndResult(GameEndReason.Checkmate, Side.Black), game.EndResult);
+    }
+
+    [Fact]
+    public void Place_WhenOnlyBlacksKingStartsAttacked_LetsBlackMoveFirst()
+    {
+        var game = NewGame();
+        game.Pick(Side.White, PieceKind.Rook);
+        game.Pass(Side.Black);
+        game.Pass(Side.White);
+
+        game.Place(Side.White, PieceKind.King, Square.Parse("a1"));
+        game.Place(Side.White, PieceKind.Rook, Square.Parse("e1"));
+        game.Place(Side.Black, PieceKind.King, Square.Parse("e8"));
+
+        Assert.Equal(DraftPhase.Playing, game.Phase);
+        Assert.Equal(Side.Black, game.SideToMove);
+        Assert.False(game.IsGameOver);
     }
 }

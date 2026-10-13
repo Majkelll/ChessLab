@@ -29,7 +29,8 @@ public sealed record ArcaneChessSectionDto(
     int BlackMana,
     bool WhiteSeesBlackHand,
     bool BlackSeesWhiteHand,
-    IReadOnlyList<ArcaneEffect> ActiveEffects);
+    IReadOnlyList<ArcaneEffect> ActiveEffects,
+    bool SideToMoveHasCast);
 
 public sealed record BiddingSectionDto(
     BiddingPhase Phase,

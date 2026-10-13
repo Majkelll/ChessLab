@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authentication.OAuth.Claims;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 var app = Program.CreateApp(args);
@@ -33,7 +34,6 @@ public partial class Program
         configureForTests?.Invoke(builder);
 
         builder.Services.AddRazorComponents()
-            .AddInteractiveServerComponents()
             .AddInteractiveWebAssemblyComponents()
             .AddAuthenticationStateSerialization(options => options.SerializeAllClaims = true);
 
@@ -57,13 +57,23 @@ public partial class Program
 
         builder.Services.AddDataProtection().PersistKeysToDbContext<ChessLabDbContext>();
 
-        builder.Services.AddSignalR().AddMessagePackProtocol();
+        builder.Services.AddSignalR(options =>
+            {
+                options.AddFilter<HubRateLimitFilter>();
+                options.AddFilter<HubErrorFilter>();
+            })
+            .AddMessagePackProtocol();
         builder.Services.AddSingleton<RoomRegistry>();
-        builder.Services.AddSingleton<BotRunner>();
+        builder.Services.AddSingleton<RoomConnections>();
+        builder.Services.AddSingleton<GameBroadcaster>();
         builder.Services.AddSingleton<GameArchive>();
+        builder.Services.AddSingleton<BotRunner>();
         builder.Services.AddHostedService<ClockWatchdog>();
         builder.Services.AddScoped<ChessLab.Web.Client.Services.GameClient>();
         builder.Services.AddScoped<ChessLab.Web.Client.Services.CurrentGameContext>();
+
+        var googleClientId = RequiredSetting(builder.Configuration, "Authentication:Google:ClientId");
+        var googleClientSecret = RequiredSetting(builder.Configuration, "Authentication:Google:ClientSecret");
 
         builder.Services.AddAuthorization();
         builder.Services.AddAuthentication(options =>
@@ -78,10 +88,8 @@ public partial class Program
             })
             .AddGoogle(options =>
             {
-                options.ClientId = builder.Configuration["Authentication:Google:ClientId"]
-                    ?? throw new InvalidOperationException("Missing configuration: Authentication:Google:ClientId");
-                options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]
-                    ?? throw new InvalidOperationException("Missing configuration: Authentication:Google:ClientSecret");
+                options.ClientId = googleClientId;
+                options.ClientSecret = googleClientSecret;
                 options.CallbackPath = "/signin-google";
                 options.ClaimActions.MapJsonKey("urn:google:picture", "picture");
 
@@ -114,12 +122,13 @@ public partial class Program
                 db.Database.Migrate();
         }
 
-        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        var forwardedHeaders = new ForwardedHeadersOptions
         {
             ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
-            KnownIPNetworks = { },
-            KnownProxies = { },
-        });
+        };
+        forwardedHeaders.KnownIPNetworks.Clear();
+        forwardedHeaders.KnownProxies.Clear();
+        app.UseForwardedHeaders(forwardedHeaders);
 
         if (app.Environment.IsDevelopment())
         {
@@ -141,7 +150,6 @@ public partial class Program
 
         app.MapStaticAssets();
         app.MapRazorComponents<App>()
-            .AddInteractiveServerRenderMode()
             .AddInteractiveWebAssemblyRenderMode()
             .AddAdditionalAssemblies(typeof(ChessLab.Web.Client._Imports).Assembly);
 
@@ -149,16 +157,16 @@ public partial class Program
 
         app.MapGet("/Account/Login", (string? returnUrl) =>
             Results.Challenge(
-                new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = returnUrl ?? "/" },
+                new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = LocalUrlOrHome(returnUrl) },
                 [GoogleDefaults.AuthenticationScheme]));
 
         app.MapPost("/Account/Logout", async (HttpContext http, string? returnUrl) =>
         {
             await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return Results.LocalRedirect(returnUrl ?? "/");
+            return Results.LocalRedirect(LocalUrlOrHome(returnUrl));
         });
 
-        if (app.Configuration.GetValue<bool>("E2E_TEST_AUTH"))
+        if (app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("E2E_TEST_AUTH"))
         {
             app.MapGet("/TestAuth/Login", async (HttpContext http, string userId, string name) =>
             {
@@ -176,4 +184,18 @@ public partial class Program
 
         return app;
     }
+
+    private static string RequiredSetting(IConfiguration configuration, string key)
+    {
+        var value = configuration[key];
+        return string.IsNullOrWhiteSpace(value)
+            ? throw new InvalidOperationException($"Missing configuration: {key}")
+            : value;
+    }
+
+    private static string LocalUrlOrHome(string? returnUrl) =>
+        returnUrl is ['/', ..] && !returnUrl.StartsWith("//", StringComparison.Ordinal) &&
+        !returnUrl.StartsWith("/\\", StringComparison.Ordinal)
+            ? returnUrl
+            : "/";
 }

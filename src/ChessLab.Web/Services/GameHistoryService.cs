@@ -19,11 +19,14 @@ public sealed class GameHistoryService(ChessLabDbContext db)
         return records.Select(ToEntry).ToArray();
     }
 
+    public Task<bool> HasRecordForRoomCodeAsync(string roomCode) =>
+        db.GameRecords.AnyAsync(g => g.RoomCode == roomCode);
+
     public Task<GameHistoryDetailDto?> ByIdAsync(Guid id) =>
         DetailAsync(g => g.Id == id);
 
-    public Task<GameHistoryDetailDto?> ByRoomCodeAsync(string roomCode) =>
-        DetailAsync(g => g.RoomCode == roomCode);
+    public Task<GameHistoryDetailDto?> ByRoomCodeAsync(string roomCode, Guid playerUserId) =>
+        DetailAsync(g => g.RoomCode == roomCode && g.Players.Any(p => p.UserId == playerUserId));
 
     private async Task<GameHistoryDetailDto?> DetailAsync(
         System.Linq.Expressions.Expression<Func<GameRecord, bool>> predicate)

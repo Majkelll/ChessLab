@@ -280,13 +280,17 @@ public sealed class GameState : IGameEngineState
             Clock.Add(side, TimeBonusOf(side));
 
         board = built;
-        board.SetSideToMove(Side.White);
+        board.SetSideToMove(SideMovingFirst(built));
         Phase = DraftPhase.Playing;
 
         availableMoves = null;
 
         CountPosition();
+        DecideOutcome();
     }
+
+    private static Side SideMovingFirst(PieceBoard built) =>
+        built.IsRoyalAttacked(Side.Black) && !built.IsRoyalAttacked(Side.White) ? Side.Black : Side.White;
 
     public ChessMove MakeMove(Square from, Square to, PieceKind? promoteTo, TimeSpan elapsed)
     {

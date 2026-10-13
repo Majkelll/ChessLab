@@ -25,8 +25,6 @@ public sealed class Deck
     public int DrawPileCount => drawPile.Count;
     public int DiscardPileCount => discardPile.Count;
 
-    public void Discard(CardRank card) => discardPile.Add(card);
-
     public CardRank Draw()
     {
         if (drawPile.Count == 0)
@@ -45,17 +43,19 @@ public sealed class Deck
         return card;
     }
 
-    public CardRank Draw(Func<CardRank, bool> isPlayable)
+    public CardRank Draw(params Func<CardRank, bool>[] preferences)
     {
-        CardRank card;
-        var attempts = 0;
-        do
+        foreach (var isWanted in preferences)
         {
-            card = Draw();
-            attempts++;
-        } while (!isPlayable(card) && attempts < AllRanks.Count);
+            for (var attempt = 0; attempt < AllRanks.Count; attempt++)
+            {
+                var card = Draw();
+                if (isWanted(card))
+                    return card;
+            }
+        }
 
-        return card;
+        return Draw();
     }
 
     private static void Shuffle(List<CardRank> list, Random rng)

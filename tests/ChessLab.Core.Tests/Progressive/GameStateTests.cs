@@ -96,4 +96,16 @@ public class GameStateTests
 
         Assert.Throws<InvalidOperationException>(() => Play(game, "d2", "d4"));
     }
+
+    [Fact]
+    public void SeriesNumber_AfterAMoveThatEndsTheGame_StaysWhereItWas()
+    {
+        var game = NewGame("8/8/8/8/8/6k1/5q2/7K b - - 0 1");
+        var seriesBefore = game.SeriesNumber;
+
+        Play(game, "f2", "g2");
+
+        Assert.True(game.IsGameOver);
+        Assert.Equal(seriesBefore, game.SeriesNumber);
+    }
 }

@@ -118,4 +118,26 @@ public class GameStateTests
 
         Assert.Throws<InvalidOperationException>(() => Play(game, "e2", "e5"));
     }
+
+    [Fact]
+    public void AvailableMoves_ExcludeAKingStepOntoASquareAttackedOnTheBoardItIsPlayedOn()
+    {
+        var game = NewGame(PieceBoard.FromFen("3r3k/8/8/8/8/8/8/4K3 w - - 0 1"), PieceBoard.Empty());
+
+        Assert.DoesNotContain(game.AvailableMoves, move =>
+            move.From == Square.Parse("e1") && move.To == Square.Parse("d1"));
+        Assert.Contains(game.AvailableMoves, move =>
+            move.From == Square.Parse("e1") && move.To == Square.Parse("f1"));
+    }
+
+    [Fact]
+    public void MakeMove_PromotingAPawn_SendsThePromotedPieceToTheOtherBoard()
+    {
+        var game = NewGame(PieceBoard.FromFen("7k/P7/8/8/8/8/8/4K3 w - - 0 1"), PieceBoard.Empty());
+
+        Play(game, "a7", "a8", PieceKind.Queen);
+
+        Assert.Equal(1, game.BoardOf(Square.Parse("a8")));
+        Assert.StartsWith("Q7/", game.FenOf(1));
+    }
 }

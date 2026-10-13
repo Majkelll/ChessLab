@@ -28,7 +28,7 @@ public class GameStateTests
             Fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             InCheck = initialInCheck,
             AllMoves = [.. initialMoves ?? [Dummy]],
-            AlwaysHasLegalMove = true, // deterministic hand-dealing; AvailableMoves still comes from MovesByKind/AllMoves
+            AlwaysHasLegalMove = true,
         };
         var inner = new CardChessGameState(engine, new Clock(TimeSpan.FromMinutes(10), TimeSpan.Zero),
             new Deck(Deck.AllRanks), new Deck(Deck.AllRanks));
@@ -82,7 +82,8 @@ public class GameStateTests
     {
         var (state, _, _) = NewFakeGame(whiteSpells: SpellOrder(SpellRank.Shield, SpellRank.FreezeSquare, SpellRank.Peek));
 
-        Assert.Throws<InvalidOperationException>(() => state.CastSpell(SpellRank.Mend, default));
+        var rejection = Assert.Throws<InvalidOperationException>(() => state.CastSpell(SpellRank.Jam, default));
+        Assert.Contains("is not in hand", rejection.Message);
     }
 
     [Fact]
@@ -385,7 +386,7 @@ public class GameStateTests
         var (state, engine, _) = NewFakeGame(whiteSpells: SpellOrder(SpellRank.Teleport));
         engine.Fen = "8/8/8/8/8/8/8/R3K2R w KQ - 0 1";
         AdvanceMana(state, engine, Side.White, 2);
-        engine.InCheck = true; // simulates the post-edit position leaving White's own king in check
+        engine.InCheck = true;
         var fenBefore = state.ToFen();
 
         Assert.Throws<InvalidOperationException>(() =>
@@ -466,5 +467,31 @@ public class GameStateTests
 
         PlayThenOffer(state, engine, Dummy, [Dummy]);
         Assert.Equal(Side.Black, state.SideToMove);
+    }
+
+    [Fact]
+    public void ExtraTurn_WhenTheMoveEndsTheGame_GrantsNoBonusTurn()
+    {
+        var (state, engine, _) = NewFakeGame(whiteSpells: SpellOrder(SpellRank.ExtraTurn));
+        AdvanceMana(state, engine, Side.White, 3);
+        state.CastSpell(SpellRank.ExtraTurn, default);
+        engine.EndResultAfterNextMove = new GameEndResult(GameEndReason.Checkmate, Side.White);
+
+        PlayThenOffer(state, engine, Dummy, [Dummy]);
+
+        Assert.True(state.IsGameOver);
+        Assert.Equal(Side.Black, engine.SideToMove);
+    }
+
+    [Fact]
+    public void Mana_GainedAtTheStartOfATurn_StopsAtThree()
+    {
+        var (state, engine, _) = NewFakeGame();
+
+        for (var turn = 0; turn < 12; turn++)
+            PlayThenOffer(state, engine, Dummy, [Dummy]);
+
+        Assert.Equal(3, state.ManaOf(Side.White));
+        Assert.Equal(3, state.ManaOf(Side.Black));
     }
 }

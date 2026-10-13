@@ -64,4 +64,24 @@ public class DeckTests
 
         Assert.Equal(Deck.AllRanks.OrderBy(r => r), drawn.OrderBy(r => r));
     }
+
+    [Fact]
+    public void Draw_WhenNoCardMeetsTheFirstPreference_FallsBackToTheNextOne()
+    {
+        var deck = new Deck(Deck.AllRanks);
+
+        var card = deck.Draw(_ => false, candidate => candidate == CardRank.Ace);
+
+        Assert.Equal(CardRank.Ace, card);
+    }
+
+    [Fact]
+    public void Draw_WhenNoPreferenceCanBeMet_StillReturnsACard()
+    {
+        var deck = new Deck(Deck.AllRanks);
+
+        var card = deck.Draw(_ => false);
+
+        Assert.Contains(card, Deck.AllRanks);
+    }
 }
