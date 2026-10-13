@@ -19,6 +19,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Restore
+        run: mise exec dotnet@10.0.400 -- dotnet restore ChessLab.slnx
+
+      - name: Build
+        run: mise exec dotnet@10.0.400 -- dotnet build ChessLab.slnx --no-restore -c Release
+
+      - name: Test
+        run: mise exec dotnet@10.0.400 -- dotnet test tests/ChessLab.Core.Tests/ChessLab.Core.Tests.csproj --no-build -c Release
+
+      - name: Test the web host
+        run: mise exec dotnet@10.0.400 -- dotnet test tests/ChessLab.Web.Tests/ChessLab.Web.Tests.csproj --no-build -c Release
+
       - name: Compute lowercase image name
         id: image
         run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
@@ -29,11 +41,6 @@ jobs:
         id: version
         run: echo "value=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      # driver: docker (not the default docker-container driver) builds directly against this
-      # self-hosted runner's own Docker daemon, so its image-layer cache persists on local disk
-      # between runs automatically — no cache-from/cache-to needed. type=gha caching was removed
-      # because it round-trips every layer through GitHub's cache API over the network, which on
-      # this runner cost ~18 of the ~22 minute build (one layer alone took ~13 minutes to upload).
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
@@ -46,10 +53,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # No docker/metadata-action labels step here on purpose: its default OCI labels
-      # (org.opencontainers.image.source/revision/created/url) bake the repo URL, commit sha, and
-      # build timestamp into the public image config. This package is public (ghcr.io/majkelll/chesslab)
-      # while the source repo stays private, so we don't attach labels that would leak either.
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
@@ -60,16 +63,9 @@ jobs:
             ${{ steps.image.outputs.name }}:${{ steps.version.outputs.value }}
           build-args: |
             APP_VERSION=${{ steps.version.outputs.value }}
-          # Buildx provenance/SBOM attestations also embed the git repo URL and commit — same
-          # leak concern as the labels above, so both are switched off.
           provenance: false
           sbom: false
 
-      # Render doesn't auto-redeploy an image-runtime service just because a new image with the
-      # same tag was pushed to the registry — it has to be told explicitly. `render deploys create`
-      # only resolves by service ID, not name. The runner's `render` CLI is already authenticated
-      # (interactive `render login` done once on this machine), so no Render token/secret needs to
-      # live in GitHub for this.
       - name: Deploy to Render
         run: >
           $HOME/.local/bin/render deploys create srv-d9unvhvavr4c73b264j0
