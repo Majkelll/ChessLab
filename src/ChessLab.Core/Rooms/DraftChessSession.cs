@@ -26,6 +26,14 @@ public sealed class DraftChessSession(Room room) : RoomSession<GameState>(room)
     protected override DateTimeOffset? TurnStartOf(Side side) =>
         Game is { Phase: DraftPhase.Placing } && placingSince.TryGetValue(side, out var since) ? since : TurnStartedAt;
 
+    protected override void ShiftTurnTimers(TimeSpan by)
+    {
+        base.ShiftTurnTimers(by);
+
+        foreach (var side in placingSince.Keys.ToArray())
+            placingSince[side] += by;
+    }
+
     public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
     {
         EnsureNotStarted();
@@ -34,7 +42,7 @@ public sealed class DraftChessSession(Room room) : RoomSession<GameState>(room)
         TurnStartedAt = now;
     }
 
-    public override void Apply(GameAction action, SeatId seat, DateTimeOffset now)
+    protected override void ApplyAction(GameAction action, SeatId seat, DateTimeOffset now)
     {
         var game = StartedGame;
         var phaseBefore = game.Phase;

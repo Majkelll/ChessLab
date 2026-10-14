@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 var app = Program.CreateApp(args);
 app.Run();
@@ -53,7 +54,8 @@ public partial class Program
         builder.Services.AddScoped<GameHistoryService>();
 
         builder.Services.AddHealthChecks()
-            .AddCheck<DatabaseHealthCheck>("database");
+            .AddCheck<DatabaseHealthCheck>("database")
+            .AddCheck<BotServiceHealthCheck>("bots");
 
         builder.Services.AddDataProtection().PersistKeysToDbContext<ChessLabDbContext>();
 
@@ -67,6 +69,13 @@ public partial class Program
         builder.Services.AddSingleton<RoomConnections>();
         builder.Services.AddSingleton<GameBroadcaster>();
         builder.Services.AddSingleton<GameArchive>();
+        builder.Services.TryAddSingleton(TimeProvider.System);
+        var botServiceSettings = BotServiceSettings.From(builder.Configuration);
+        builder.Services.AddSingleton(botServiceSettings);
+        builder.Services.AddHttpClient<BotServiceClient>(http => http.Timeout = BotServiceSettings.RequestLimit)
+            .ConfigurePrimaryHttpMessageHandler(botServiceSettings.CreateHandler);
+        builder.Services.AddSingleton<BotAvailability>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<BotAvailability>());
         builder.Services.AddSingleton<BotRunner>();
         builder.Services.AddHostedService<ClockWatchdog>();
         builder.Services.AddScoped<ChessLab.Web.Client.Services.GameClient>();

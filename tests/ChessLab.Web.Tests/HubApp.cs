@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using ChessLab.Web.Services;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +20,16 @@ public class HubApp : IAsyncLifetime
 
     protected virtual int InitialClockSeconds => 600;
 
+    protected virtual bool HasBotService => true;
+
+    public FakeBotService Bots { get; private set; } = null!;
+
+    public ShiftableTimeProvider Time { get; } = new();
+
+    public BotAvailability BotAvailability => Services.GetRequiredService<BotAvailability>();
+
+    public RoomRegistry Rooms => Services.GetRequiredService<RoomRegistry>();
+
     public string BaseUrl { get; private set; } = "";
 
     public IServiceProvider Services => app!.Services;
@@ -26,6 +37,7 @@ public class HubApp : IAsyncLifetime
     public async Task InitializeAsync()
     {
         dbPath = Path.Combine(Path.GetTempPath(), $"chesslab-web-tests-{Guid.NewGuid():N}.db");
+        Bots = await FakeBotService.StartAsync();
 
         app = Program.CreateApp([], environment: "Development", configureForTests: builder =>
         {
@@ -37,10 +49,14 @@ public class HubApp : IAsyncLifetime
                 ["Authentication:Google:ClientId"] = "web-tests.apps.googleusercontent.com",
                 ["Authentication:Google:ClientSecret"] = "web-tests-secret",
                 ["Game:InitialClockSeconds"] = InitialClockSeconds.ToString(),
+                ["Bots:ServiceUrl"] = HasBotService ? Bots.BaseUrl : "",
+                ["Bots:ServiceKey"] = FakeBotService.Key,
             });
+            builder.Services.AddSingleton<TimeProvider>(Time);
         });
 
         await app.StartAsync();
+        await BotAvailability.ProbeAsync();
 
         var addresses = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!;
         BaseUrl = addresses.Addresses.First().TrimEnd('/');
@@ -53,6 +69,8 @@ public class HubApp : IAsyncLifetime
             await app.StopAsync();
             await app.DisposeAsync();
         }
+
+        await Bots.DisposeAsync();
 
         foreach (var suffix in new[] { "", "-shm", "-wal" })
             File.Delete(dbPath + suffix);
@@ -91,16 +109,28 @@ public sealed class ShortClockHubApp : HubApp
     protected override int InitialClockSeconds => 1;
 }
 
+public sealed class BotHubApp : HubApp;
+
+public sealed class PauseClockHubApp : HubApp;
+
+public sealed class NoBotServiceHubApp : HubApp
+{
+    protected override bool HasBotService => false;
+}
+
 public sealed class Player(Guid userId, HubConnection connection) : IAsyncDisposable
 {
     public Guid UserId { get; } = userId;
 
     public HubConnection Connection { get; } = connection;
 
-    public Task<GameUpdateEnvelopeDto> NextAsync(string eventName, Func<GameUpdateEnvelopeDto, bool>? wanted = null)
+    public Task<GameUpdateEnvelopeDto> NextAsync(string eventName, Func<GameUpdateEnvelopeDto, bool>? wanted = null) =>
+        NextAsync<GameUpdateEnvelopeDto>(eventName, wanted);
+
+    public Task<T> NextAsync<T>(string eventName, Func<T, bool>? wanted = null)
     {
-        var received = new TaskCompletionSource<GameUpdateEnvelopeDto>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Connection.On<GameUpdateEnvelopeDto>(eventName, update =>
+        var received = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Connection.On<T>(eventName, update =>
         {
             if (wanted is null || wanted(update))
                 received.TrySetResult(update);

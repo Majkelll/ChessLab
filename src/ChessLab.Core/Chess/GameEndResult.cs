@@ -18,6 +18,8 @@ public enum GameEndReason
     BoardHalfEmptied,
 
     MoveLimit,
+
+    BotUnavailable,
 }
 
 public readonly record struct GameEndResult(GameEndReason Reason, Side? Winner);

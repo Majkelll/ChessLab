@@ -51,6 +51,9 @@ public sealed class RoomRegistry
     public IEnumerable<IRoomSession> ActiveSessions() =>
         entries.Values.Select(entry => entry.Session).Where(session => session.HasActiveGame);
 
+    public IReadOnlyList<IRoomSession> UnlockedSessions() =>
+        [.. entries.Values.Select(entry => entry.Session).Where(session => !session.Room.IsLocked)];
+
     public IReadOnlyList<IRoomSession> FinishedSessions() =>
         [.. entries.Values.Select(entry => entry.Session).Where(session => session.Game is { IsGameOver: true })];
 

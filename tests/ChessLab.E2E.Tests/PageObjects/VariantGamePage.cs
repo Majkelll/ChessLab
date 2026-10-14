@@ -17,6 +17,9 @@ public sealed class VariantGamePage(IPage page)
     public ILocator ResignButton => Page.GetByTestId("resign-btn");
     public ILocator BackToRoomLink => Page.GetByTestId("back-to-room-link");
     public ILocator ErrorMessage => Page.GetByTestId("game-error");
+    public ILocator GameOverExplanation => Page.GetByTestId("game-over-explanation");
+    public ILocator PausedBanner => Page.GetByTestId("paused-banner");
+    public ILocator PausedCountdown => Page.GetByTestId("paused-countdown");
 
     public ILocator ChessBoardRoot => Page.GetByTestId("chess-board");
     public ILocator BoardA => Page.GetByTestId("alice-board-a");

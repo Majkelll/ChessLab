@@ -12,4 +12,5 @@ public sealed record RoomStateDto(
     bool HasStarted,
     bool IsLocked,
     int InitialClockSeconds,
-    int ClockIncrementSeconds);
+    int ClockIncrementSeconds,
+    bool BotsAvailable);

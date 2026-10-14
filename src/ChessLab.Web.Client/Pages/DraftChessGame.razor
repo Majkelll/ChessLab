@@ -43,7 +43,7 @@
                 </p>
                 @foreach (var entry in draft.Pool)
                 {
-                    var affordable = mine is { } side && draft.SideToPick == side && entry.Remaining > 0 &&
+                    var affordable = mine is { } side && !view.IsPaused && draft.SideToPick == side && entry.Remaining > 0 &&
                         entry.Cost <= BudgetOf(draft, side);
                     <button data-testid="@($"draft-pick-{entry.Kind}")"
                             disabled="@(!affordable)"
@@ -55,7 +55,7 @@
                     </button>
                 }
                 <button data-testid="draft-pass-btn"
-                        disabled="@(mine is null || draft.SideToPick != mine)"
+                        disabled="@(mine is null || view.IsPaused || draft.SideToPick != mine)"
                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
                         @onclick="() => view.Perform(GameAction.DraftPass())"
                         class="border border-rust/40 bg-rust/5 px-2 py-1 text-rust disabled:opacity-40 hover:bg-rust/20 hover:cursor-pointer">
@@ -116,7 +116,7 @@
     private async Task OnSquareSelectedAsync(GameView view, Square square)
     {
         var draft = view.State.Draft!;
-        if (draft.Phase != DraftPhase.Placing || view.MySeat is not { } seat)
+        if (draft.Phase != DraftPhase.Placing || view.IsPaused || view.MySeat is not { } seat)
             return;
 
         if (PlacementsOf(draft, seat.Side).Any(placement => placement.Square == square))

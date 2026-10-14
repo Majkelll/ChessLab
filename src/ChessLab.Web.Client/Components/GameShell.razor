@@ -65,6 +65,8 @@ else
                 </div>
             }
 
+            <PausedBanner Deadline="@state.PauseDeadline" />
+
             @if (state.IsGameOver)
             {
                 <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
@@ -74,6 +76,7 @@ else
                         <text> — <span data-testid="game-over-winner">@SideLabel(winner)</span> wins</text>
                     }
                 </p>
+                <GameEndExplanation Reason="@state.EndReason" />
                 <button data-testid="back-to-room-link"
                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
                         @onclick="BackToRoom"
@@ -213,7 +216,7 @@ else
 
     private long RemainingMsOf(Side side) => side == Side.White ? state!.WhiteRemainingMs : state!.BlackRemainingMs;
 
-    private bool IsClockActive(Side side) => state is { IsGameOver: false } && state.SideToMove == side;
+    private bool IsClockActive(Side side) => state is { IsGameOver: false, PauseDeadline: null } && state.SideToMove == side;
 
     private static string SideLabel(Side side) => side == Side.White ? "white" : "black";
 
@@ -236,6 +239,7 @@ else
         GameEndReason.KingCaptured => "the king was taken",
         GameEndReason.BoardHalfEmptied => "a half of the board ran empty",
         GameEndReason.MoveLimit => "move limit",
+        GameEndReason.BotUnavailable => "bot unavailable",
         _ => "",
     };
 
@@ -257,7 +261,7 @@ else
             dto.Kind, dto.SideToMove, dto.PositionText, dto.AvailableMoves, moveHistory,
             dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
             dto.HandBrain, dto.CardChess, dto.Arcane, dto.Bidding, dto.Progressive, dto.Alice,
-            dto.Absorption, dto.Martian, dto.Draft);
+            dto.Absorption, dto.Martian, dto.Draft, dto.PauseDeadline);
 
         InvokeAsync(StateHasChanged);
     }

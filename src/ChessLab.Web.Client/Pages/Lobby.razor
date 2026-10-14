@@ -91,7 +91,7 @@ else
                                             class="border px-2 py-1 font-mono text-sm transition duration-300 hover:cursor-pointer @sideJoinClasses">
                                         Join
                                     </button>
-                                    @if (IsHost)
+                                    @if (IsHost && room.BotsAvailable)
                                     {
                                         <button data-testid="seat-add-bot-btn"
                                                 @onmousedown="() => { }" @onmousedown:preventDefault="true"
@@ -106,7 +106,7 @@ else
                             {
                                 <span class="flex items-center gap-2 text-sm">
                                     <select data-testid="seat-bot-select"
-                                            disabled="@(!IsHost)"
+                                            disabled="@(!IsHost || !room.BotsAvailable)"
                                             class="border border-espresso/16 bg-white/60 px-1 py-1 font-mono text-xs focus:outline-none @sideFocusBorder"
                                             @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
                                         <option value="Easy" selected="@(seat.Difficulty == BotDifficulty.Easy)">Easy (@EloLabel(BotDifficulty.Easy))</option>
@@ -177,7 +177,7 @@ else
                                         class="border px-2 py-1 font-mono text-sm transition duration-300 hover:cursor-pointer @sideJoinClasses">
                                     Join
                                 </button>
-                                @if (IsHost)
+                                @if (IsHost && room.BotsAvailable)
                                 {
                                     <button data-testid="seat-add-bot-btn"
                                             @onmousedown="() => { }" @onmousedown:preventDefault="true"
@@ -192,7 +192,7 @@ else
                         {
                             <span class="flex items-center gap-2 text-sm">
                                 <select data-testid="seat-bot-select"
-                                        disabled="@(!IsHost)"
+                                        disabled="@(!IsHost || !room.BotsAvailable)"
                                         class="border border-espresso/16 bg-white/60 px-1 py-1 font-mono text-xs focus:outline-none @sideFocusBorder"
                                         @onchange="e => SetSeatBotAsync(seatId, e.Value!.ToString()!)">
                                     <option value="Easy" selected="@(seat.Difficulty == BotDifficulty.Easy)">Easy (@EloLabel(BotDifficulty.Easy))</option>
@@ -254,6 +254,13 @@ else
         }
     </div>
 
+    @if (!room.BotsAvailable)
+    {
+        <p data-testid="bots-unavailable-notice" class="mt-6 border border-rust/40 bg-rust/5 px-3 py-2 font-mono text-sm text-rust">
+            Bots are unavailable right now. You can still play against people; games with a bot can start once bots are back.
+        </p>
+    }
+
     @if (!IsFull() && room.Kind == GameKind.HandAndBrain)
     {
         <p data-testid="fill-seats-hint" class="mt-6 text-sm text-espresso/42">
@@ -271,9 +278,9 @@ else
     {
         <button data-testid="start-game-btn"
                 @onmousedown="() => { }" @onmousedown:preventDefault="true"
-                @onclick="async () => { if (IsFull() && !isStarting) await StartGameAsync(); }"
-                aria-disabled="@((!IsFull() || isStarting) ? "true" : "false")"
-                class="mt-4 border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm transition duration-300 @(!IsFull() || isStarting ? "cursor-not-allowed opacity-40" : "hover:bg-amber-700/20 hover:cursor-pointer")">
+                @onclick="async () => { if (CanStart()) await StartGameAsync(); }"
+                aria-disabled="@(CanStart() ? "false" : "true")"
+                class="mt-4 border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm transition duration-300 @(CanStart() ? "hover:bg-amber-700/20 hover:cursor-pointer" : "cursor-not-allowed opacity-40")">
             Start game
         </button>
     }
@@ -349,6 +356,10 @@ else
     private bool IsHost => room is not null && room.HostUserId == myUserId;
 
     private bool IsFull() => room is not null && room.Seats.All(s => s.Kind != OccupantKind.Empty);
+
+    private bool HasBotSeat() => room is not null && room.Seats.Any(s => s.Kind == OccupantKind.Bot);
+
+    private bool CanStart() => IsFull() && !isStarting && (room!.BotsAvailable || !HasBotSeat());
 
     private static string EloLabel(BotDifficulty difficulty) => $"~{BotDifficultyElo.Approximate(difficulty)} Elo";
 

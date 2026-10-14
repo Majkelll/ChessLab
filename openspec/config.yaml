@@ -12,12 +12,15 @@ context: |
   - EF Core 10 with two providers: PostgreSQL (Npgsql) and SQLite. A connection string starting
     with "Data Source=" selects SQLite, anything else selects PostgreSQL.
   - Google OAuth plus cookie authentication. Data protection keys are stored in the database.
-  - Gera.Chess 1.2.0 supplies standard chess rules; Stockfish (external UCI process) drives some bots.
+  - Gera.Chess 1.2.0 supplies standard chess rules; Stockfish (external UCI process, run only by the
+    bot service) drives some bots.
   - Tailwind CSS 4 built through npm on every build of ChessLab.Web (Node 22 in the Docker image;
     elsewhere whatever npm is on PATH); cm-chessboard renders boards in the browser.
   - xUnit 2.9 for tests; Playwright 1.55 (Chromium) for end-to-end tests.
-  - Docker multi-stage image, docker-compose with postgres:18-alpine, GitHub Actions on
-    self-hosted runners. A push to main publishes the image to GHCR and deploys it to Render.
+  - Two Docker multi-stage images (web, and bot service with Stockfish), docker-compose with
+    postgres:18-alpine and the bot service, GitHub Actions on self-hosted runners. A push to main
+    publishes both images to GHCR, deploys the bot service to the home server over SSH, waits for
+    its /health to report the new version, then deploys the web image to Render.
 
   Architecture
   - src/ChessLab.Core: rules for every mode, rooms, seats, clocks, wire contracts (DTOs).
@@ -26,14 +29,26 @@ context: |
     (the Hand and Brain session is named GameSession). Hand and Brain, Card, Arcane and Progressive
     Chess run on Gera.Chess through IChessRulesEngine; Bidding, Alice, Absorption and Draft Chess run
     on Board/PieceBoard; Martian Chess has its own grid.
-  - src/ChessLab.Bots: StockfishEngine wrapper and one IGameBot per mode.
+  - src/ChessLab.Bots: StockfishEngine wrapper (IChessEngine) and one IGameBot per mode. Bots choose
+    from a GameStateEnvelopeDto built for the bot's seat only, never from the live session.
+  - src/ChessLab.BotService: standalone ASP.NET Core service on the home server. POST /v1/action
+    (bearer API key, body BotActionRequest, answers one GameAction; 400 malformed or kind mismatch,
+    422 seat has nothing to do, 503 queued over 15 s, 500 engine crash) and GET /health (version
+    and workers, 503 while an engine is down). A WorkerPool runs one Stockfish per worker from an
+    arrival-ordered queue. Deployment templates live in deploy/bot-service.
   - src/ChessLab.Data: ChessLabDbContext, AppUser, GameRecord, GameRecordPlayer, UserService,
     EF migrations.
   - src/ChessLab.Web: host (Program.CreateApp), GameHub, RoomRegistry, BotRunner, ClockWatchdog,
-    GameArchive, GameHistoryService, /hc health report.
+    GameArchive, GameHistoryService, /hc health report. BotServiceClient calls the bot service,
+    BotAvailability probes its /health every 10 seconds; no bot code or Stockfish runs in the host.
+  - A game whose bot cannot act is paused (RoomSession.Pause): clocks stop, actions other than
+    resignation are rejected, BotRunner retries every 5 seconds, and ClockWatchdog ends it as
+    BotUnavailable after 5 minutes. Time comes from the injected TimeProvider.
   - src/ChessLab.Web.Client: WebAssembly pages and components, GameClient hub wrapper.
   - tests/ChessLab.Core.Tests (rules, sessions, bots), tests/ChessLab.Web.Tests (host, hub over a
-    real SignalR connection, HTTP endpoints), tests/ChessLab.E2E.Tests (Playwright).
+    real SignalR connection, HTTP endpoints, an in-process fake bot service),
+    tests/ChessLab.BotService.Tests (API, auth, worker pool with a fake engine),
+    tests/ChessLab.E2E.Tests (Playwright, hosting the real bot service in-process).
   - Rooms and live games exist only in server memory (RoomRegistry singleton), so the app runs
     as a single instance. Only finished games are persisted. Rooms are removed 15 minutes after
     their game ends, or after 2 hours when it never starts.
@@ -41,17 +56,19 @@ context: |
     Hubs/HubErrorFilter turns them into HubException for every hub method, so clients see the
     rule's message. The hub's own checks throw HubException directly.
   - Every change to a room or game, and every DTO built from it, happens inside lock (session):
-    in GameHub, BotRunner and ClockWatchdog. Never await inside that lock.
+    in GameHub, BotRunner and ClockWatchdog. Never await inside that lock; BotRunner builds the
+    bot request under the lock and calls the bot service outside it.
   - Game state is built per viewer: IRoomSession.ToUpdateDto/ToStateDto take the viewer's side
     (null for a spectator) and sessions override the *For(viewer) hooks to leave out secrets.
     Services/GameBroadcaster sends each connection its own copy; never send a game DTO to a
     whole group.
-  - Bot management and clearing seats are host-only (checked in GameHub).
+  - Bot management and clearing seats are host-only (checked in GameHub). Adding or changing a bot
+    and starting a game with a bot seat are rejected while the bot service is unavailable.
 
   Conventions
   - No comments of any kind in any source file (see CLAUDE.md). Explanations belong in commit
     messages or PR descriptions. The only exception is the
-    `# syntax=` directive in the Dockerfile.
+    `# syntax=` directive in the Dockerfiles.
   - Conventional Commits for recent history (feat:, refactor:, test:, style: are in use).
   - File-scoped namespaces and records for DTOs throughout; primary constructors and collection
     expressions where they fit.
@@ -64,13 +81,20 @@ context: |
   - Build (needs npm): dotnet build ChessLab.slnx -c Release
   - Unit tests (CI, on pull requests and before every deploy): dotnet test tests/ChessLab.Core.Tests
   - Host and hub tests (CI, same): dotnet test tests/ChessLab.Web.Tests
-  - End-to-end tests (not run in CI; need Playwright's Chromium, and skip the Stockfish bot
-    tests when no stockfish is on PATH): dotnet test tests/ChessLab.E2E.Tests
+  - Bot service tests (CI, same; skip the real Stockfish tests when no stockfish is on PATH):
+    dotnet test tests/ChessLab.BotService.Tests
+  - End-to-end tests (not run in CI; need Playwright's Chromium; without stockfish on PATH the
+    in-process bot service plays the first candidate move and the Stockfish bot tests are
+    skipped): dotnet test tests/ChessLab.E2E.Tests
   - Slow end-to-end tests only: dotnet test tests/ChessLab.E2E.Tests --filter Category=LongGame
   - End-to-end without the slow ones: dotnet test tests/ChessLab.E2E.Tests --filter "Category!=LongGame"
   - Run locally: dotnet run --project src/ChessLab.Web (http://localhost:5021; Development
-    expects PostgreSQL on localhost unless ConnectionStrings:Default is overridden)
-  - Run with Docker: docker compose up --build (http://localhost:8080)
+    expects PostgreSQL on localhost unless ConnectionStrings:Default is overridden, and the bot
+    service at http://localhost:5090)
+  - Run the bot service locally: dotnet run --project src/ChessLab.BotService (http://localhost:5090;
+    needs stockfish on PATH)
+  - Run with Docker: docker compose up --build (http://localhost:8080, bot service included)
+  - Bot service image only: docker build -f src/ChessLab.BotService/Dockerfile .
   - CSS only: npm --prefix src/ChessLab.Web run build:css
   - Validate specs: openspec validate --all --strict --no-interactive
 
@@ -79,13 +103,19 @@ context: |
   - The real Google sign-in and the user record upsert.
   - HSTS and HTTPS redirection, which only apply outside Development.
   - Stockfish-backed bots unless a stockfish binary is on PATH; the end-to-end suite is not run in CI.
+  - The deployed bot service path: Render to home server, TLS certificate pinning against the real
+    certificate, and the SSH deploy step (checked by hand per deploy/bot-service/README.md).
   - How Arcane Chess Extra Turn behaves after a move that gives check.
 
   Required configuration
   - ConnectionStrings:Default (Development has a default), Authentication:Google:ClientId and
     Authentication:Google:ClientSecret. The host throws at startup when any is missing or blank.
-  - Optional: Bots:StockfishPath (default "stockfish"), Game:InitialClockSeconds (default 600),
+  - Optional: Bots:ServiceUrl (no default; Development uses http://localhost:5090; without it bots
+    are unavailable), Bots:ServiceKey, Bots:ServiceCertificateThumbprint (SHA-256 fingerprint the
+    bot service's TLS certificate must match), Game:InitialClockSeconds (default 600),
     Game:ClockIncrementSeconds (default 0), E2E_TEST_AUTH (enables /TestAuth/Login, Development only).
+  - Bot service: BotService:ApiKey (required, at least 32 characters; refuses to start otherwise),
+    BotService:Workers (default processor count), BotService:StockfishPath (default "stockfish").
 
 rules:
   specs:

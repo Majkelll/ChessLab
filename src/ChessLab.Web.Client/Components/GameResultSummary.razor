@@ -6,7 +6,7 @@
     <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs">@KindLabel(Entry.Kind)</span>
     <span class="text-espresso-soft">@Opponents()</span>
     <span class="@ResultClass()">@ResultLabel()</span>
-    <span class="text-espresso-soft/60 text-xs">@Entry.MoveCount moves · @ReasonLabel(Entry.EndReason)</span>
+    <span class="text-espresso-soft/60 text-xs">@Entry.MoveCount moves · <span data-testid="history-end-reason">@ReasonLabel(Entry.EndReason)</span></span>
     <span class="text-espresso-soft/60 text-xs">@Entry.FinishedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
 </div>
 
@@ -77,6 +77,7 @@
         GameEndReason.KingCaptured => "king captured",
         GameEndReason.BoardHalfEmptied => "a half ran empty",
         GameEndReason.MoveLimit => "move limit",
+        GameEndReason.BotUnavailable => "ended because the bot was unavailable",
         _ => reason.ToString().ToLowerInvariant(),
     };
 }

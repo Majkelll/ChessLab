@@ -17,7 +17,9 @@ public sealed class GameView
 
     public bool IsMySideToMove => MySeat is { } seat && seat.Side == State.SideToMove;
 
-    public bool IsBoardInteractive => !State.IsGameOver && IsMySideToMove;
+    public bool IsPaused => State.PauseDeadline is not null;
+
+    public bool IsBoardInteractive => !State.IsGameOver && !IsPaused && IsMySideToMove;
 
     public bool IsFlipped => MySeat?.Side == Side.Black;
 }

@@ -2,13 +2,28 @@ using System.Diagnostics;
 
 namespace ChessLab.Bots;
 
-public sealed class StockfishEngine : IAsyncDisposable
+public sealed class StockfishEngine : IChessEngineProcess
 {
     private readonly Process process;
     private readonly SemaphoreSlim gate = new(1, 1);
     private int? currentElo;
 
     private StockfishEngine(Process process) => this.process = process;
+
+    public bool HasExited
+    {
+        get
+        {
+            try
+            {
+                return process.HasExited;
+            }
+            catch (InvalidOperationException)
+            {
+                return true;
+            }
+        }
+    }
 
     public static async Task<StockfishEngine> StartAsync(string executablePath, CancellationToken ct = default)
     {
@@ -25,10 +40,18 @@ public sealed class StockfishEngine : IAsyncDisposable
             ?? throw new InvalidOperationException($"Failed to start Stockfish at '{executablePath}'.");
 
         var engine = new StockfishEngine(process);
-        await engine.WriteLineAsync("uci");
-        await engine.ReadUntilAsync(line => line == "uciok", ct);
-        await engine.WriteLineAsync("isready");
-        await engine.ReadUntilAsync(line => line == "readyok", ct);
+        try
+        {
+            await engine.WriteLineAsync("uci");
+            await engine.ReadUntilAsync(line => line == "uciok", ct);
+            await engine.WriteLineAsync("isready");
+            await engine.ReadUntilAsync(line => line == "readyok", ct);
+        }
+        catch
+        {
+            await engine.DisposeAsync();
+            throw;
+        }
 
         return engine;
     }

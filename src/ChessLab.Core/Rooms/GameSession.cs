@@ -29,7 +29,7 @@ public sealed class GameSession(Room room, Func<IChessRulesEngine> engineFactory
         TurnStartedAt = now;
     }
 
-    public override void Apply(GameAction action, SeatId seat, DateTimeOffset now)
+    protected override void ApplyAction(GameAction action, SeatId seat, DateTimeOffset now)
     {
         switch (action.Kind)
         {

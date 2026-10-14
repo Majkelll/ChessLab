@@ -15,4 +15,6 @@ public interface IGameEngineState
 
     void Resign(Side side);
     void DeclareTimeoutIfFlagged();
+
+    void EndBecauseBotUnavailable(Side? winner);
 }

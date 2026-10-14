@@ -6,9 +6,41 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace ChessLab.Web.Services;
 
-public sealed class GameBroadcaster(IHubContext<GameHub> hub, RoomConnections connections, GameArchive archive)
+public sealed class GameBroadcaster
 {
     public const string GameStarted = "GameStarted";
+
+    private readonly IHubContext<GameHub> hub;
+    private readonly RoomConnections connections;
+    private readonly GameArchive archive;
+    private readonly RoomRegistry registry;
+    private readonly BotAvailability availability;
+    private readonly ILogger<GameBroadcaster> logger;
+
+    public GameBroadcaster(IHubContext<GameHub> hub, RoomConnections connections, GameArchive archive,
+        RoomRegistry registry, BotAvailability availability, ILogger<GameBroadcaster> logger)
+    {
+        this.hub = hub;
+        this.connections = connections;
+        this.archive = archive;
+        this.registry = registry;
+        this.availability = availability;
+        this.logger = logger;
+        availability.Changed += () => _ = BotAvailabilityChangedAsync();
+    }
+
+    private async Task BotAvailabilityChangedAsync()
+    {
+        try
+        {
+            foreach (var session in registry.UnlockedSessions())
+                await hub.Clients.Group(session.Room.Code).SendAsync("RoomUpdated", RoomStateOf(session));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Telling rooms about the bot service availability failed.");
+        }
+    }
 
     public async Task GameChangedAsync(IRoomSession session, string eventName, CancellationToken ct = default)
     {
@@ -23,10 +55,10 @@ public sealed class GameBroadcaster(IHubContext<GameHub> hub, RoomConnections co
         await archive.RecordIfFinishedAsync(session);
     }
 
-    private static RoomStateDto RoomStateOf(IRoomSession session)
+    public RoomStateDto RoomStateOf(IRoomSession session)
     {
         lock (session)
-            return GameDtoMapper.ToRoomDto(session);
+            return GameDtoMapper.ToRoomDto(session, availability.IsAvailable);
     }
 
     public Task NoticeAsync(string roomCode, string message) =>

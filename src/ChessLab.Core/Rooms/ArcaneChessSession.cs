@@ -16,16 +16,22 @@ public sealed class ArcaneChessSession(Room room, Func<IChessRulesEngine> engine
 
     public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
     {
+        var rng = random ?? Random.Shared;
+        StartWith(() => new GameState(
+            new CardChess.GameState(engineFactory(), new Clock(initial, increment),
+                CardChess.Deck.Shuffled(rng), CardChess.Deck.Shuffled(rng)),
+            SpellDeck.Shuffled(rng), SpellDeck.Shuffled(rng), rng), now);
+    }
+
+    internal void StartWith(Func<GameState> deal, DateTimeOffset now)
+    {
         EnsureNotStarted();
         Room.Lock();
-        var rng = random ?? Random.Shared;
-        var inner = new CardChess.GameState(engineFactory(), new Clock(initial, increment),
-            CardChess.Deck.Shuffled(rng), CardChess.Deck.Shuffled(rng));
-        Game = new GameState(inner, SpellDeck.Shuffled(rng), SpellDeck.Shuffled(rng), rng);
+        Game = deal();
         TurnStartedAt = now;
     }
 
-    public override void Apply(GameAction action, SeatId seat, DateTimeOffset now)
+    protected override void ApplyAction(GameAction action, SeatId seat, DateTimeOffset now)
     {
         switch (action.Kind)
         {

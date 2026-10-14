@@ -37,7 +37,7 @@
                 </p>
             }
 
-            @if (bidding.Phase == BiddingPhase.Bidding && mine is { } side && !view.State.IsGameOver)
+            @if (bidding.Phase == BiddingPhase.Bidding && mine is { } side && !view.State.IsGameOver && !view.IsPaused)
             {
                 var alreadyBid = side == Side.White ? bidding.WhiteHasBid : bidding.BlackHasBid;
                 var chips = side == Side.White ? bidding.WhiteChips : bidding.BlackChips;

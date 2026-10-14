@@ -5,7 +5,7 @@ namespace ChessLab.Web.Hubs;
 
 internal static class GameDtoMapper
 {
-    public static RoomStateDto ToRoomDto(IRoomSession session) => new(
+    public static RoomStateDto ToRoomDto(IRoomSession session, bool botsAvailable) => new(
         session.Room.Code,
         session.Room.HostUserId,
         session.Room.Kind,
@@ -17,5 +17,6 @@ internal static class GameDtoMapper
         session.HasActiveGame,
         session.Room.IsLocked,
         (int)session.Room.InitialClock.TotalSeconds,
-        (int)session.Room.ClockIncrement.TotalSeconds);
+        (int)session.Room.ClockIncrement.TotalSeconds,
+        botsAvailable);
 }

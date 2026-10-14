@@ -104,6 +104,8 @@ else
                 }
             </div>
 
+            <PausedBanner Deadline="@state.PauseDeadline" />
+
             @if (state.IsGameOver)
             {
                 <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
@@ -113,6 +115,7 @@ else
                         <text> — <span data-testid="game-over-winner">@(winner == Side.White ? "white" : "black")</span> wins</text>
                     }
                 </p>
+                <GameEndExplanation Reason="@state.EndReason" />
                 <button data-testid="back-to-room-link"
                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
                         @onclick="BackToRoom"
@@ -172,7 +175,7 @@ else
     private HandBrainSectionDto handBrain => state!.HandBrain!;
 
     private bool isMyTurn =>
-        mySeat is not null && state is not null &&
+        mySeat is not null && state is { PauseDeadline: null } &&
         mySeat.Value == new SeatId(state.SideToMove, handBrain.Phase == TurnPhase.BrainSelecting ? SeatRole.Brain : SeatRole.Hand);
 
     private bool isMySideToMove => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
@@ -230,7 +233,7 @@ else
 
     private long RemainingMsOf(Side side) => side == Side.White ? state!.WhiteRemainingMs : state!.BlackRemainingMs;
 
-    private bool IsClockActive(Side side) => state is { IsGameOver: false } && state.SideToMove == side;
+    private bool IsClockActive(Side side) => state is { IsGameOver: false, PauseDeadline: null } && state.SideToMove == side;
 
     private static string SideLabel(Side side) => side == Side.White ? "white" : "black";
 
@@ -248,6 +251,7 @@ else
         GameEndReason.Resignation => "resignation",
         GameEndReason.Timeout => "timeout",
         GameEndReason.DrawAgreed => "draw",
+        GameEndReason.BotUnavailable => "bot unavailable",
         _ => "",
     };
 
@@ -307,7 +311,7 @@ else
         state = new GameStateEnvelopeDto(
             dto.Kind, dto.SideToMove, dto.PositionText, dto.AvailableMoves, moveHistory,
             dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
-            HandBrain: dto.HandBrain);
+            HandBrain: dto.HandBrain, PauseDeadline: dto.PauseDeadline);
     }
 
     private void SetFullState(GameStateEnvelopeDto dto)
