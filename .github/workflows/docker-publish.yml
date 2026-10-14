@@ -31,9 +31,14 @@ jobs:
       - name: Test the web host
         run: mise exec dotnet@10.0.400 -- dotnet test tests/ChessLab.Web.Tests/ChessLab.Web.Tests.csproj --no-build -c Release
 
-      - name: Compute lowercase image name
+      - name: Test the bot service
+        run: mise exec dotnet@10.0.400 -- dotnet test tests/ChessLab.BotService.Tests/ChessLab.BotService.Tests.csproj --no-build -c Release
+
+      - name: Compute lowercase image names
         id: image
-        run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "bots=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/chesslab-bot-service" >> "$GITHUB_OUTPUT"
         env:
           REGISTRY: ${{ env.REGISTRY }}
 
@@ -53,7 +58,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
+      - name: Build and push web image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -65,6 +70,46 @@ jobs:
             APP_VERSION=${{ steps.version.outputs.value }}
           provenance: false
           sbom: false
+
+      - name: Build and push bot service image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/ChessLab.BotService/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.bots }}:latest
+            ${{ steps.image.outputs.bots }}:${{ steps.version.outputs.value }}
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.value }}
+          provenance: false
+          sbom: false
+
+      - name: Deploy the bot service to the home server
+        env:
+          SSH_HOST: ${{ secrets.BOT_SERVICE_SSH_HOST }}
+          SSH_PORT: ${{ secrets.BOT_SERVICE_SSH_PORT }}
+          SSH_USER: ${{ secrets.BOT_SERVICE_SSH_USER }}
+        run: >
+          ssh -p "$SSH_PORT" -o BatchMode=yes "$SSH_USER@$SSH_HOST"
+          "cd ~/chesslab-bots
+          && BOT_SERVICE_TAG=${{ steps.version.outputs.value }} docker compose pull bots
+          && BOT_SERVICE_TAG=${{ steps.version.outputs.value }} docker compose up -d"
+
+      - name: Wait for the bot service to report the new version
+        env:
+          HEALTH_URL: ${{ vars.BOT_SERVICE_HEALTH_URL }}
+          EXPECTED: ${{ steps.version.outputs.value }}
+        run: |
+          deadline=$((SECONDS + 120))
+          until [ "$(curl -fsk --max-time 5 "$HEALTH_URL" | jq -r .version 2>/dev/null)" = "$EXPECTED" ]; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "The bot service did not report version $EXPECTED within 2 minutes."
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "The bot service runs version $EXPECTED."
 
       - name: Deploy to Render
         run: >

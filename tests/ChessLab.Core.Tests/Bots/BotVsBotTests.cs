@@ -33,7 +33,7 @@ public class BotVsBotTests
 
                 foreach (var seat in session.ActiveSeats)
                 {
-                    var action = await bot.ChooseActionAsync(session, seat, difficulty);
+                    var action = await bot.ChooseActionAsync(session.ToStateDto(seat.Side), seat, difficulty);
                     session.Apply(action, seat, DateTimeOffset.UtcNow);
 
                     if (!session.HasActiveGame)

@@ -1,37 +1,40 @@
 using ChessLab.Core.Chess;
+using ChessLab.Core.Contracts;
 using ChessLab.Core.Games;
 using ChessLab.Core.HandBrain;
 using ChessLab.Core.Rooms;
 
 namespace ChessLab.Bots;
 
-public sealed class HandBrainBot(StockfishEngine engine) : IGameBot
+public sealed class HandBrainBot(IChessEngine engine) : IGameBot
 {
-    public async Task<GameAction> ChooseActionAsync(IRoomSession session, SeatId seat, BotDifficulty difficulty,
+    public async Task<GameAction> ChooseActionAsync(GameStateEnvelopeDto state, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)
     {
-        var game = ((GameSession)session).Game!;
+        var section = state.HandBrain ?? throw new InvalidOperationException("The state has no Hand and Brain section.");
 
-        if (game.Phase == TurnPhase.BrainSelecting)
-            return GameAction.SelectPieceKind(await ChooseBrainAnnouncementAsync(game, difficulty, ct));
+        if (section.Phase == TurnPhase.BrainSelecting)
+            return GameAction.SelectPieceKind(await ChooseBrainAnnouncementAsync(state, section, difficulty, ct));
 
-        var move = await ChooseHandMoveAsync(game, difficulty, ct);
-        return GameAction.MovePiece(move.From, move.To, move.PromoteTo);
+        var move = await EngineMoves.BestAsync(engine, state.PositionText, state.AvailableMoves,
+            DifficultyPresets.For(difficulty), ct);
+        return GameBots.MoveAction(move);
     }
 
-    public async Task<PieceKind> ChooseBrainAnnouncementAsync(GameState game, BotDifficulty difficulty, CancellationToken ct = default)
+    private async Task<PieceKind> ChooseBrainAnnouncementAsync(GameStateEnvelopeDto state, HandBrainSectionDto section,
+        BotDifficulty difficulty, CancellationToken ct)
     {
         var preset = DifficultyPresets.For(difficulty);
-        var fen = game.ToFen();
+        var rules = GeraChessRulesEngine.FromFen(state.PositionText);
         var probeMovetimeMs = Math.Max(50, preset.MovetimeMs / 4);
 
         PieceKind? best = null;
         var bestScore = int.MinValue;
 
-        foreach (var kind in game.AvailablePieceKinds())
+        foreach (var kind in section.AvailablePieceKinds)
         {
-            var candidates = game.LegalMovesFor(kind).Select(m => m.ToUci()).Distinct().ToArray();
-            var (_, score) = await engine.GoAsync(fen, candidates, preset.Elo, probeMovetimeMs, ct);
+            var candidates = rules.LegalMoves(kind).Select(move => move.ToUci()).Distinct().ToArray();
+            var (_, score) = await engine.GoAsync(state.PositionText, candidates, preset.Elo, probeMovetimeMs, ct);
 
             if (score is { } s && s > bestScore)
             {
@@ -40,18 +43,6 @@ public sealed class HandBrainBot(StockfishEngine engine) : IGameBot
             }
         }
 
-        return best ?? game.AvailablePieceKinds()[0];
-    }
-
-    public async Task<ChessMove> ChooseHandMoveAsync(GameState game, BotDifficulty difficulty, CancellationToken ct = default)
-    {
-        var preset = DifficultyPresets.For(difficulty);
-        var moves = game.AvailableMoves();
-        var candidates = moves.Select(m => m.ToUci()).Distinct().ToArray();
-
-        var (bestUci, _) = await engine.GoAsync(game.ToFen(), candidates, preset.Elo, preset.MovetimeMs, ct);
-        var (from, to, promotion) = UciNotation.ParseUciMove(bestUci);
-
-        return moves.First(m => m.From == from && m.To == to && m.PromoteTo == promotion);
+        return best ?? section.AvailablePieceKinds[0];
     }
 }

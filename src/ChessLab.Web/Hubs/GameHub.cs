@@ -14,10 +14,14 @@ public sealed class GameHub(
     RoomConnections connections,
     GameBroadcaster broadcaster,
     BotRunner botRunner,
+    BotAvailability botAvailability,
     GameHistoryService history,
+    TimeProvider time,
     IConfiguration configuration) : Hub
 {
     private const string CurrentRoomGroupKey = "CurrentRoomGroup";
+
+    public const string BotsUnavailableRejection = "Bots are unavailable right now. Try again later.";
 
     private TimeSpan DefaultInitialClock =>
         TimeSpan.FromSeconds(configuration.GetValue("Game:InitialClockSeconds", 600));
@@ -104,6 +108,7 @@ public sealed class GameHub(
     {
         var session = registry.Get(code);
         EnsureCallerIsHost(session, "Only the room's host can add or change a bot.");
+        EnsureBotsAvailable();
         return ChangeRoom(session, room => room.SetBot(seatId, difficulty));
     }
 
@@ -128,7 +133,12 @@ public sealed class GameHub(
         EnsureCallerIsHost(session, "Only the room's host can start the game.");
 
         lock (session)
-            session.Start(session.Room.InitialClock, session.Room.ClockIncrement, DateTimeOffset.UtcNow);
+        {
+            if (session.Room.Seats.Values.Any(occupant => occupant.Kind == OccupantKind.Bot))
+                EnsureBotsAvailable();
+
+            session.Start(session.Room.InitialClock, session.Room.ClockIncrement, time.GetUtcNow());
+        }
 
         await BroadcastGame(session, GameBroadcaster.GameStarted);
     }
@@ -137,7 +147,7 @@ public sealed class GameHub(
     {
         var session = registry.Get(code);
         var userId = UserId;
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
 
         lock (session)
         {
@@ -147,6 +157,8 @@ public sealed class GameHub(
                 throw new HubException("The game has already ended.");
 
             session.DeclareTimeoutIfExpired(now);
+            if (session.IsPaused)
+                throw new HubException(GamePause.Rejection);
             if (session.HasActiveGame)
                 session.Apply(action, SeatAllowedToAct(session, userId), now);
         }
@@ -185,11 +197,7 @@ public sealed class GameHub(
         await BroadcastGame(session, "GameUpdated");
     }
 
-    private static RoomStateDto RoomDtoOf(IRoomSession session)
-    {
-        lock (session)
-            return GameDtoMapper.ToRoomDto(session);
-    }
+    private RoomStateDto RoomDtoOf(IRoomSession session) => broadcaster.RoomStateOf(session);
 
     private Task ChangeRoom(IRoomSession session, Action<Room> change)
     {
@@ -197,7 +205,7 @@ public sealed class GameHub(
         lock (session)
         {
             change(session.Room);
-            state = GameDtoMapper.ToRoomDto(session);
+            state = GameDtoMapper.ToRoomDto(session, botAvailability.IsAvailable);
         }
 
         return Clients.Group(session.Room.Code).SendAsync("RoomUpdated", state);
@@ -207,6 +215,12 @@ public sealed class GameHub(
     {
         await broadcaster.GameChangedAsync(session, eventName);
         botRunner.ScheduleBotTurns(session.Room.Code);
+    }
+
+    private void EnsureBotsAvailable()
+    {
+        if (!botAvailability.IsAvailable)
+            throw new HubException(BotsUnavailableRejection);
     }
 
     private void EnsureCallerIsHost(IRoomSession session, string rejection)

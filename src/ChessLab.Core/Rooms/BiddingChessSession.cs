@@ -33,7 +33,7 @@ public sealed class BiddingChessSession(Room room) : RoomSession<GameState>(room
         TurnStartedAt = now;
     }
 
-    public override void Apply(GameAction action, SeatId seat, DateTimeOffset now)
+    protected override void ApplyAction(GameAction action, SeatId seat, DateTimeOffset now)
     {
         switch (action.Kind)
         {

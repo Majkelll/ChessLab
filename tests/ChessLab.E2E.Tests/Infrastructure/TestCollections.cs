@@ -32,3 +32,9 @@ public sealed class LongGameOddOnesCollection
 {
     public const string Name = "ChessLab long games (unusual modes)";
 }
+
+[CollectionDefinition(Name)]
+public sealed class BotOutageCollection : ICollectionFixture<BotOutageWebAppFixture>, ICollectionFixture<PlaywrightFixture>
+{
+    public const string Name = "ChessLab app (bot service outages)";
+}

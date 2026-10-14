@@ -8,13 +8,14 @@ public sealed class ClockWatchdog(
     BotRunner botRunner,
     RoomConnections connections,
     GameArchive archive,
+    TimeProvider time,
     ILogger<ClockWatchdog> logger) : BackgroundService
 {
     private const int TicksBetweenSweeps = 60;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1), time);
         var ticksSinceSweep = 0;
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
@@ -34,7 +35,7 @@ public sealed class ClockWatchdog(
     {
         try
         {
-            if (!TimeRanOut(session))
+            if (!TimeRanOut(session, time.GetUtcNow()))
                 return;
 
             await broadcaster.GameChangedAsync(session, "GameUpdated", stoppingToken);
@@ -46,14 +47,17 @@ public sealed class ClockWatchdog(
         }
     }
 
-    private static bool TimeRanOut(IRoomSession session)
+    private static bool TimeRanOut(IRoomSession session, DateTimeOffset now)
     {
         lock (session)
         {
             if (!session.HasActiveGame)
                 return false;
 
-            session.DeclareTimeoutIfExpired(DateTimeOffset.UtcNow);
+            session.DeclareTimeoutIfExpired(now);
+            if (session.HasActiveGame)
+                session.EndIfPauseExpired(now);
+
             return !session.HasActiveGame;
         }
     }
@@ -71,13 +75,13 @@ public sealed class ClockWatchdog(
     {
         await ArchiveFinishedGamesAsync();
 
-        foreach (var code in registry.RemoveStale(DateTimeOffset.UtcNow, archive.IsArchived))
+        foreach (var code in registry.RemoveStale(time.GetUtcNow(), archive.IsArchived))
         {
             try
             {
                 connections.Forget(code);
                 archive.Forget(code);
-                await botRunner.ForgetAsync(code);
+                botRunner.Forget(code);
             }
             catch (Exception ex)
             {

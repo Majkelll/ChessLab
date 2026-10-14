@@ -22,6 +22,7 @@ public class HttpTests(HubApp app)
         Assert.Equal("Connected.", database.GetProperty("description").GetString());
         Assert.Equal("sqlite", database.GetProperty("data").GetProperty("provider").GetString());
         Assert.True(report.RootElement.GetProperty("uptimeSeconds").GetDouble() >= 0);
+        Assert.Equal("Healthy", report.RootElement.GetProperty("checks").GetProperty("bots").GetProperty("status").GetString());
     }
 
     [Theory]

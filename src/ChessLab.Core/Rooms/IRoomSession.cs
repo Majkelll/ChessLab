@@ -18,7 +18,19 @@ public interface IRoomSession
 
     void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null);
 
+    bool IsPaused { get; }
+
+    DateTimeOffset? PauseDeadline { get; }
+
     void Apply(GameAction action, SeatId seat, DateTimeOffset now);
+
+    void ApplyBotAction(GameAction action, SeatId seat, DateTimeOffset askedAt, DateTimeOffset now);
+
+    void Pause(DateTimeOffset now);
+
+    bool EndIfPauseExpired(DateTimeOffset now);
+
+    void EndBecauseBotUnavailable();
 
     void DeclareTimeoutIfExpired(DateTimeOffset now);
 

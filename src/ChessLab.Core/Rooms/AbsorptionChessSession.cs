@@ -17,7 +17,7 @@ public sealed class AbsorptionChessSession(Room room) : RoomSession<GameState>(r
         TurnStartedAt = now;
     }
 
-    public override void Apply(GameAction action, SeatId seat, DateTimeOffset now)
+    protected override void ApplyAction(GameAction action, SeatId seat, DateTimeOffset now)
     {
         if (action.Kind != GameActionKind.Move)
             throw new InvalidOperationException($"{action.Kind} is not an action in Absorption Chess.");

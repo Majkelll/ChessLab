@@ -22,7 +22,8 @@ public sealed record GameStateEnvelopeDto(
     AliceSectionDto? Alice = null,
     AbsorptionSectionDto? Absorption = null,
     MartianSectionDto? Martian = null,
-    DraftSectionDto? Draft = null);
+    DraftSectionDto? Draft = null,
+    DateTimeOffset? PauseDeadline = null);
 
 public sealed record GameUpdateEnvelopeDto(
     GameKind Kind,
@@ -44,4 +45,5 @@ public sealed record GameUpdateEnvelopeDto(
     AliceSectionDto? Alice = null,
     AbsorptionSectionDto? Absorption = null,
     MartianSectionDto? Martian = null,
-    DraftSectionDto? Draft = null);
+    DraftSectionDto? Draft = null,
+    DateTimeOffset? PauseDeadline = null);

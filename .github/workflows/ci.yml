@@ -27,3 +27,6 @@ jobs:
 
       - name: Test the web host
         run: mise exec dotnet@10.0.400 -- dotnet test tests/ChessLab.Web.Tests/ChessLab.Web.Tests.csproj --no-build -c Release
+
+      - name: Test the bot service
+        run: mise exec dotnet@10.0.400 -- dotnet test tests/ChessLab.BotService.Tests/ChessLab.BotService.Tests.csproj --no-build -c Release

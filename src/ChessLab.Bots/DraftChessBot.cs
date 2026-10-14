@@ -1,4 +1,5 @@
 using ChessLab.Core.Chess;
+using ChessLab.Core.Contracts;
 using ChessLab.Core.Draft;
 using ChessLab.Core.Games;
 using ChessLab.Core.Rooms;
@@ -15,22 +16,22 @@ public sealed class DraftChessBot : IGameBot
 
     private readonly Random random = new();
 
-    public Task<GameAction> ChooseActionAsync(IRoomSession session, SeatId seat, BotDifficulty difficulty,
+    public Task<GameAction> ChooseActionAsync(GameStateEnvelopeDto state, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)
     {
-        var game = ((DraftChessSession)session).Game!;
+        var section = state.Draft ?? throw new InvalidOperationException("The state has no Draft Chess section.");
 
-        return Task.FromResult(game.Phase switch
+        return Task.FromResult(section.Phase switch
         {
-            DraftPhase.Drafting => ChoosePick(game, seat.Side, difficulty),
-            DraftPhase.Placing => ChoosePlacement(game, seat.Side),
-            _ => ChooseMove(game, difficulty),
+            DraftPhase.Drafting => ChoosePick(section, seat.Side, difficulty),
+            DraftPhase.Placing => ChoosePlacement(section, seat.Side),
+            _ => GameBots.MoveAction(GreedyPlay.Choose(state.AvailableMoves, difficulty, random)),
         });
     }
 
-    private GameAction ChoosePick(GameState game, Side side, BotDifficulty difficulty)
+    private GameAction ChoosePick(DraftSectionDto section, Side side, BotDifficulty difficulty)
     {
-        var affordable = ByWeight.Where(kind => game.CanPick(side, kind)).ToArray();
+        var affordable = ByWeight.Where(kind => CanPick(section, side, kind)).ToArray();
         if (affordable.Length == 0)
             return GameAction.DraftPass();
 
@@ -40,41 +41,52 @@ public sealed class DraftChessBot : IGameBot
         return GameAction.DraftPick(affordable[0]);
     }
 
-    private static GameAction ChoosePlacement(GameState game, Side side)
+    private static bool CanPick(DraftSectionDto section, Side side, PieceKind kind)
+    {
+        if (section.Pool.FirstOrDefault(entry => entry.Kind == kind) is not { Remaining: > 0 } entry)
+            return false;
+
+        var budgetLeft = side == Side.White ? section.WhiteBudgetLeft : section.BlackBudgetLeft;
+        if (entry.Cost > budgetLeft)
+            return false;
+
+        var picks = side == Side.White ? section.WhitePicks : section.BlackPicks;
+        return kind == PieceKind.Pawn
+            ? picks.Count(pick => pick == PieceKind.Pawn) < GameState.MaxPawns
+            : picks.Count(pick => pick != PieceKind.Pawn) < GameState.MaxOfficers;
+    }
+
+    private static GameAction ChoosePlacement(DraftSectionDto section, Side side)
     {
         var backRank = side == Side.White ? 0 : 7;
         var pawnRank = side == Side.White ? 1 : 6;
+        var placeable = (side == Side.White ? section.WhitePlaceable : section.BlackPlaceable)
+            .ToDictionary(entry => entry.Kind, entry => entry.Squares);
 
-        if (game.Remaining(side, PieceKind.King) > 0)
-            return GameAction.PlacePiece(PieceKind.King, FirstFree(game, side, backRank));
+        if (placeable.TryGetValue(PieceKind.King, out var kingSquares))
+            return GameAction.PlacePiece(PieceKind.King, FirstFree(kingSquares, backRank));
 
         foreach (var kind in ByWeight)
         {
-            if (game.Remaining(side, kind) == 0)
+            if (!placeable.TryGetValue(kind, out var squares))
                 continue;
 
             var rank = kind == PieceKind.Pawn ? pawnRank : backRank;
-            return GameAction.PlacePiece(kind, FirstFree(game, side, rank));
+            return GameAction.PlacePiece(kind, FirstFree(squares, rank));
         }
 
         throw new InvalidOperationException("Everything is already laid out.");
     }
 
-    private static Square FirstFree(GameState game, Side side, int rank)
+    private static Square FirstFree(IReadOnlyList<Square> placeable, int rank)
     {
         foreach (var file in BackRankOrder)
         {
             var square = new Square(file, rank);
-            if (!game.PlacementsOf(side).ContainsKey(square))
+            if (placeable.Contains(square))
                 return square;
         }
 
         throw new InvalidOperationException($"Rank {rank + 1} is full.");
-    }
-
-    private GameAction ChooseMove(GameState game, BotDifficulty difficulty)
-    {
-        var move = GreedyPlay.Choose(game.AvailableMoves, difficulty, random);
-        return GameAction.MovePiece(move.From, move.To, move.PromoteTo);
     }
 }

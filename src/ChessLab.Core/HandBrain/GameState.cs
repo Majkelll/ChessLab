@@ -7,6 +7,7 @@ public sealed class GameState : IGameEngineState
 {
     private readonly IChessRulesEngine engine;
     private readonly List<ChessMove> moveHistory = [];
+    private GameEndResult? forcedResult;
 
     public Clock Clock { get; }
     public TurnPhase Phase { get; private set; } = TurnPhase.BrainSelecting;
@@ -14,7 +15,7 @@ public sealed class GameState : IGameEngineState
     public IReadOnlyList<ChessMove> MoveHistory => moveHistory;
 
     public Side SideToMove => engine.SideToMove;
-    public GameEndResult? EndResult => engine.EndResult;
+    public GameEndResult? EndResult => engine.EndResult ?? forcedResult;
     public bool IsGameOver => EndResult is not null;
 
     public string ToFen() => engine.ToFen();
@@ -94,6 +95,12 @@ public sealed class GameState : IGameEngineState
     {
         EnsureNotOver();
         engine.Resign(side);
+    }
+
+    public void EndBecauseBotUnavailable(Side? winner)
+    {
+        EnsureNotOver();
+        forcedResult = new GameEndResult(GameEndReason.BotUnavailable, winner);
     }
 
     public void DeclareTimeoutIfFlagged()

@@ -23,6 +23,7 @@ public sealed class RoomPage
     public ILocator FillSeatsHint => Page.GetByTestId("fill-seats-hint");
     public ILocator StartGameButton => Page.GetByTestId("start-game-btn");
     public ILocator WaitingForHostMessage => Page.GetByTestId("waiting-for-host");
+    public ILocator BotsUnavailableNotice => Page.GetByTestId("bots-unavailable-notice");
 
     public ILocator RoomRetiredMessage => Page.GetByTestId("room-retired");
 

@@ -17,7 +17,7 @@ public sealed class AliceChessSession(Room room) : RoomSession<GameState>(room)
         TurnStartedAt = now;
     }
 
-    public override void Apply(GameAction action, SeatId seat, DateTimeOffset now)
+    protected override void ApplyAction(GameAction action, SeatId seat, DateTimeOffset now)
     {
         if (action.Kind != GameActionKind.Move)
             throw new InvalidOperationException($"{action.Kind} is not an action in Alice Chess.");

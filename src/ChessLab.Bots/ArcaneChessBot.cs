@@ -1,54 +1,43 @@
 using ChessLab.Core.ArcaneChess;
+using ChessLab.Core.CardChess;
 using ChessLab.Core.Chess;
+using ChessLab.Core.Contracts;
 using ChessLab.Core.Games;
 using ChessLab.Core.Rooms;
-using GameState = ChessLab.Core.ArcaneChess.GameState;
 
 namespace ChessLab.Bots;
 
-public sealed class ArcaneChessBot(StockfishEngine engine) : IGameBot
+public sealed class ArcaneChessBot(IChessEngine engine) : IGameBot
 {
     private const double CastChance = 0.3;
 
-    private int spellTriedAtMoveCount = -1;
+    private readonly Random random = new();
 
-    public async Task<GameAction> ChooseActionAsync(IRoomSession session, SeatId seat, BotDifficulty difficulty,
+    public async Task<GameAction> ChooseActionAsync(GameStateEnvelopeDto state, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)
     {
-        var game = ((ArcaneChessSession)session).Game!;
+        var arcane = state.Arcane ?? throw new InvalidOperationException("The state has no Arcane Chess section.");
 
-        if (spellTriedAtMoveCount != game.MoveHistory.Count)
-        {
-            spellTriedAtMoveCount = game.MoveHistory.Count;
-            if (ChooseSpell(game, game.SideToMove) is { } cast)
-                return GameAction.CastSpell(cast.Spell, cast.Target);
-        }
+        if (!arcane.SideToMoveHasCast && ChooseSpell(state, seat.Side) is { } cast)
+            return GameAction.CastSpell(cast.Spell, cast.Target);
 
-        var move = await ChooseMoveAsync(game, difficulty, ct);
-        return GameAction.MovePiece(move.From, move.To, move.PromoteTo);
+        var move = await EngineMoves.BestAsync(engine, state.PositionText, state.AvailableMoves,
+            DifficultyPresets.For(difficulty), ct);
+        return GameBots.MoveAction(move);
     }
 
-    public async Task<ChessMove> ChooseMoveAsync(GameState game, BotDifficulty difficulty, CancellationToken ct = default)
+    public (SpellRank Spell, SpellTarget Target)? ChooseSpell(GameStateEnvelopeDto state, Side side)
     {
-        var preset = DifficultyPresets.For(difficulty);
-        var moves = game.AvailableMoves;
-        var candidates = moves.Select(m => m.ToUci()).Distinct().ToArray();
+        var arcane = state.Arcane!;
+        var cards = state.CardChess!;
+        var hand = side == Side.White ? arcane.WhiteSpellHand : arcane.BlackSpellHand;
+        var mana = side == Side.White ? arcane.WhiteMana : arcane.BlackMana;
+        var hp = side == Side.White ? cards.WhiteHp : cards.BlackHp;
 
-        var (bestUci, _) = await engine.GoAsync(game.ToFen(), candidates, preset.Elo, preset.MovetimeMs, ct);
-        var (from, to, promotion) = UciNotation.ParseUciMove(bestUci);
-
-        return moves.First(m => m.From == from && m.To == to && m.PromoteTo == promotion);
-    }
-
-    public (SpellRank Spell, SpellTarget Target)? ChooseSpell(GameState game, Side side)
-    {
-        var hand = game.SpellHandOf(side);
-        var mana = game.ManaOf(side);
-
-        if (game.EmergencyMoveAvailable && Affordable(hand, mana, SpellRank.DeepBreath))
+        if (cards.EmergencyMoveAvailable && Affordable(hand, mana, SpellRank.DeepBreath))
             return (SpellRank.DeepBreath, default);
 
-        if (game.HpOf(side) < ChessLab.Core.CardChess.GameState.StartingHp)
+        if (hp < ChessLab.Core.CardChess.GameState.StartingHp)
         {
             if (Affordable(hand, mana, SpellRank.Restoration))
                 return (SpellRank.Restoration, default);
@@ -56,13 +45,14 @@ public sealed class ArcaneChessBot(StockfishEngine engine) : IGameBot
                 return (SpellRank.Mend, default);
         }
 
-        if (Random.Shared.NextDouble() > CastChance)
+        if (random.NextDouble() > CastChance)
             return null;
 
-        var fen = game.ToFen();
+        var fen = state.PositionText;
         var opponent = side.Opposite();
+        var rankHand = side == Side.White ? cards.WhiteHand : cards.BlackHand;
 
-        foreach (var spell in hand.OrderBy(_ => Random.Shared.Next()))
+        foreach (var spell in hand.OrderBy(_ => random.Next()))
         {
             if (mana < spell.Cost())
                 continue;
@@ -70,13 +60,13 @@ public sealed class ArcaneChessBot(StockfishEngine engine) : IGameBot
             var target = spell switch
             {
                 SpellRank.Peek or SpellRank.Jam or SpellRank.Feint or SpellRank.Reshuffle => new SpellTarget(),
-                SpellRank.SnapSwap => RandomHandCard(game, side),
+                SpellRank.SnapSwap => RandomHandCard(rankHand),
                 SpellRank.Shield => RandomSquareWhere(fen, c => IsOwn(c, side) && !IsKing(c)) is { } s ? new SpellTarget(Primary: s) : null,
                 SpellRank.FreezeSquare => RandomEmptySquare(fen) is { } s ? new SpellTarget(Primary: s) : null,
                 SpellRank.PinDown or SpellRank.Disarm =>
                     RandomSquareWhere(fen, c => IsOwn(c, opponent) && !IsKing(c)) is { } s ? new SpellTarget(Primary: s) : null,
-                SpellRank.Dispel => game.ActiveEffects.Count > 0
-                    ? new SpellTarget(Primary: game.ActiveEffects[Random.Shared.Next(game.ActiveEffects.Count)].Square)
+                SpellRank.Dispel => arcane.ActiveEffects.Count > 0
+                    ? new SpellTarget(Primary: arcane.ActiveEffects[random.Next(arcane.ActiveEffects.Count)].Square)
                     : null,
                 _ => null,
             };
@@ -95,22 +85,19 @@ public sealed class ArcaneChessBot(StockfishEngine engine) : IGameBot
 
     private static bool IsKing(char piece) => char.ToLowerInvariant(piece) == 'k';
 
-    private static SpellTarget? RandomHandCard(GameState game, Side side)
-    {
-        var hand = game.HandOf(side);
-        return hand.Count == 0 ? null : new SpellTarget(HandCard: hand[Random.Shared.Next(hand.Count)]);
-    }
+    private SpellTarget? RandomHandCard(IReadOnlyList<CardRank> hand) =>
+        hand.Count == 0 ? null : new SpellTarget(HandCard: hand[random.Next(hand.Count)]);
 
-    private static Square? RandomEmptySquare(string fen) =>
+    private Square? RandomEmptySquare(string fen) =>
         PickRandom(AllSquares().Where(sq => FenBoard.PieceAt(fen, sq) is null));
 
-    private static Square? RandomSquareWhere(string fen, Func<char, bool> predicate) =>
+    private Square? RandomSquareWhere(string fen, Func<char, bool> predicate) =>
         PickRandom(AllSquares().Where(sq => FenBoard.PieceAt(fen, sq) is { } c && predicate(c)));
 
-    private static Square? PickRandom(IEnumerable<Square> squares)
+    private Square? PickRandom(IEnumerable<Square> squares)
     {
         var candidates = squares.ToList();
-        return candidates.Count == 0 ? null : candidates[Random.Shared.Next(candidates.Count)];
+        return candidates.Count == 0 ? null : candidates[random.Next(candidates.Count)];
     }
 
     private static IEnumerable<Square> AllSquares()

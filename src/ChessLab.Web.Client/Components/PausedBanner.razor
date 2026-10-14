@@ -1,0 +1,47 @@
+@implements IDisposable
+
+@if (Deadline is { } deadline)
+{
+    <p data-testid="paused-banner" class="mt-4 border border-rust/40 bg-rust/5 px-3 py-2 font-mono text-sm text-rust">
+        The bot is unavailable, so the game is paused. It ends in
+        <span data-testid="paused-countdown">@Countdown(deadline)</span> unless the bot comes back.
+    </p>
+}
+
+@code {
+    [Parameter] public DateTimeOffset? Deadline { get; set; }
+
+    private CancellationTokenSource? tickCts;
+
+    protected override void OnInitialized()
+    {
+        tickCts = new CancellationTokenSource();
+        _ = TickLoopAsync(tickCts.Token);
+    }
+
+    private async Task TickLoopAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
+        while (!ct.IsCancellationRequested && await timer.WaitForNextTickAsync(ct))
+        {
+            if (Deadline is not null)
+                await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private static string Countdown(DateTimeOffset deadline)
+    {
+        var left = deadline - DateTimeOffset.UtcNow;
+        if (left < TimeSpan.Zero)
+            left = TimeSpan.Zero;
+
+        var seconds = (int)Math.Ceiling(left.TotalSeconds);
+        return $"{seconds / 60}:{seconds % 60:00}";
+    }
+
+    public void Dispose()
+    {
+        tickCts?.Cancel();
+        tickCts?.Dispose();
+    }
+}

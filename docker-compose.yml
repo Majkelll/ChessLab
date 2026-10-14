@@ -9,9 +9,20 @@ services:
       - Authentication__Google__ClientId=${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID in .env}
       - Authentication__Google__ClientSecret=${GOOGLE_CLIENT_SECRET:?Set GOOGLE_CLIENT_SECRET in .env}
       - ConnectionStrings__Default=Host=db;Database=chesslab;Username=chesslab;Password=chesslab
+      - Bots__ServiceUrl=http://bots:8080/
+      - Bots__ServiceKey=${BOT_SERVICE_KEY:-local-compose-bot-service-key-0123456789}
     depends_on:
       db:
         condition: service_healthy
+      bots:
+        condition: service_started
+
+  bots:
+    build:
+      context: .
+      dockerfile: src/ChessLab.BotService/Dockerfile
+    environment:
+      - BotService__ApiKey=${BOT_SERVICE_KEY:-local-compose-bot-service-key-0123456789}
 
   db:
     image: postgres:18-alpine
@@ -20,7 +31,7 @@ services:
       - POSTGRES_USER=chesslab
       - POSTGRES_PASSWORD=chesslab
     volumes:
-      - chesslab-data:/var/lib/postgresql/data
+      - chesslab-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chesslab"]
       interval: 5s

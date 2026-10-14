@@ -287,6 +287,12 @@ public sealed class GameState : IGameEngineState
         engine.Resign(side);
     }
 
+    public void EndBecauseBotUnavailable(Side? winner)
+    {
+        EnsureNotOver();
+        forcedResult = new GameEndResult(GameEndReason.BotUnavailable, winner);
+    }
+
     public void DeclareTimeoutIfFlagged()
     {
         if (IsGameOver)

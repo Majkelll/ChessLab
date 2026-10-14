@@ -1,5 +1,7 @@
 using ChessLab.Core.Bidding;
+using ChessLab.Core.Board;
 using ChessLab.Core.Chess;
+using ChessLab.Core.Contracts;
 using ChessLab.Core.Games;
 using ChessLab.Core.Rooms;
 
@@ -9,46 +11,45 @@ public sealed class BiddingChessBot : IGameBot
 {
     private readonly Random random = new();
 
-    public Task<GameAction> ChooseActionAsync(IRoomSession session, SeatId seat, BotDifficulty difficulty,
+    public Task<GameAction> ChooseActionAsync(GameStateEnvelopeDto state, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)
     {
-        var game = ((BiddingChessSession)session).Game!;
+        var section = state.Bidding ?? throw new InvalidOperationException("The state has no Bidding Chess section.");
 
-        if (game.Phase == BiddingPhase.Bidding)
-            return Task.FromResult(GameAction.SubmitBid(ChooseBid(game, seat.Side, difficulty)));
+        if (section.Phase == BiddingPhase.Bidding)
+            return Task.FromResult(GameAction.SubmitBid(ChooseBid(state, section, seat.Side, difficulty)));
 
-        var move = GreedyPlay.Choose(game.AvailableMoves, difficulty, random);
-        return Task.FromResult(GameAction.MovePiece(move.From, move.To, move.PromoteTo));
+        return Task.FromResult(GameBots.MoveAction(GreedyPlay.Choose(state.AvailableMoves, difficulty, random)));
     }
 
-    private int ChooseBid(GameState game, Side side, BotDifficulty difficulty)
+    private int ChooseBid(GameStateEnvelopeDto state, BiddingSectionDto section, Side side, BotDifficulty difficulty)
     {
-        var chips = game.ChipsOf(side);
+        var chips = side == Side.White ? section.WhiteChips : section.BlackChips;
         if (chips == 0)
             return 0;
 
         if (difficulty == BotDifficulty.Easy)
             return random.Next(0, Math.Min(chips, 20) + 1);
 
-        if (CanTakeTheKing(game, side))
+        var board = PieceBoard.FromFen(state.PositionText);
+
+        if (CanTakeTheKing(board, side))
             return chips;
 
-        if (CanTakeTheKing(game, Opponent(side)))
+        if (CanTakeTheKing(board, side.Opposite()))
             return Math.Max(1, chips * 3 / 4);
 
-        var prize = BestCaptureValue(game, side);
+        var prize = BestCaptureValue(board, side);
         var wanted = Math.Min(chips, 2 + (prize * 3));
         return Math.Max(0, wanted - random.Next(0, 3));
     }
 
-    private static bool CanTakeTheKing(GameState game, Side side) =>
-        game.MovesFor(side).Any(move => move.CapturedPiece == PieceKind.King);
+    private static bool CanTakeTheKing(PieceBoard board, Side side) =>
+        board.PseudoLegalMoves(side).Any(move => move.CapturedPiece == PieceKind.King);
 
-    private static int BestCaptureValue(GameState game, Side side) =>
-        game.MovesFor(side)
+    private static int BestCaptureValue(PieceBoard board, Side side) =>
+        board.PseudoLegalMoves(side)
             .Select(move => move.CapturedPiece is { } captured ? GreedyPlay.ValueOf(captured) : 0)
             .DefaultIfEmpty(0)
             .Max();
-
-    private static Side Opponent(Side side) => side == Side.White ? Side.Black : Side.White;
 }

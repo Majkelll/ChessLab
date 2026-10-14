@@ -17,13 +17,87 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
 
     public bool HasActiveGame => Game is { IsGameOver: false };
 
+    public DateTimeOffset? PausedAt { get; private set; }
+
+    public bool IsPaused => PausedAt is not null && HasActiveGame;
+
+    public DateTimeOffset? PauseDeadline => IsPaused ? PausedAt + GamePause.Limit : null;
+
     public abstract IReadOnlyList<SeatId> ActiveSeats { get; }
 
     public virtual IReadOnlyList<SeatId> SeatsAllowedToAct => ActiveSeats;
 
     public abstract void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null);
 
-    public abstract void Apply(GameAction action, SeatId seat, DateTimeOffset now);
+    public void Apply(GameAction action, SeatId seat, DateTimeOffset now)
+    {
+        if (IsPaused)
+            throw new InvalidOperationException(GamePause.Rejection);
+
+        ApplyAction(action, seat, now);
+    }
+
+    public void ApplyBotAction(GameAction action, SeatId seat, DateTimeOffset askedAt, DateTimeOffset now)
+    {
+        if (!IsPaused || PausedAt is not { } pausedAt)
+        {
+            ApplyAction(action, seat, now);
+            return;
+        }
+
+        var pausedFor = (askedAt > pausedAt ? askedAt : pausedAt) - pausedAt;
+        ShiftTurnTimers(pausedFor);
+        PausedAt = null;
+
+        try
+        {
+            ApplyAction(action, seat, now);
+        }
+        catch
+        {
+            ShiftTurnTimers(-pausedFor);
+            PausedAt = pausedAt;
+            throw;
+        }
+    }
+
+    public void Pause(DateTimeOffset now)
+    {
+        if (HasActiveGame && !IsPaused)
+            PausedAt = now;
+    }
+
+    public bool EndIfPauseExpired(DateTimeOffset now)
+    {
+        if (PauseDeadline is not { } deadline || now < deadline)
+            return false;
+
+        EndBecauseBotUnavailable();
+        return true;
+    }
+
+    public void EndBecauseBotUnavailable()
+    {
+        if (Game is not { IsGameOver: false } game)
+            return;
+
+        PausedAt = null;
+        game.EndBecauseBotUnavailable(WinnerWhenBotUnavailable());
+    }
+
+    private Side? WinnerWhenBotUnavailable()
+    {
+        var sidesWithBots = Room.Seats
+            .Where(seat => seat.Value.Kind == OccupantKind.Bot)
+            .Select(seat => seat.Key.Side)
+            .ToHashSet();
+
+        return sidesWithBots.Count == 1 ? sidesWithBots.Single().Opposite() : null;
+    }
+
+    protected abstract void ApplyAction(GameAction action, SeatId seat, DateTimeOffset now);
+
+    protected virtual void ShiftTurnTimers(TimeSpan by) => TurnStartedAt += by;
 
     protected abstract IReadOnlyList<ChessMove> AvailableMoves { get; }
 
@@ -59,7 +133,7 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
 
     public void DeclareTimeoutIfExpired(DateTimeOffset now)
     {
-        if (Game is not { IsGameOver: false } game)
+        if (Game is not { IsGameOver: false } game || IsPaused)
             return;
 
         foreach (var side in game.SidesOnTheClock)
@@ -97,7 +171,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
             AliceSection,
             AbsorptionSection,
             MartianSection,
-            DraftSectionFor(viewer));
+            DraftSectionFor(viewer),
+            PauseDeadline);
     }
 
     public GameUpdateEnvelopeDto ToUpdateDto(Side? viewer)
@@ -124,7 +199,8 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
             AliceSection,
             AbsorptionSection,
             MartianSection,
-            DraftSectionFor(viewer));
+            DraftSectionFor(viewer),
+            PauseDeadline);
     }
 
     protected TGame StartedGame => Game ?? throw new InvalidOperationException("Game has not started.");

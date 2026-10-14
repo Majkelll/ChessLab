@@ -137,6 +137,8 @@ public sealed class GameState : IGameEngineState
 
     public void DeclareTimeoutIfFlagged() => inner.DeclareTimeoutIfFlagged();
 
+    public void EndBecauseBotUnavailable(Side? winner) => inner.EndBecauseBotUnavailable(winner);
+
     private void AdvanceTurnBookkeeping(Side newMover)
     {
         spellCastThisTurn[newMover] = false;

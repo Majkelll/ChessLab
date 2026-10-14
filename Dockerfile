@@ -25,10 +25,6 @@ RUN dotnet publish src/ChessLab.Web/ChessLab.Web.csproj \
     -p:IncludeSourceRevisionInInformationalVersion=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends stockfish \
-    && rm -rf /var/lib/apt/lists/*
-ENV PATH="${PATH}:/usr/games"
 WORKDIR /app
 COPY --from=build /app/publish .
 EXPOSE 8080

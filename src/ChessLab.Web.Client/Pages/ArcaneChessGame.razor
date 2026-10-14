@@ -181,6 +181,8 @@ else
                 }
             </div>
 
+            <PausedBanner Deadline="@state.PauseDeadline" />
+
             @if (state.IsGameOver)
             {
                 <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
@@ -190,6 +192,7 @@ else
                         <text> — <span data-testid="game-over-winner">@(winner == Side.White ? "white" : "black")</span> wins</text>
                     }
                 </p>
+                <GameEndExplanation Reason="@state.EndReason" />
                 <button data-testid="back-to-room-link"
                         @onmousedown="() => { }" @onmousedown:preventDefault="true"
                         @onclick="BackToRoom"
@@ -368,7 +371,7 @@ else
 
     private ArcaneChessSectionDto arcane => state!.Arcane!;
 
-    private bool isMyTurn => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
+    private bool isMyTurn => mySeat is not null && state is { PauseDeadline: null } && mySeat.Value.Side == state.SideToMove;
 
     private bool isBoardInteractive => state is { IsGameOver: false } && isMyTurn;
 
@@ -424,7 +427,7 @@ else
 
     private long RemainingMsOf(Side side) => side == Side.White ? state!.WhiteRemainingMs : state!.BlackRemainingMs;
 
-    private bool IsClockActive(Side side) => state is { IsGameOver: false } && state.SideToMove == side;
+    private bool IsClockActive(Side side) => state is { IsGameOver: false, PauseDeadline: null } && state.SideToMove == side;
 
     private static string SideLabel(Side side) => side == Side.White ? "white" : "black";
 
@@ -479,6 +482,7 @@ else
         GameEndReason.Timeout => "timeout",
         GameEndReason.DrawAgreed => "draw",
         GameEndReason.HpDepleted => "out of HP",
+        GameEndReason.BotUnavailable => "bot unavailable",
         _ => "",
     };
 
@@ -668,7 +672,7 @@ else
         state = new GameStateEnvelopeDto(
             dto.Kind, dto.SideToMove, dto.PositionText, dto.AvailableMoves, moveHistory,
             dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
-            CardChess: dto.CardChess, Arcane: dto.Arcane);
+            CardChess: dto.CardChess, Arcane: dto.Arcane, PauseDeadline: dto.PauseDeadline);
     }
 
     private void TriggerHpHit(Side side)
