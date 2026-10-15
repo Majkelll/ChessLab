@@ -1,0 +1,5 @@
+3 8902 seed=0
+3 12255 seed=1 w:b2b3 b:g7g5 w:f2f4 b:g5g4 w:f4f5 b:f8g7 w:c2c4 b:h7h5
+3 12347 seed=2 w:g2g4 b:g8f6 w:b2b4 b:a7a6 w:a2a4 b:g7g6 w:g4g5 b:f6d5
+3 12345 seed=4 w:h2h3 b:f7f5 w:g2g3 b:h7h6 w:a2a4 b:d7d6 w:g3g4 b:b7b6
+3 15247 seed=5 w:c2c3 b:b8a6 w:d2d4 b:a8b8 w:f2f4 b:d7d6 w:d1d2 b:c8g4

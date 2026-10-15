@@ -22,6 +22,6 @@ RUN apt-get update \
 ENV PATH="${PATH}:/usr/games"
 WORKDIR /app
 COPY --from=build /app/publish .
-EXPOSE 8080
+EXPOSE 8080 8081
 ENV ASPNETCORE_URLS=http://+:8080
 ENTRYPOINT ["dotnet", "ChessLab.BotService.dll"]

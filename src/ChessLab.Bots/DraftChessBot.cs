@@ -7,14 +7,14 @@ using GameState = ChessLab.Core.Draft.GameState;
 
 namespace ChessLab.Bots;
 
-public sealed class DraftChessBot : IGameBot
+public sealed class DraftChessBot(int? seed = null) : IGameBot
 {
     private static readonly PieceKind[] ByWeight =
         [PieceKind.Queen, PieceKind.Rook, PieceKind.Bishop, PieceKind.Knight, PieceKind.Pawn];
 
     private static readonly int[] BackRankOrder = [4, 3, 5, 2, 6, 1, 7, 0];
 
-    private readonly Random random = new();
+    private readonly Random random = BotRandom.For(seed);
 
     public Task<GameAction> ChooseActionAsync(GameStateEnvelopeDto state, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)

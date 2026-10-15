@@ -1,0 +1,5 @@
+3 241 seed=0
+3 267 seed=4 w:pick=p b:pick=b b:pick=p w:pick=n
+3 266 seed=5 w:pick=b b:pick=p b:pick=b w:pick=p
+3 112 seed=16 w:pick=q b:pick=q b:pick=r w:pick=r
+3 264 seed=17 w:pick=n b:pick=r b:pick=p w:pick=b

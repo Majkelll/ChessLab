@@ -14,7 +14,9 @@ public sealed class ProgressiveChessSession(Room room, Func<IChessRulesEngine> e
 
     public override IReadOnlyList<SeatId> ActiveSeats => [new SeatId(StartedGame.SideToMove, SeatRole.Player)];
 
-    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
+    protected override RoomSession<GameState> CreateSibling() => new ProgressiveChessSession(Room, engineFactory);
+
+    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, int? seed = null)
     {
         EnsureNotStarted();
         Room.Lock();

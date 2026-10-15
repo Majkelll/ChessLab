@@ -1,4 +1,5 @@
 using ChessLab.Core.CardChess;
+using ChessLab.Core.Games;
 
 namespace ChessLab.Core.Tests.CardChess;
 
@@ -35,7 +36,7 @@ public class DeckTests
     [Fact]
     public void Draw_WhenDrawPileEmpty_ReshufflesDiscardPileBackIn()
     {
-        var deck = new Deck([CardRank.King, CardRank.Ace], new Random(1));
+        var deck = new Deck([CardRank.King, CardRank.Ace], new GameRandom(1));
         deck.Draw();
         deck.Draw();
         Assert.Equal(0, deck.DrawPileCount);
@@ -58,7 +59,7 @@ public class DeckTests
     [Fact]
     public void Shuffled_ContainsExactlyOneOfEachRank()
     {
-        var deck = Deck.Shuffled(new Random(42));
+        var deck = Deck.Shuffled(new GameRandom(42));
 
         var drawn = Enumerable.Range(0, Deck.AllRanks.Count).Select(_ => deck.Draw()).ToArray();
 

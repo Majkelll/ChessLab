@@ -73,6 +73,18 @@ Run these on the home server (`ssh <user>@<server LAN IP> -p <SSH port>`).
    `/health` answers 200 with `version` and `workers` once every worker's Stockfish is running,
    and 503 otherwise.
 
+## Queue depth for the nightly arena
+
+The service also listens on port 8081 for `GET /internal/queue`, which answers
+`{"queued": <waiting requests>, "running": <requests being searched>}`. Compose publishes that port
+on `127.0.0.1:51822` only, and Caddy never proxies to it, so only processes on the server itself
+can read it; on any other port the endpoint answers 404. The nightly arena job in
+`deploy/arena` waits while it reports any traffic:
+
+```sh
+curl http://127.0.0.1:51822/internal/queue
+```
+
 ## Render settings
 
 Set these environment variables on the Render service:

@@ -5,7 +5,7 @@ using ChessLab.Core.Games;
 namespace ChessLab.Core.Rooms;
 
 public abstract class RoomSession<TGame>(Room room) : IRoomSession
-    where TGame : class, IGameEngineState
+    where TGame : class, IGameEngineState<TGame>
 {
     public Room Room { get; } = room;
 
@@ -27,7 +27,23 @@ public abstract class RoomSession<TGame>(Room room) : IRoomSession
 
     public virtual IReadOnlyList<SeatId> SeatsAllowedToAct => ActiveSeats;
 
-    public abstract void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null);
+    public IRoomSession Clone()
+    {
+        var copy = CreateSibling();
+        copy.Game = Game?.Clone();
+        copy.TurnStartedAt = TurnStartedAt;
+        copy.PausedAt = PausedAt;
+        CopyTimersTo(copy);
+        return copy;
+    }
+
+    protected abstract RoomSession<TGame> CreateSibling();
+
+    protected virtual void CopyTimersTo(RoomSession<TGame> copy)
+    {
+    }
+
+    public abstract void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, int? seed = null);
 
     public void Apply(GameAction action, SeatId seat, DateTimeOffset now)
     {

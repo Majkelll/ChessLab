@@ -31,7 +31,7 @@ public class CardChessSessionTests
     {
         var session = NewFullSession();
 
-        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, DateTimeOffset.UtcNow, new Random(1));
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, DateTimeOffset.UtcNow, 1);
 
         Assert.True(session.Room.IsLocked);
         Assert.NotNull(session.Game);
@@ -49,7 +49,7 @@ public class CardChessSessionTests
     public void ActiveSeat_AtStart_IsWhitePlayer()
     {
         var session = NewFullSession();
-        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, DateTimeOffset.UtcNow, new Random(1));
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, DateTimeOffset.UtcNow, 1);
 
         Assert.Equal(White, Assert.Single(session.ActiveSeats));
     }
@@ -59,7 +59,7 @@ public class CardChessSessionTests
     {
         var session = NewFullSession();
         var start = DateTimeOffset.UtcNow;
-        session.Start(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(5), start, new Random(1));
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(5), start, 1);
         var move = session.Game!.AvailableMoves[0];
 
         session.MakeMove(move.From, move.To, move.PromoteTo, start + TimeSpan.FromSeconds(12));
@@ -75,7 +75,7 @@ public class CardChessSessionTests
     {
         var session = NewFullSession();
         var start = DateTimeOffset.UtcNow;
-        session.Start(TimeSpan.FromSeconds(2), TimeSpan.Zero, start, new Random(1));
+        session.Start(TimeSpan.FromSeconds(2), TimeSpan.Zero, start, 1);
 
         session.DeclareTimeoutIfExpired(start + TimeSpan.FromSeconds(1));
         Assert.False(session.Game!.IsGameOver);

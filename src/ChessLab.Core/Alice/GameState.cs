@@ -4,7 +4,7 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.Alice;
 
-public sealed class GameState : IGameEngineState
+public sealed class GameState : IGameEngineState<GameState>
 {
     public const int MoveLimit = 300;
 
@@ -25,6 +25,19 @@ public sealed class GameState : IGameEngineState
             board.ClearEnPassant();
         }
     }
+
+    private GameState(GameState source)
+    {
+        Clock = source.Clock.Clone();
+        boards = [source.boards[0].Clone(), source.boards[1].Clone()];
+        moveHistory.AddRange(source.moveHistory);
+        notations.AddRange(source.notations);
+        availableMoves = source.availableMoves;
+        result = source.result;
+        SideToMove = source.SideToMove;
+    }
+
+    public GameState Clone() => new(this);
 
     public Clock Clock { get; }
 

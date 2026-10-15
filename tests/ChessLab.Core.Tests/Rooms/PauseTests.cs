@@ -147,7 +147,7 @@ public class PauseTests
     public void Resume_DeductsOnlyTheTimeBeforeAndAfterThePause(GameKind kind)
     {
         var session = NewSession(kind, BotWhiteAgainstHumanBlack(kind));
-        session.Start(TenMinutes, TimeSpan.Zero, Start, new Random(3));
+        session.Start(TenMinutes, TimeSpan.Zero, Start, 3);
         session.Pause(Start.AddSeconds(3));
 
         session.ApplyBotAction(FirstMoveFor(session, Side.White), White, Start.AddSeconds(3).AddMinutes(2), Start.AddSeconds(3).AddMinutes(2).AddSeconds(1));
@@ -294,7 +294,7 @@ public class PauseTests
         room.SetBot(White, BotDifficulty.Easy);
         room.SetBot(Black, BotDifficulty.Hard);
         var session = NewSession(kind, room);
-        session.Start(TenMinutes, TimeSpan.Zero, Start, new Random(3));
+        session.Start(TenMinutes, TimeSpan.Zero, Start, 3);
 
         session.EndBecauseBotUnavailable();
 

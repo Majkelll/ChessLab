@@ -1,0 +1,5 @@
+3 8902 seed=0
+3 14053 seed=8 w:h2h4 b:h7h5 b:g7g5 w:c2c3 w:d1b3 w:c3c4
+3 13914 seed=14 w:g1f3 b:f7f5 b:b8c6 w:f3g1 w:g2g3 w:f1h3
+3 12559 seed=19 w:f2f3 b:g8h6 b:b7b6 w:h2h3 w:b1c3 w:g2g3
+3 14657 seed=20 w:a2a4 b:c7c6 b:c6c5 w:a1a3 w:g2g4 w:e2e4

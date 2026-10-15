@@ -7,11 +7,11 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Bots;
 
-public sealed class ArcaneChessBot(IChessEngine engine) : IGameBot
+public sealed class ArcaneChessBot(IChessEngine engine, int? seed = null) : IGameBot
 {
     private const double CastChance = 0.3;
 
-    private readonly Random random = new();
+    private readonly Random random = BotRandom.For(seed);
 
     public async Task<GameAction> ChooseActionAsync(GameStateEnvelopeDto state, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)

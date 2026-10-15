@@ -1,0 +1,10 @@
+[Unit]
+Description=ChessLab nightly arena: anchor matches and blunder mining
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+ExecStart=%h/chesslab-arena/nightly.sh

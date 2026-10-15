@@ -4,7 +4,9 @@ namespace ChessLab.Core.Chess;
 
 public sealed class GeraChessRulesEngine : IChessRulesEngine
 {
+    private readonly List<Action<GeraChessRulesEngine>> historySinceLoad = [];
     private ChessBoard board;
+    private string? loadedFen;
     private IReadOnlyList<ChessMove>? cachedLegalMoves;
     private (string Fen, IReadOnlyList<ChessMove> Moves)? cachedOpponentProbe;
 
@@ -13,7 +15,16 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
     private GeraChessRulesEngine(ChessBoard board) => this.board = board;
 
     public static GeraChessRulesEngine FromFen(string fen) =>
-        new(ChessBoard.LoadFromFen(fen, AutoEndgameRules.All));
+        new(ChessBoard.LoadFromFen(fen, AutoEndgameRules.All)) { loadedFen = fen };
+
+    public IChessRulesEngine Clone()
+    {
+        var copy = loadedFen is null ? new GeraChessRulesEngine() : FromFen(loadedFen);
+        foreach (var step in historySinceLoad)
+            step(copy);
+
+        return copy;
+    }
 
     public Side SideToMove => ToSide(board.Turn);
 
@@ -32,7 +43,7 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
     }
 
     public IReadOnlyList<ChessMove> LegalMoves() =>
-        cachedLegalMoves ??= board.Moves().Select(ToChessMove).ToArray();
+        cachedLegalMoves ??= InCanonicalOrder(board.Moves());
 
     public IReadOnlyList<ChessMove> LegalMoves(PieceKind kind) =>
         LegalMoves().Where(m => m.Piece == kind).ToArray();
@@ -46,7 +57,7 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
         if (cachedOpponentProbe is not { } cached || cached.Fen != probeFen)
         {
             var probe = ChessBoard.LoadFromFen(probeFen, AutoEndgameRules.All);
-            cached = (probeFen, probe.Moves().Select(ToChessMove).ToArray());
+            cached = (probeFen, InCanonicalOrder(probe.Moves()));
             cachedOpponentProbe = cached;
         }
 
@@ -83,18 +94,21 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
         if (match is null || !board.Move(match))
             throw new InvalidOperationException($"Move {move} is not legal in the current position.");
 
+        historySinceLoad.Add(engine => engine.ApplyMove(move));
         InvalidateCaches();
     }
 
     public void Resign(Side side)
     {
         board.Resign(ToPieceColor(side));
+        historySinceLoad.Add(engine => engine.Resign(side));
         InvalidateCaches();
     }
 
     public void DeclareTimeout(Side side)
     {
         board.EndByTimeout(ToPieceColor(side));
+        historySinceLoad.Add(engine => engine.DeclareTimeout(side));
         InvalidateCaches();
     }
 
@@ -103,6 +117,8 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
     public void LoadPosition(string fen)
     {
         board = ChessBoard.LoadFromFen(fen, AutoEndgameRules.All);
+        loadedFen = fen;
+        historySinceLoad.Clear();
         InvalidateCaches();
     }
 
@@ -111,6 +127,14 @@ public sealed class GeraChessRulesEngine : IChessRulesEngine
         cachedLegalMoves = null;
         cachedOpponentProbe = null;
     }
+
+    private static ChessMove[] InCanonicalOrder(IEnumerable<Move> moves) =>
+    [
+        .. moves.Select(ToChessMove)
+            .OrderBy(move => move.From.Rank).ThenBy(move => move.From.File)
+            .ThenBy(move => move.To.Rank).ThenBy(move => move.To.File)
+            .ThenBy(move => move.PromoteTo),
+    ];
 
     private static ChessMove ToChessMove(Move m) => new(
         From: ToSquare(m.OriginalPosition),

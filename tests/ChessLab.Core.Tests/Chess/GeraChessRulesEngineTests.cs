@@ -23,6 +23,30 @@ public class GeraChessRulesEngineTests
     }
 
     [Fact]
+    public void LegalMoves_AreInTheSameOrderOnEveryBoard()
+    {
+        var orders = Enumerable.Range(0, 10)
+            .Select(_ => string.Join(',', new GeraChessRulesEngine().LegalMoves().Select(move => move.San)))
+            .Distinct();
+
+        Assert.Single(orders);
+    }
+
+    [Fact]
+    public void Clone_KeepsTheHistoryNeededForRepetition()
+    {
+        var engine = new GeraChessRulesEngine();
+        foreach (var (from, to) in new[] { ("g1", "f3"), ("g8", "f6"), ("f3", "g1"), ("f6", "g8"), ("g1", "f3"), ("g8", "f6"), ("f3", "g1") })
+            engine.ApplyMove(Find(engine.LegalMoves(), from, to));
+
+        var clone = engine.Clone();
+        clone.ApplyMove(Find(clone.LegalMoves(), "f6", "g8"));
+
+        Assert.Equal(GameEndReason.Repetition, clone.EndResult?.Reason);
+        Assert.Null(engine.EndResult);
+    }
+
+    [Fact]
     public void LegalMoves_FilteredByKind_OnlyContainsThatKind()
     {
         var engine = new GeraChessRulesEngine();

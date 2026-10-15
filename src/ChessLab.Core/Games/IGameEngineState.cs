@@ -18,3 +18,9 @@ public interface IGameEngineState
 
     void EndBecauseBotUnavailable(Side? winner);
 }
+
+public interface IGameEngineState<out TGame> : IGameEngineState
+    where TGame : IGameEngineState<TGame>
+{
+    TGame Clone();
+}

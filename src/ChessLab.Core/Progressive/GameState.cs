@@ -3,7 +3,7 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.Progressive;
 
-public sealed class GameState : IGameEngineState
+public sealed class GameState : IGameEngineState<GameState>
 {
     public const int SeriesLimit = 150;
 
@@ -16,6 +16,19 @@ public sealed class GameState : IGameEngineState
     {
         this.engine = engine;
         Clock = clock;
+    }
+
+    public GameState Clone()
+    {
+        var copy = new GameState(engine.Clone(), Clock.Clone())
+        {
+            SeriesNumber = SeriesNumber,
+            MovesPlayedInSeries = MovesPlayedInSeries,
+            forcedResult = forcedResult,
+        };
+        copy.moveHistory.AddRange(moveHistory);
+        copy.notations.AddRange(notations);
+        return copy;
     }
 
     public Clock Clock { get; }

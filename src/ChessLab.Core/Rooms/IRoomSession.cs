@@ -16,7 +16,7 @@ public interface IRoomSession
 
     IReadOnlyList<SeatId> SeatsAllowedToAct { get; }
 
-    void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null);
+    void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, int? seed = null);
 
     bool IsPaused { get; }
 
@@ -37,4 +37,6 @@ public interface IRoomSession
     GameStateEnvelopeDto ToStateDto(Side? viewer);
 
     GameUpdateEnvelopeDto ToUpdateDto(Side? viewer);
+
+    IRoomSession Clone();
 }

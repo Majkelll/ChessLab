@@ -1,0 +1,5 @@
+2 20402 seed=0
+2 20304 seed=0 w:bid=8 b:bid=4 w:b1a3 w:bid=8 b:bid=5 w:a3b1 w:bid=0 b:bid=3 b:g7g5 w:bid=4 b:bid=5 b:g8h6 w:bid=6 b:bid=4 w:b1a3 w:bid=6 b:bid=7 b:f7f5
+2 19250 seed=1 w:bid=3 b:bid=7 b:h7h5 w:bid=0 b:bid=10 b:g8h6 w:bid=5 b:bid=8 b:g7g5 w:bid=8 b:bid=2 w:f2f3 w:bid=2 b:bid=9 b:f7f5 w:bid=2 b:bid=1 w:b2b4
+2 20352 seed=2 w:bid=9 b:bid=10 b:e7e5 w:bid=2 b:bid=4 b:e8e7 w:bid=10 b:bid=3 w:h2h3 w:bid=1 b:bid=10 b:e7d6 w:bid=10 b:bid=4 w:c2c3 w:bid=9 b:bid=5 w:b1a3
+2 17202 seed=3 w:bid=4 b:bid=3 w:g1f3 w:bid=4 b:bid=9 b:f7f5 w:bid=4 b:bid=8 b:a7a6 w:bid=5 b:bid=7 b:c7c5 w:bid=6 b:bid=10 b:b7b6 w:bid=5 b:bid=10 b:h7h5

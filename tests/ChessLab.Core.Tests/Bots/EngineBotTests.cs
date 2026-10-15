@@ -47,7 +47,7 @@ public class EngineBotTests
     public async Task CardChessBot_PlaysOneOfTheAvailableMoves()
     {
         var session = new CardChessSession(TwoSeatRoom(GameKind.CardChess));
-        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, Start, new Random(3));
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, Start, 3);
         var state = session.ToStateDto(Side.White);
         var engine = new FakeChessEngine();
 
@@ -115,7 +115,7 @@ public class EngineBotTests
         bool emergency = false, bool hasCast = false)
     {
         var session = new ArcaneChessSession(TwoSeatRoom(GameKind.ArcaneChess));
-        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, Start, new Random(3));
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, Start, 3);
         var state = session.ToStateDto(Side.White);
         return state with
         {

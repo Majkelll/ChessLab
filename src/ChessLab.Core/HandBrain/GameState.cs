@@ -3,7 +3,7 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.HandBrain;
 
-public sealed class GameState : IGameEngineState
+public sealed class GameState : IGameEngineState<GameState>
 {
     private readonly IChessRulesEngine engine;
     private readonly List<ChessMove> moveHistory = [];
@@ -30,6 +30,18 @@ public sealed class GameState : IGameEngineState
     {
         this.engine = engine;
         Clock = clock;
+    }
+
+    public GameState Clone()
+    {
+        var copy = new GameState(engine.Clone(), Clock.Clone())
+        {
+            Phase = Phase,
+            SelectedPieceKind = SelectedPieceKind,
+            forcedResult = forcedResult,
+        };
+        copy.moveHistory.AddRange(moveHistory);
+        return copy;
     }
 
     public IReadOnlyList<PieceKind> AvailablePieceKinds()

@@ -28,7 +28,7 @@ internal static class Requests
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
 
-        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, Start, new Random(3));
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, Start, 3);
         return session;
     }
 

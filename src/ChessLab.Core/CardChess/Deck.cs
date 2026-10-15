@@ -1,3 +1,5 @@
+using ChessLab.Core.Games;
+
 namespace ChessLab.Core.CardChess;
 
 public sealed class Deck
@@ -6,17 +8,32 @@ public sealed class Deck
 
     private readonly List<CardRank> drawPile;
     private readonly List<CardRank> discardPile = [];
-    private readonly Random random;
+    private GameRandom random;
 
-    public Deck(IReadOnlyList<CardRank> order, Random? random = null)
+    public Deck(IReadOnlyList<CardRank> order, GameRandom? random = null)
     {
         drawPile = [.. order];
-        this.random = random ?? Random.Shared;
+        this.random = random ?? GameRandom.Unseeded();
     }
 
-    public static Deck Shuffled(Random? random = null)
+    public void Reseed(GameRandom newRandom)
     {
-        var rng = random ?? Random.Shared;
+        random = newRandom;
+        drawPile.AddRange(discardPile);
+        discardPile.Clear();
+        Shuffle(drawPile, random);
+    }
+
+    public Deck Clone()
+    {
+        var copy = new Deck(drawPile, random.Clone());
+        copy.discardPile.AddRange(discardPile);
+        return copy;
+    }
+
+    public static Deck Shuffled(GameRandom? random = null)
+    {
+        var rng = random ?? GameRandom.Unseeded();
         var order = AllRanks.ToList();
         Shuffle(order, rng);
         return new Deck(order, rng);
@@ -58,7 +75,7 @@ public sealed class Deck
         return Draw();
     }
 
-    private static void Shuffle(List<CardRank> list, Random rng)
+    private static void Shuffle(List<CardRank> list, GameRandom rng)
     {
         for (var i = list.Count - 1; i > 0; i--)
         {

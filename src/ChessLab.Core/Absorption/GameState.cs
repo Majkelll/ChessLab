@@ -4,14 +4,14 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.Absorption;
 
-public sealed class GameState : IGameEngineState
+public sealed class GameState : IGameEngineState<GameState>
 {
     public const int MoveLimit = 300;
 
     private readonly PieceBoard board;
     private readonly List<ChessMove> moveHistory = [];
     private readonly List<string> notations = [];
-    private readonly Dictionary<string, int> positionCounts = [];
+    private readonly Dictionary<string, int> positionCounts;
     private IReadOnlyList<ChessMove>? availableMoves;
     private GameEndResult? result;
 
@@ -20,8 +20,22 @@ public sealed class GameState : IGameEngineState
         Clock = clock;
         this.board = board ?? PieceBoard.StandardStart();
         this.board.AbsorbOnCapture = true;
+        positionCounts = [];
         CountPosition();
     }
+
+    private GameState(GameState source)
+    {
+        Clock = source.Clock.Clone();
+        board = source.board.Clone();
+        moveHistory.AddRange(source.moveHistory);
+        notations.AddRange(source.notations);
+        positionCounts = new Dictionary<string, int>(source.positionCounts);
+        availableMoves = source.availableMoves;
+        result = source.result;
+    }
+
+    public GameState Clone() => new(this);
 
     public Clock Clock { get; }
 

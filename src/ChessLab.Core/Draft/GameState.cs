@@ -11,7 +11,7 @@ public enum DraftPhase
     Playing,
 }
 
-public sealed class GameState : IGameEngineState
+public sealed class GameState : IGameEngineState<GameState>
 {
     public const int Budget = 24;
     public const int MaxPawns = 8;
@@ -49,13 +49,13 @@ public sealed class GameState : IGameEngineState
 
     private readonly Dictionary<PieceKind, int> pool;
     private readonly Dictionary<PieceKind, int> timesTaken;
-    private readonly Dictionary<Side, int> spent = new() { [Side.White] = 0, [Side.Black] = 0 };
+    private readonly Dictionary<Side, int> spent;
     private readonly Dictionary<Side, List<PieceKind>> picks;
     private readonly Dictionary<Side, bool> passed;
     private readonly Dictionary<Side, Dictionary<Square, PieceKind>> placements;
     private readonly List<ChessMove> moveHistory = [];
     private readonly List<string> notations = [];
-    private readonly Dictionary<string, int> positionCounts = [];
+    private readonly Dictionary<string, int> positionCounts;
     private PieceBoard? board;
     private IReadOnlyList<ChessMove>? availableMoves;
     private GameEndResult? result;
@@ -64,6 +64,8 @@ public sealed class GameState : IGameEngineState
     public GameState(Clock clock)
     {
         Clock = clock;
+        spent = new Dictionary<Side, int> { [Side.White] = 0, [Side.Black] = 0 };
+        positionCounts = [];
         pool = PoolSize.ToDictionary(entry => entry.Key, entry => entry.Value);
         timesTaken = PoolSize.ToDictionary(entry => entry.Key, _ => 0);
         picks = new Dictionary<Side, List<PieceKind>> { [Side.White] = [], [Side.Black] = [] };
@@ -75,6 +77,29 @@ public sealed class GameState : IGameEngineState
         };
         AdvanceDraft();
     }
+
+    private GameState(GameState source)
+    {
+        Clock = source.Clock.Clone();
+        pool = new Dictionary<PieceKind, int>(source.pool);
+        timesTaken = new Dictionary<PieceKind, int>(source.timesTaken);
+        spent = new Dictionary<Side, int>(source.spent);
+        picks = source.picks.ToDictionary(entry => entry.Key, entry => entry.Value.ToList());
+        passed = new Dictionary<Side, bool>(source.passed);
+        placements = source.placements.ToDictionary(
+            entry => entry.Key, entry => new Dictionary<Square, PieceKind>(entry.Value));
+        moveHistory.AddRange(source.moveHistory);
+        notations.AddRange(source.notations);
+        positionCounts = new Dictionary<string, int>(source.positionCounts);
+        board = source.board?.Clone();
+        availableMoves = source.availableMoves;
+        result = source.result;
+        pickSlot = source.pickSlot;
+        Phase = source.Phase;
+        SideToPick = source.SideToPick;
+    }
+
+    public GameState Clone() => new(this);
 
     public Clock Clock { get; }
 

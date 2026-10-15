@@ -17,10 +17,11 @@ context: |
   - Tailwind CSS 4 built through npm on every build of ChessLab.Web (Node 22 in the Docker image;
     elsewhere whatever npm is on PATH); cm-chessboard renders boards in the browser.
   - xUnit 2.9 for tests; Playwright 1.55 (Chromium) for end-to-end tests.
-  - Two Docker multi-stage images (web, and bot service with Stockfish), docker-compose with
-    postgres:18-alpine and the bot service, GitHub Actions on self-hosted runners. A push to main
-    publishes both images to GHCR, deploys the bot service to the home server over SSH, waits for
-    its /health to report the new version, then deploys the web image to Render.
+  - Three Docker multi-stage images (web, bot service with Stockfish, and arena with Stockfish),
+    docker-compose with postgres:18-alpine and the bot service, GitHub Actions on self-hosted
+    runners. A push to main publishes the images to GHCR, deploys the bot service to the home
+    server over SSH, waits for its /health to report the new version, then deploys the web image
+    to Render.
 
   Architecture
   - src/ChessLab.Core: rules for every mode, rooms, seats, clocks, wire contracts (DTOs).
@@ -35,7 +36,9 @@ context: |
     (bearer API key, body BotActionRequest, answers one GameAction; 400 malformed or kind mismatch,
     422 seat has nothing to do, 503 queued over 15 s, 500 engine crash) and GET /health (version
     and workers, 503 while an engine is down). A WorkerPool runs one Stockfish per worker from an
-    arrival-ordered queue. Deployment templates live in deploy/bot-service.
+    arrival-ordered queue. GET /internal/queue (queued and running requests) answers only on
+    BotService:InternalPort, or to loopback callers when no internal port is set. Deployment
+    templates live in deploy/bot-service.
   - src/ChessLab.Data: ChessLabDbContext, AppUser, GameRecord, GameRecordPlayer, UserService,
     EF migrations.
   - src/ChessLab.Web: host (Program.CreateApp), GameHub, RoomRegistry, BotRunner, ClockWatchdog,
@@ -45,10 +48,28 @@ context: |
     resignation are rejected, BotRunner retries every 5 seconds, and ClockWatchdog ends it as
     BotUnavailable after 5 minutes. Time comes from the injected TimeProvider.
   - src/ChessLab.Web.Client: WebAssembly pages and components, GameClient hub wrapper.
+  - tools/ChessLab.Arena: console app that measures bots with Core sessions as the referee. Games
+    run in pairs (same opening, same seed, colours swapped); illegal actions, crashes and
+    exceeding twice the per-action budget lose. Positions everywhere are action lines replayed
+    from the start: "seed=N w:e2e4 b:select=n w:bid=12 b:pick=q w:place=k@e1 ..."; for Card and
+    Arcane Chess the pair seed then reshuffles the decks and redeals the hands (GameState.Reseed).
+    IEngineUnderTest is what a per-mode engine implements (apply, undo, hash, legal actions,
+    evaluate, mirror, search); EngineRegistry maps each mode to its engine, today the
+    CoreReferenceEngine that clones Core sessions.
+  - Core randomness is seeded through GameRandom (Start takes an optional seed; unseeded games use
+    a random one), every GameState and IRoomSession has Clone(), and GeraChessRulesEngine returns
+    legal moves in a fixed order, so arena runs replay exactly.
+  - tests/engine-data/<mode>/: openings.txt (60 balanced openings), perft.txt ("depth nodes
+    position", from Core), bench.txt (30 positions), bench.expected ("depth=N nodes=M", the
+    engine's behaviour fingerprint), tactics.txt ("expected-action position"), mining.json
+    (blunder threshold and depth, full-information modes only), and ladder.csv at the top
+    (baseline Elo ladder).
   - tests/ChessLab.Core.Tests (rules, sessions, bots), tests/ChessLab.Web.Tests (host, hub over a
     real SignalR connection, HTTP endpoints, an in-process fake bot service),
     tests/ChessLab.BotService.Tests (API, auth, worker pool with a fake engine),
-    tests/ChessLab.E2E.Tests (Playwright, hosting the real bot service in-process).
+    tests/ChessLab.E2E.Tests (Playwright, hosting the real bot service in-process),
+    tests/ChessLab.Engine.Tests (arena, SPRT against published fishtest runs, perft, fuzzing and
+    invariants with seeded bugs in a sample allocation-free Martian engine, engine data suites).
   - Rooms and live games exist only in server memory (RoomRegistry singleton), so the app runs
     as a single instance. Only finished games are persisted. Rooms are removed 15 minutes after
     their game ends, or after 2 hours when it never starts.
@@ -97,6 +118,16 @@ context: |
   - Bot service image only: docker build -f src/ChessLab.BotService/Dockerfile .
   - CSS only: npm --prefix src/ChessLab.Web run build:css
   - Validate specs: openspec validate --all --strict --no-interactive
+  - Engine tests (CI): dotnet test tests/ChessLab.Engine.Tests
+  - Arena (run 'arena --help' for every command):
+    dotnet run --project tools/ChessLab.Arena -c Release -- <command> --mode <mode|all> ...
+    perft / fuzz / invariants (CI on every pull request), bench --check (fails when bench.expected
+    is stale; --write updates it), tactics --player engine|bot:<level> [--compare main-solved],
+    match and sprt --candidate <player> --baseline <player> [--bounds 0,5] with players bot:<level>,
+    random or anchor:<dir>:<level>, calibrate (fails when a level is not stronger than the one
+    below), anchor and ladder (frozen builds pinned by commit and the Elo ladder CSV), mine
+    --connection <db> (blunders into review lists), openings (new suites), bench-compare.
+  - Arena image only: docker build -f tools/ChessLab.Arena/Dockerfile .
 
   Known gaps (no automated check)
   - PostgreSQL migrations and the Degraded and Unhealthy health reports (every test runs on SQLite).
@@ -106,6 +137,19 @@ context: |
   - The deployed bot service path: Render to home server, TLS certificate pinning against the real
     certificate, and the SSH deploy step (checked by hand per deploy/bot-service/README.md).
   - How Arcane Chess Extra Turn behaves after a move that gives check.
+  - The engine-strength gate itself: it needs the chesslab-sprt runner (see
+    ~/Repos/Github/Runners/README.md) and is made a required check only with the first per-mode
+    engine. The nightly arena on the home server (deploy/arena) is checked by hand.
+
+  Engine gates
+  - CI on every pull request also runs the engine tests, perft, fuzzing, invariants, bench --check
+    and tools/ChessLab.Arena/scripts/compare-with-main.sh, which fails when nodes per second drop
+    more than 10 percent below main measured in the same job or a tactic main solves is lost.
+  - .github/workflows/engine-strength.yml posts the engine-strength check. For every mode whose
+    bench.expected differs from main it builds main as an anchor and runs an SPRT (normalized
+    Elo bounds 0,5, or 0,10 with the sprt-bounds-0-10 label; alpha and beta 0.05; 40000 games at
+    most) on the chesslab-sprt runner, and passes only on H1 accepted. Unchanged benches pass
+    at once.
 
   Required configuration
   - ConnectionStrings:Default (Development has a default), Authentication:Google:ClientId and

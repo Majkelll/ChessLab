@@ -3,7 +3,7 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.Martian;
 
-public sealed class GameState : IGameEngineState
+public sealed class GameState : IGameEngineState<GameState>
 {
     public const int Files = 4;
     public const int Ranks = 8;
@@ -13,7 +13,7 @@ public sealed class GameState : IGameEngineState
     private static readonly (int File, int Rank)[] OrthogonalSteps = [(0, 1), (1, 0), (0, -1), (-1, 0)];
     private static readonly (int File, int Rank)[] AllSteps = [.. OrthogonalSteps, .. DiagonalSteps];
 
-    private readonly int[,] pyramids = new int[Files, Ranks];
+    private readonly int[,] pyramids;
     private readonly Dictionary<Side, int> scores;
     private readonly List<ChessMove> moveHistory = [];
     private readonly List<string> notations = [];
@@ -24,9 +24,25 @@ public sealed class GameState : IGameEngineState
     public GameState(Clock clock)
     {
         Clock = clock;
+        pyramids = new int[Files, Ranks];
         scores = new Dictionary<Side, int> { [Side.White] = 0, [Side.Black] = 0 };
         Deal();
     }
+
+    private GameState(GameState source)
+    {
+        Clock = source.Clock.Clone();
+        pyramids = (int[,])source.pyramids.Clone();
+        scores = new Dictionary<Side, int>(source.scores);
+        moveHistory.AddRange(source.moveHistory);
+        notations.AddRange(source.notations);
+        availableMoves = source.availableMoves;
+        lastMove = source.lastMove;
+        result = source.result;
+        SideToMove = source.SideToMove;
+    }
+
+    public GameState Clone() => new(this);
 
     private void Deal()
     {

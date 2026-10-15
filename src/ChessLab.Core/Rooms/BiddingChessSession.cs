@@ -25,7 +25,9 @@ public sealed class BiddingChessSession(Room room) : RoomSession<GameState>(room
         }
     }
 
-    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
+    protected override RoomSession<GameState> CreateSibling() => new BiddingChessSession(Room);
+
+    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, int? seed = null)
     {
         EnsureNotStarted();
         Room.Lock();

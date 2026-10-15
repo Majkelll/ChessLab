@@ -36,8 +36,8 @@ public class SeatViewFairnessTests
         var session = new ArcaneChessSession(BotWhiteAgainstHumanBlack(GameKind.ArcaneChess));
         session.StartWith(() => new ChessLab.Core.ArcaneChess.GameState(
             new ChessLab.Core.CardChess.GameState(new GeraChessRulesEngine(), new Clock(TimeSpan.FromMinutes(10), TimeSpan.Zero),
-                new Deck(WhiteCards, new Random(1)), new Deck(blackCards, new Random(1))),
-            new SpellDeck(WhiteSpells, new Random(1)), new SpellDeck(blackSpells, new Random(1)), new Random(1)), Start);
+                new Deck(WhiteCards, new GameRandom(1)), new Deck(blackCards, new GameRandom(1))),
+            new SpellDeck(WhiteSpells, new GameRandom(1)), new SpellDeck(blackSpells, new GameRandom(1)), new GameRandom(1)), Start);
         return session;
     }
 

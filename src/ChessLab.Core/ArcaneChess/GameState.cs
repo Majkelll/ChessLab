@@ -4,7 +4,7 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.ArcaneChess;
 
-public sealed class GameState : IGameEngineState
+public sealed class GameState : IGameEngineState<GameState>
 {
     public const int SpellHandSize = 3;
     public const int MaxMana = 3;
@@ -19,7 +19,7 @@ public sealed class GameState : IGameEngineState
     private readonly Dictionary<Side, bool> deepBreathActive;
     private readonly Dictionary<Side, bool> pendingExtraTurn;
     private readonly List<ArcaneEffect> activeEffects = [];
-    private readonly Random random;
+    private GameRandom random;
 
     public Clock Clock => inner.Clock;
     public IReadOnlyList<ChessMove> MoveHistory => inner.MoveHistory;
@@ -49,10 +49,10 @@ public sealed class GameState : IGameEngineState
     public IReadOnlyList<ChessMove> AvailableMoves => FilterForCurrentMover();
 
     public GameState(CardChess.GameState inner, SpellDeck whiteSpellDeck, SpellDeck blackSpellDeck,
-        Random? random = null)
+        GameRandom? random = null)
     {
         this.inner = inner;
-        this.random = random ?? Random.Shared;
+        this.random = random ?? GameRandom.Unseeded();
         spellDecks = new Dictionary<Side, SpellDeck> { [Side.White] = whiteSpellDeck, [Side.Black] = blackSpellDeck };
         spellHands = new Dictionary<Side, List<SpellRank>>
         {
@@ -68,6 +68,39 @@ public sealed class GameState : IGameEngineState
 
         mana[inner.SideToMove] = 1;
     }
+
+    private GameState(GameState source)
+    {
+        inner = source.inner.Clone();
+        random = source.random.Clone();
+        spellDecks = source.spellDecks.ToDictionary(entry => entry.Key, entry => entry.Value.Clone());
+        spellHands = source.spellHands.ToDictionary(entry => entry.Key, entry => entry.Value.ToList());
+        mana = new Dictionary<Side, int>(source.mana);
+        spellCastThisTurn = new Dictionary<Side, bool>(source.spellCastThisTurn);
+        manaGainBlocked = new Dictionary<Side, bool>(source.manaGainBlocked);
+        peekActive = new Dictionary<Side, bool>(source.peekActive);
+        deepBreathActive = new Dictionary<Side, bool>(source.deepBreathActive);
+        pendingExtraTurn = new Dictionary<Side, bool>(source.pendingExtraTurn);
+        activeEffects.AddRange(source.activeEffects);
+    }
+
+    public GameState Clone() => new(this);
+
+    public void Reseed(int seed)
+    {
+        inner.Reseed(seed);
+        spellDecks[Side.White].Reseed(GameRandom.For(seed, GameRandom.WhiteSpells));
+        spellDecks[Side.Black].Reseed(GameRandom.For(seed, GameRandom.BlackSpells));
+        foreach (var side in (Side[])[Side.White, Side.Black])
+            spellHands[side] = [.. Enumerable.Range(0, SpellHandSize).Select(_ => spellDecks[side].Draw())];
+        random = GameRandom.For(seed, GameRandom.SpellEffects);
+    }
+
+    public static GameState Deal(IChessRulesEngine engine, Clock clock, int? seed = null) =>
+        new(CardChess.GameState.Deal(engine, clock, seed),
+            SpellDeck.Shuffled(GameRandom.For(seed, GameRandom.WhiteSpells)),
+            SpellDeck.Shuffled(GameRandom.For(seed, GameRandom.BlackSpells)),
+            GameRandom.For(seed, GameRandom.SpellEffects));
 
     public void CastSpell(SpellRank spell, SpellTarget target)
     {

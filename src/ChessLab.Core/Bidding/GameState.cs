@@ -10,7 +10,7 @@ public enum BiddingPhase
     Moving,
 }
 
-public sealed class GameState : IGameEngineState
+public sealed class GameState : IGameEngineState<GameState>
 {
     public const int StartingChips = 100;
 
@@ -29,6 +29,28 @@ public sealed class GameState : IGameEngineState
         this.board = board ?? PieceBoard.StandardStart();
         chips = new Dictionary<Side, int> { [Side.White] = StartingChips, [Side.Black] = StartingChips };
         pendingBids = new Dictionary<Side, int?> { [Side.White] = null, [Side.Black] = null };
+    }
+
+    public GameState Clone()
+    {
+        var copy = new GameState(Clock.Clone(), board.Clone())
+        {
+            Phase = Phase,
+            SideToMove = SideToMove,
+            MarkerHolder = MarkerHolder,
+            LastWhiteBid = LastWhiteBid,
+            LastBlackBid = LastBlackBid,
+            result = result,
+        };
+        copy.notations.AddRange(notations);
+        copy.moveHistory.AddRange(moveHistory);
+        foreach (var side in Sides)
+        {
+            copy.chips[side] = chips[side];
+            copy.pendingBids[side] = pendingBids[side];
+        }
+
+        return copy;
     }
 
     public Clock Clock { get; }

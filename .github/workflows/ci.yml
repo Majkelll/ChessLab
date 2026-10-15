@@ -15,6 +15,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Restore
         run: mise exec dotnet@10.0.400 -- dotnet restore ChessLab.slnx
@@ -30,3 +32,24 @@ jobs:
 
       - name: Test the bot service
         run: mise exec dotnet@10.0.400 -- dotnet test tests/ChessLab.BotService.Tests/ChessLab.BotService.Tests.csproj --no-build -c Release
+
+      - name: Test the engines
+        run: mise exec dotnet@10.0.400 -- dotnet test tests/ChessLab.Engine.Tests/ChessLab.Engine.Tests.csproj --no-build -c Release
+
+      - name: Check move generation and engine invariants
+        run: |
+          arena=tools/ChessLab.Arena/bin/Release/net10.0/ChessLab.Arena.dll
+          mise exec dotnet@10.0.400 -- dotnet "$arena" perft --mode all
+          mise exec dotnet@10.0.400 -- dotnet "$arena" fuzz --mode all --games 5 --out "$RUNNER_TEMP/fuzz-failures"
+          mise exec dotnet@10.0.400 -- dotnet "$arena" invariants --mode all
+
+      - name: Compare bench and tactics with main
+        run: tools/ChessLab.Arena/scripts/compare-with-main.sh
+
+      - name: Keep fuzzing failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-failures
+          path: ${{ runner.temp }}/fuzz-failures
+          if-no-files-found: ignore

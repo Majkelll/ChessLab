@@ -1,0 +1,12 @@
+w:f1g2 seed=2 w:g2g4 b:g8f6 w:b2b4 b:c7c5 w:a2a4 b:h8g8 w:g4g5 b:e7e5 w:b1a3 b:b7b5 w:d2d3 b:f6g4 w:f2f3 b:b8a6 w:d1d6 b:g8g2
+w:a1a8 seed=3 w:b2b4 b:c7c5 w:c1a3 b:g7g6 w:a3c1 b:b8a6 w:c2c4 b:g8f6 w:c1b2 b:c5b4 w:b1c3 b:e7e6 w:a2a3 b:g6g5 w:h2h3 b:f8c5 w:d1c1 b:c5e7 w:c1b1 b:a6b8 w:c3b5 b:a7a6
+b:d5g5 seed=5 w:c2c3 b:b8a6 w:d2d4 b:a6b8 w:f2f3 b:d7d6 w:d1a4 b:d8d5 w:c1g5
+b:d8h4 seed=6 w:h2h3 b:b7b5 w:h1h5 b:a7a5 w:b2b3 b:e7e6 w:h5h4 b:a8a7 w:e2e3
+w:d1d8 seed=7 w:c2c4 b:e7e5 w:h2h4 b:f7f6 w:d2d4 b:b7b6 w:c1h6 b:f8a3 w:d4e5 b:d7d6
+b:f6h5 seed=16 w:g1f3 b:a7a5 w:b2b3 b:d7d5 w:h2h4 b:g8f6 w:h1h5 b:a8a6 w:f3e5
+w:a6d6 seed=20 w:a2a4 b:c7c5 w:a1a2 b:a7a5 w:e2e4 b:g7g5 w:b1c3 b:f7f5 w:g1h3 b:g8f6 w:h3f4 b:d8b6 w:f4d5 b:b6d6 w:d1e2 b:f6d5 w:e2a6 b:f8h6
+b:d4a1 seed=22 w:b2b3 b:b8a6 w:c2c4 b:f7f5 w:a2a4 b:c7c6 w:a4a5 b:g7g5 w:a1a3 b:e8f7 w:f2f4 b:h7h5 w:f4g5 b:h5h4 w:d2d4 b:f8g7 w:g2g4 b:a6b4 w:e1d2 b:b7b5 w:d1e1 b:d8f8 w:f1h3 b:c8b7 w:a3a4 b:g8h6 w:c1a3 b:f8d8 w:e2e3 b:g7d4 w:e1a1
+w:f3a8 seed=24 w:b2b4 b:e7e6 w:g2g4 b:g8e7 w:g1f3 b:e7f5 w:f3g1 b:b7b5 w:d2d4 b:f5h4 w:c1d2 b:f7f6 w:d1d3 b:h7h5 w:d2c1 b:b8a6 w:g4h5 b:a6c5 w:d3f3 b:a7a6
+b:e8f7 seed=26 w:b2b4 b:a7a6 w:g1h3 b:f7f6 w:a2a3 b:a8a4 w:g2g3 b:e7e6 w:a1a7 b:d7d6 w:e2e4 b:e6e5 w:h1g1 b:g8h6 w:a7f7
+b:d8e7 seed=28 w:c2c3 b:g7g6 w:e2e4 b:f8g7 w:d1c2 b:f7f5 w:f2f4 b:e7e6 w:e1f2 b:d8h4 w:f2f3 b:b7b6 w:d2d4 b:e8d8 w:g1e2 b:g8f6 w:b1d2 b:h4f4 w:f3f4 b:g6g5 w:c3c4 b:a7a5 w:a1b1 b:g7h6 w:g2g4 b:f6d5 w:b1e1 b:c7c5 w:e1e7 b:d5b4 w:c2b3 b:h8g8 w:b3c3 b:b4a6 w:d2b1
+w:f3d4 seed=30 w:c2c4 b:c7c6 w:b1c3 b:d7d6 w:d1c2 b:e7e5 w:h2h3 b:c8e6 w:g1f3 b:g7g5 w:b2b4 b:d8d4

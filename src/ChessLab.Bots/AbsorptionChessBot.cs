@@ -5,9 +5,9 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Bots;
 
-public sealed class AbsorptionChessBot : IGameBot
+public sealed class AbsorptionChessBot(int? seed = null) : IGameBot
 {
-    private readonly Random random = new();
+    private readonly Random random = BotRandom.For(seed);
 
     public Task<GameAction> ChooseActionAsync(GameStateEnvelopeDto state, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default) =>
