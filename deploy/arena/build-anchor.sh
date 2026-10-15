@@ -10,7 +10,7 @@ ARENA_HOME="${ARENA_HOME:-$HOME/chesslab-arena}"
 IMAGE="ghcr.io/majkelll/chesslab-arena:$1"
 MODES="hand-and-brain card-chess arcane-chess bidding-chess progressive-chess alice-chess absorption-chess martian-chess draft-chess"
 
-docker pull --quiet "$IMAGE"
+docker pull --quiet "$IMAGE" || echo "Could not pull $IMAGE, using the local copy"
 container="$(docker create "$IMAGE")"
 trap 'docker rm -f "$container" >/dev/null' EXIT
 

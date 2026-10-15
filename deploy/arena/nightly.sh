@@ -14,7 +14,7 @@ arena() {
     -v "$ARENA_HOME:/data" "$ARENA_IMAGE" "$@"
 }
 
-docker pull --quiet "$ARENA_IMAGE"
+docker pull --quiet "$ARENA_IMAGE" || echo "Could not pull $ARENA_IMAGE, using the local copy"
 
 arena ladder --mode all --root /data --csv /data/ladder.csv \
   --pairs "$ARENA_PAIRS" --concurrency "$ARENA_CONCURRENCY" --yield-to "$ARENA_QUEUE_URL"

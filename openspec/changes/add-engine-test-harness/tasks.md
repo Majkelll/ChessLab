@@ -37,7 +37,7 @@
 
 ## 7. CI gates
 
-- [ ] 7.1 Add the fast gates (Engine tests, bench, tactics, nodes-per-second check against `main`) to the pull request workflow; verify on a test pull request that a 20 percent slowdown fails
+- [x] 7.1 Add the fast gates (Engine tests, bench, tactics, nodes-per-second check against `main`) to the pull request workflow; verify on a test pull request that a 20 percent slowdown fails
 - [ ] 7.2 Add `engine-strength.yml`: detect modes whose `bench.expected` changed, run `arena sprt` on `chesslab-sprt`, post the `engine-strength` check; verify on a test pull request for both an unchanged and a changed bench
 - [ ] 7.3 Register the `chesslab-sprt` runner and document how to start it next to the existing runners; verify the strength workflow picks it up
 
