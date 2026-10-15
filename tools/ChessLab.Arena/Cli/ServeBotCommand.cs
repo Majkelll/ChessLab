@@ -1,4 +1,6 @@
 using System.Text.Json;
+using ChessLab.Arena.Notation;
+using ChessLab.Arena.Players;
 using ChessLab.Bots;
 using ChessLab.Core.Contracts;
 using ChessLab.Core.Rooms;
@@ -11,7 +13,8 @@ public sealed class ServeBotCommand : IArenaCommand
 
     public string Summary => "Answer bot requests on stdin with actions on stdout (used to play anchors).";
 
-    public string Usage => "serve-bot [--seed <n>] [--stockfish <path>]  (one BotActionRequest JSON per line)";
+    public string Usage =>
+        "serve-bot [--seed <n>] [--stockfish <path>] [--kind <mode> --difficulty <level>]  (one BotActionRequest JSON per line)";
 
     public async Task<int> RunAsync(CommandArgs args, TextWriter output, CancellationToken ct)
     {
@@ -22,6 +25,18 @@ public sealed class ServeBotCommand : IArenaCommand
 
         try
         {
+            if (args.Optional("kind") is { } kindText)
+            {
+                var kind = Modes.Parse(kindText);
+                var difficulty = Enum.Parse<BotDifficulty>(args.Optional("difficulty") ?? nameof(BotDifficulty.Expert), ignoreCase: true);
+                if (GameBots.NeedsChessEngine(kind))
+                    engine = await StockfishEngine.StartAsync(stockfishPath, ct);
+
+                await BotWarmUp.RunAsync(kind, difficulty, engine, ct);
+                await output.WriteLineAsync(BotWarmUp.ReadyLine);
+                await output.FlushAsync(ct);
+            }
+
             while (await Console.In.ReadLineAsync(ct) is { } line)
             {
                 var request = JsonSerializer.Deserialize<BotActionRequest>(line, BotServiceJson.Options)

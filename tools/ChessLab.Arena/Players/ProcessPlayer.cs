@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using ChessLab.Arena.Notation;
 using ChessLab.Bots;
 using ChessLab.Core.Contracts;
 using ChessLab.Core.Games;
@@ -16,8 +17,12 @@ public sealed class AnchorPlayerFactory(string directory, BotDifficulty difficul
     public TimeSpan BudgetFor(GameKind kind) =>
         new BotPlayerFactory(difficulty, settings).BudgetFor(kind);
 
-    public Task<IArenaPlayer> CreateAsync(GameKind kind, int seed, CancellationToken ct)
+    private static readonly TimeSpan StartupLimit = TimeSpan.FromMinutes(2);
+
+    public async Task<IArenaPlayer> CreateAsync(GameKind kind, int seed, CancellationToken ct)
     {
+        BotWarmUp.WarmUpRequests(kind, difficulty);
+
         var executable = Path.Combine(directory, "ChessLab.Arena");
         var start = new ProcessStartInfo(File.Exists(executable) ? executable : "dotnet")
         {
@@ -29,16 +34,38 @@ public sealed class AnchorPlayerFactory(string directory, BotDifficulty difficul
         if (!File.Exists(executable))
             start.ArgumentList.Add(Path.Combine(directory, "ChessLab.Arena.dll"));
 
-        foreach (var argument in (string[])["serve-bot", "--seed", seed.ToString(), "--stockfish", settings.StockfishPath])
+        foreach (var argument in (string[])["serve-bot", "--seed", seed.ToString(), "--stockfish", settings.StockfishPath,
+                     "--kind", Modes.FolderOf(kind), "--difficulty", difficulty.ToString()])
             start.ArgumentList.Add(argument);
 
         var process = Process.Start(start)
             ?? throw new InvalidOperationException($"The anchor in {directory} did not start.");
-        return Task.FromResult<IArenaPlayer>(new ProcessPlayer(process));
+        var player = new ProcessPlayer(process);
+        try
+        {
+            await player.WaitUntilReadyAsync(directory, ct);
+            return player;
+        }
+        catch
+        {
+            await player.DisposeAsync();
+            throw;
+        }
     }
 
     private sealed class ProcessPlayer(Process process) : IArenaPlayer
     {
+        public async Task WaitUntilReadyAsync(string directory, CancellationToken ct)
+        {
+            using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            limit.CancelAfter(StartupLimit);
+
+            var line = await process.StandardOutput.ReadLineAsync(limit.Token);
+            if (line != BotWarmUp.ReadyLine)
+                throw new InvalidOperationException(
+                    $"The anchor in {directory} answered '{line}' instead of '{BotWarmUp.ReadyLine}' after starting.");
+        }
+
         public async Task<GameAction> ChooseAsync(BotActionRequest request, CancellationToken ct)
         {
             await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(request, BotServiceJson.Options));

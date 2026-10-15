@@ -22,6 +22,7 @@ public sealed class BotPlayerFactory(BotDifficulty difficulty, ArenaSettings set
             ? await StockfishEngine.StartAsync(settings.StockfishPath, ct)
             : null;
 
+        await BotWarmUp.OnceAsync(kind, difficulty, engine, ct);
         return new BotPlayer(GameBots.For(kind, engine, seed), engine);
     }
 
