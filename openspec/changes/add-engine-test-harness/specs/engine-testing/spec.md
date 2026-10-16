@@ -17,6 +17,10 @@ The system SHALL provide a match runner that plays two bot versions against each
 - **WHEN** a bot throws or exceeds its time budget by more than 100 percent
 - **THEN** that game is recorded as a loss for that bot and the match report counts it
 
+#### Scenario: Anchor start-up
+- **WHEN** a bot runs as a separate anchor process
+- **THEN** the process starts and warms up before the game, outside its time budget, so an anchor of the same build as the candidate scores 50 percent with no time losses
+
 ### Requirement: Paired games
 The match runner SHALL play games in pairs from the same opening and the same random seed for every shuffle and draw, with colours swapped in the second game. Openings SHALL come from the mode's opening suite in order.
 
