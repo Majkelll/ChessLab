@@ -12,6 +12,8 @@ public sealed record BotActionRequest(
 
 public sealed record BotServiceHealthDto(string Version, int Workers);
 
+public sealed record BotServiceQueueDto(int Queued, int Running);
+
 public static class BotServiceJson
 {
     public static JsonSerializerOptions Options { get; } = new(JsonSerializerDefaults.Web)

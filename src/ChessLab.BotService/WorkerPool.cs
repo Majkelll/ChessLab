@@ -33,7 +33,13 @@ public sealed class WorkerPool(
     private readonly Channel<BotJob> queue = Channel.CreateUnbounded<BotJob>();
     private readonly IChessEngineProcess?[] engines = new IChessEngineProcess?[workerCount];
 
+    private int running;
+
     public int WorkerCount => workerCount;
+
+    public int Queued => queue.Reader.Count;
+
+    public int Running => Volatile.Read(ref running);
 
     public bool AllEnginesReady
     {
@@ -102,6 +108,7 @@ public sealed class WorkerPool(
     {
         using var searchLimit = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         searchLimit.CancelAfter(timings.SearchLimit);
+        Interlocked.Increment(ref running);
 
         try
         {
@@ -118,6 +125,10 @@ public sealed class WorkerPool(
         catch (Exception ex)
         {
             job.Fail(ex);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref running);
         }
     }
 

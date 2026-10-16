@@ -3,7 +3,7 @@ using ChessLab.Core.Games;
 
 namespace ChessLab.Core.CardChess;
 
-public sealed class GameState : IGameEngineState
+public sealed class GameState : IGameEngineState<GameState>
 {
     public const int StartingHp = 3;
     public const int HandSize = 5;
@@ -57,6 +57,42 @@ public sealed class GameState : IGameEngineState
 
         RefreshAvailableMoves();
     }
+
+    private GameState(GameState source)
+    {
+        engine = source.engine.Clone();
+        Clock = source.Clock.Clone();
+        decks = source.decks.ToDictionary(entry => entry.Key, entry => entry.Value.Clone());
+        hands = source.hands.ToDictionary(entry => entry.Key, entry => entry.Value.ToList());
+        hp = new Dictionary<Side, int>(source.hp);
+        pendingRerolls = source.pendingRerolls.ToDictionary(entry => entry.Key, entry => entry.Value.ToList());
+        moveHistory.AddRange(source.moveHistory);
+        forcedResult = source.forcedResult;
+        AvailableMoves = source.AvailableMoves;
+        EmergencyMoveAvailable = source.EmergencyMoveAvailable;
+        HandHasNoPlayableCard = source.HandHasNoPlayableCard;
+    }
+
+    public GameState Clone() => new(this);
+
+    public void Reseed(int seed)
+    {
+        decks[Side.White].Reseed(GameRandom.For(seed, GameRandom.WhiteCards));
+        decks[Side.Black].Reseed(GameRandom.For(seed, GameRandom.BlackCards));
+
+        foreach (var side in (Side[])[Side.White, Side.Black])
+        {
+            hands[side] = DealHand(side, decks[side]);
+            pendingRerolls[side].Clear();
+        }
+
+        RefreshAvailableMoves();
+    }
+
+    public static GameState Deal(IChessRulesEngine engine, Clock clock, int? seed = null) =>
+        new(engine, clock,
+            Deck.Shuffled(GameRandom.For(seed, GameRandom.WhiteCards)),
+            Deck.Shuffled(GameRandom.For(seed, GameRandom.BlackCards)));
 
     private IReadOnlyList<ChessMove> LegalMovesFor(CardRank card) => engine.LegalMoves(card.ToPieceKind());
 

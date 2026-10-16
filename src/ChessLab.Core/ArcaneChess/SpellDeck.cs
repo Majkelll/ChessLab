@@ -1,20 +1,37 @@
+using ChessLab.Core.Games;
+
 namespace ChessLab.Core.ArcaneChess;
 
 public sealed class SpellDeck
 {
     private readonly List<SpellRank> drawPile;
     private readonly List<SpellRank> discardPile = [];
-    private readonly Random random;
+    private GameRandom random;
 
-    public SpellDeck(IReadOnlyList<SpellRank> order, Random? random = null)
+    public SpellDeck(IReadOnlyList<SpellRank> order, GameRandom? random = null)
     {
         drawPile = [.. order];
-        this.random = random ?? Random.Shared;
+        this.random = random ?? GameRandom.Unseeded();
     }
 
-    public static SpellDeck Shuffled(Random? random = null)
+    public void Reseed(GameRandom newRandom)
     {
-        var rng = random ?? Random.Shared;
+        random = newRandom;
+        drawPile.AddRange(discardPile);
+        discardPile.Clear();
+        Shuffle(drawPile, random);
+    }
+
+    public SpellDeck Clone()
+    {
+        var copy = new SpellDeck(drawPile, random.Clone());
+        copy.discardPile.AddRange(discardPile);
+        return copy;
+    }
+
+    public static SpellDeck Shuffled(GameRandom? random = null)
+    {
+        var rng = random ?? GameRandom.Unseeded();
         var order = SpellRankExtensions.All.ToList();
         Shuffle(order, rng);
         return new SpellDeck(order, rng);
@@ -38,7 +55,7 @@ public sealed class SpellDeck
         return card;
     }
 
-    private static void Shuffle(List<SpellRank> list, Random rng)
+    private static void Shuffle(List<SpellRank> list, GameRandom rng)
     {
         for (var i = list.Count - 1; i > 0; i--)
         {

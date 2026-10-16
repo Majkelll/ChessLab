@@ -34,7 +34,15 @@ public sealed class DraftChessSession(Room room) : RoomSession<GameState>(room)
             placingSince[side] += by;
     }
 
-    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
+    protected override RoomSession<GameState> CreateSibling() => new DraftChessSession(Room);
+
+    protected override void CopyTimersTo(RoomSession<GameState> copy)
+    {
+        foreach (var (side, since) in placingSince)
+            ((DraftChessSession)copy).placingSince[side] = since;
+    }
+
+    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, int? seed = null)
     {
         EnsureNotStarted();
         Room.Lock();

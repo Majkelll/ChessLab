@@ -39,6 +39,7 @@ jobs:
         run: |
           echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
           echo "bots=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/chesslab-bot-service" >> "$GITHUB_OUTPUT"
+          echo "arena=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/chesslab-arena" >> "$GITHUB_OUTPUT"
         env:
           REGISTRY: ${{ env.REGISTRY }}
 
@@ -80,6 +81,20 @@ jobs:
           tags: |
             ${{ steps.image.outputs.bots }}:latest
             ${{ steps.image.outputs.bots }}:${{ steps.version.outputs.value }}
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.value }}
+          provenance: false
+          sbom: false
+
+      - name: Build and push arena image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: tools/ChessLab.Arena/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.arena }}:latest
+            ${{ steps.image.outputs.arena }}:${{ steps.version.outputs.value }}
           build-args: |
             APP_VERSION=${{ steps.version.outputs.value }}
           provenance: false

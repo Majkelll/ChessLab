@@ -9,7 +9,9 @@ public sealed class AbsorptionChessSession(Room room) : RoomSession<GameState>(r
 {
     public override IReadOnlyList<SeatId> ActiveSeats => [new SeatId(StartedGame.SideToMove, SeatRole.Player)];
 
-    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
+    protected override RoomSession<GameState> CreateSibling() => new AbsorptionChessSession(Room);
+
+    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, int? seed = null)
     {
         EnsureNotStarted();
         Room.Lock();

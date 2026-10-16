@@ -23,25 +23,11 @@ public sealed class RoomRegistry
         {
             var code = GenerateCode();
             var room = new Room(code, hostUserId, kind, initialClock, clockIncrement);
-            var session = CreateSession(kind, room);
+            var session = RoomSessions.For(room);
             if (entries.TryAdd(code, new Entry(session, DateTimeOffset.UtcNow)))
                 return session;
         }
     }
-
-    private static IRoomSession CreateSession(GameKind kind, Room room) => kind switch
-    {
-        GameKind.HandAndBrain => new GameSession(room),
-        GameKind.CardChess => new CardChessSession(room),
-        GameKind.ArcaneChess => new ArcaneChessSession(room),
-        GameKind.BiddingChess => new BiddingChessSession(room),
-        GameKind.ProgressiveChess => new ProgressiveChessSession(room),
-        GameKind.AliceChess => new AliceChessSession(room),
-        GameKind.AbsorptionChess => new AbsorptionChessSession(room),
-        GameKind.MartianChess => new MartianChessSession(room),
-        GameKind.DraftChess => new DraftChessSession(room),
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown game kind."),
-    };
 
     public IRoomSession Get(string code) =>
         Find(code) ?? throw new HubException($"Room '{code}' not found.");

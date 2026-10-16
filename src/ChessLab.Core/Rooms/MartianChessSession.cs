@@ -9,7 +9,9 @@ public sealed class MartianChessSession(Room room) : RoomSession<GameState>(room
 {
     public override IReadOnlyList<SeatId> ActiveSeats => [new SeatId(StartedGame.SideToMove, SeatRole.Player)];
 
-    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
+    protected override RoomSession<GameState> CreateSibling() => new MartianChessSession(Room);
+
+    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, int? seed = null)
     {
         EnsureNotStarted();
         Room.Lock();

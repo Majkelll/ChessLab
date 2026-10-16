@@ -21,4 +21,6 @@ public interface IChessRulesEngine
     string ToFen();
 
     void LoadPosition(string fen);
+
+    IChessRulesEngine Clone();
 }

@@ -22,7 +22,7 @@ public class ViewerStateTests
     private static ArcaneChessSession StartedArcaneGame()
     {
         var session = new ArcaneChessSession(FullRoom(GameKind.ArcaneChess));
-        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, Start, new Random(3));
+        session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, Start, 3);
         return session;
     }
 

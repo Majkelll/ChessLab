@@ -15,6 +15,8 @@ public sealed class Clock
         BlackRemaining = initial;
     }
 
+    public Clock Clone() => new(WhiteRemaining, Increment) { BlackRemaining = BlackRemaining };
+
     public TimeSpan Remaining(Side side) => side == Side.White ? WhiteRemaining : BlackRemaining;
 
     public bool IsFlagged(Side side) => Remaining(side) <= TimeSpan.Zero;

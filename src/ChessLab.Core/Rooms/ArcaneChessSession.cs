@@ -14,13 +14,11 @@ public sealed class ArcaneChessSession(Room room, Func<IChessRulesEngine> engine
 
     public override IReadOnlyList<SeatId> ActiveSeats => [new SeatId(StartedGame.SideToMove, SeatRole.Player)];
 
-    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
+    protected override RoomSession<GameState> CreateSibling() => new ArcaneChessSession(Room, engineFactory);
+
+    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, int? seed = null)
     {
-        var rng = random ?? Random.Shared;
-        StartWith(() => new GameState(
-            new CardChess.GameState(engineFactory(), new Clock(initial, increment),
-                CardChess.Deck.Shuffled(rng), CardChess.Deck.Shuffled(rng)),
-            SpellDeck.Shuffled(rng), SpellDeck.Shuffled(rng), rng), now);
+        StartWith(() => GameState.Deal(engineFactory(), new Clock(initial, increment), seed), now);
     }
 
     internal void StartWith(Func<GameState> deal, DateTimeOffset now)

@@ -21,7 +21,9 @@ public sealed class GameSession(Room room, Func<IChessRulesEngine> engineFactory
         }
     }
 
-    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, Random? random = null)
+    protected override RoomSession<GameState> CreateSibling() => new GameSession(Room, engineFactory);
+
+    public override void Start(TimeSpan initial, TimeSpan increment, DateTimeOffset now, int? seed = null)
     {
         EnsureNotStarted();
         Room.Lock();

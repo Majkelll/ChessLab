@@ -40,6 +40,8 @@ internal sealed class FakeChessRulesEngine : IChessRulesEngine
 
     public string ToFen() => Fen;
 
+    public IChessRulesEngine Clone() => (FakeChessRulesEngine)MemberwiseClone();
+
     public void LoadPosition(string fen)
     {
         Fen = fen;

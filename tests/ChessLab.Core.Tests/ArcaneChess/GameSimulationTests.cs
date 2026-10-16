@@ -18,7 +18,7 @@ public class GameSimulationTests
             room.ClaimSeat(new SeatId(Side.White, SeatRole.Player), Guid.NewGuid(), "White");
             room.ClaimSeat(new SeatId(Side.Black, SeatRole.Player), Guid.NewGuid(), "Black");
             var session = new ArcaneChessSession(room);
-            session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, DateTimeOffset.UtcNow, rng);
+            session.Start(TimeSpan.FromMinutes(10), TimeSpan.Zero, DateTimeOffset.UtcNow, gameSeed);
 
             var log = new List<string>();
 

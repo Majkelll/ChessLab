@@ -1,3 +1,4 @@
+using System.Net;
 using System.Reflection;
 using System.Text.Json;
 using ChessLab.Bots;
@@ -31,6 +32,7 @@ public static class BotServiceProgram
             throw new InvalidOperationException("BotService:Workers must be at least 1.");
 
         var stockfishPath = builder.Configuration["BotService:StockfishPath"] ?? "stockfish";
+        var internalPort = builder.Configuration.GetValue<int?>("BotService:InternalPort");
 
         builder.Services.AddSingleton(apiKey);
         builder.Services.TryAddSingleton<IChessEngineFactory>(new StockfishEngineFactory(stockfishPath));
@@ -50,8 +52,18 @@ public static class BotServiceProgram
 
         app.MapPost("/v1/action", ChooseActionAsync);
 
+        app.MapGet("/internal/queue", (HttpContext http, WorkerPool pool) =>
+            IsInternal(http.Connection, internalPort)
+                ? Results.Json(new BotServiceQueueDto(pool.Queued, pool.Running), BotServiceJson.Options)
+                : Results.NotFound());
+
         return app;
     }
+
+    private static bool IsInternal(ConnectionInfo connection, int? internalPort) =>
+        internalPort is { } port
+            ? connection.LocalPort == port
+            : connection.RemoteIpAddress is { } remote && IPAddress.IsLoopback(remote);
 
     private static string RequiredApiKey(IConfiguration configuration)
     {

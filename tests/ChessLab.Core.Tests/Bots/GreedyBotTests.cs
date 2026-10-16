@@ -26,6 +26,19 @@ public class GreedyBotTests
         return choices;
     }
 
+    [Fact]
+    public async Task BotsWithEqualSeeds_ChooseTheSameMoves()
+    {
+        var moves = Enumerable.Range(0, 8).Select(file => Move($"{(char)('a' + file)}2", $"{(char)('a' + file)}3")).ToArray();
+        var state = StateWith(GameKind.AliceChess, moves);
+        var first = new AliceChessBot(seed: 4);
+        var second = new AliceChessBot(seed: 4);
+
+        for (var i = 0; i < 20; i++)
+            Assert.Equal(await first.ChooseActionAsync(state, White, BotDifficulty.Easy),
+                await second.ChooseActionAsync(state, White, BotDifficulty.Easy));
+    }
+
     [Theory]
     [InlineData(BotDifficulty.Hard)]
     [InlineData(BotDifficulty.Expert)]

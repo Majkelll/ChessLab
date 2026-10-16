@@ -6,9 +6,9 @@ using GameState = ChessLab.Core.Martian.GameState;
 
 namespace ChessLab.Bots;
 
-public sealed class MartianChessBot : IGameBot
+public sealed class MartianChessBot(int? seed = null) : IGameBot
 {
-    private readonly Random random = new();
+    private readonly Random random = BotRandom.For(seed);
 
     public Task<GameAction> ChooseActionAsync(GameStateEnvelopeDto state, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)

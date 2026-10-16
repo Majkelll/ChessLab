@@ -21,7 +21,7 @@ public class BotVsBotTests
                 room.SetBot(seat, difficulty);
 
             var session = NewSession(kind, room);
-            session.Start(TimeSpan.FromHours(1), TimeSpan.Zero, DateTimeOffset.UtcNow, new Random(7));
+            session.Start(TimeSpan.FromHours(1), TimeSpan.Zero, DateTimeOffset.UtcNow, 7);
 
             var bot = GameBots.For(kind, null);
             var actions = 0;

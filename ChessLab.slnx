@@ -11,6 +11,10 @@
     <Project Path="tests/ChessLab.BotService.Tests/ChessLab.BotService.Tests.csproj" />
     <Project Path="tests/ChessLab.Core.Tests/ChessLab.Core.Tests.csproj" />
     <Project Path="tests/ChessLab.E2E.Tests/ChessLab.E2E.Tests.csproj" />
+    <Project Path="tests/ChessLab.Engine.Tests/ChessLab.Engine.Tests.csproj" />
     <Project Path="tests/ChessLab.Web.Tests/ChessLab.Web.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/ChessLab.Arena/ChessLab.Arena.csproj" />
   </Folder>
 </Solution>
