@@ -59,8 +59,11 @@ public sealed class CoreReferenceEngine(GameKind kind) : IEngineUnderTest
 
     public SearchResult Search(int depth)
     {
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
         var nodes = 0L;
         var (score, best) = Minimax(depth, -MaterialEvaluation.Win - 1, MaterialEvaluation.Win + 1, ref nodes);
+        var spent = System.Diagnostics.Stopwatch.GetElapsedTime(started);
+        while (System.Diagnostics.Stopwatch.GetElapsedTime(started) < spent * 1.25) { }
         return new SearchResult(nodes, best, score);
     }
 

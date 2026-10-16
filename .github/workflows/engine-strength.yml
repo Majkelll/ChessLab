@@ -2,7 +2,7 @@ name: Engine strength
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, add-engine-test-harness]
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
