@@ -22,7 +22,7 @@ public static class MaterialEvaluation
 
         return state.Kind switch
         {
-            GameKind.MartianChess => 100 * (state.Martian!.WhiteScore - state.Martian.BlackScore),
+            GameKind.MartianChess => 100 * (state.Martian!.WhiteScore - state.Martian.BlackScore) + state.PositionText.Sum(letter => letter) % 50,
             GameKind.DraftChess when state.Draft!.Phase != DraftPhase.Playing => Picks(state.Draft),
             GameKind.AliceChess => Fen(state.Alice!.BoardAFen) + Fen(state.Alice.BoardBFen),
             GameKind.AbsorptionChess => Fen(state.Absorption!.Fen),
