@@ -14,6 +14,7 @@ dotnet_run "$pr_arena" bench --mode all --check
 
 git fetch --no-tags --depth=1 origin "$base"
 rm -rf "$work" "$work-pr-bench.txt" "$work-main-bench.txt"
+git worktree prune
 git worktree add --detach "$work" FETCH_HEAD
 trap 'git -C "$repository" worktree remove --force "$work"' EXIT
 
