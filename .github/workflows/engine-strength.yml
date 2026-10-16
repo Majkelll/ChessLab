@@ -71,7 +71,8 @@ jobs:
         run: |
           report="$RUNNER_TEMP/sprt-${{ matrix.mode }}.txt"
           status=0
-          mise exec dotnet@10.0.400 -- dotnet tools/ChessLab.Arena/bin/Release/net10.0/ChessLab.Arena.dll \
+          spare_cpus="$(seq 0 $(($(nproc --all) - 1)) | grep -vxE "${BENCH_CPUS_PATTERN:-2|3}" | paste -sd,)"
+          taskset -c "$spare_cpus" mise exec dotnet@10.0.400 -- dotnet tools/ChessLab.Arena/bin/Release/net10.0/ChessLab.Arena.dll \
             sprt --mode "${{ matrix.mode }}" --candidate bot:Expert \
             --baseline "anchor:$RUNNER_TEMP/arena/anchors/${{ matrix.mode }}/main:Expert" \
             --bounds "$BOUNDS" --stockfish "$(command -v stockfish || echo stockfish)" --report "$report" || status=$?
