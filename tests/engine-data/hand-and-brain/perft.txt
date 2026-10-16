@@ -1,0 +1,5 @@
+4 400 seed=0
+4 567 seed=0 w:select=p w:d2d3 b:select=p b:g7g6 w:select=q w:d1d2 b:select=p b:b7b6 w:select=p w:e2e3 b:select=n b:g8h6
+4 502 seed=2 w:select=p w:h2h4 b:select=p b:b7b6 w:select=r w:h1h3 b:select=b b:c8a6 w:select=r w:h3h2 b:select=q b:d8c8
+4 592 seed=3 w:select=n w:b1c3 b:select=p b:d7d6 w:select=p w:f2f3 b:select=b b:c8e6 w:select=r w:a1b1 b:select=q b:d8d7
+4 533 seed=5 w:select=n w:g1h3 b:select=n b:g8h6 w:select=p w:c2c3 b:select=n b:b8a6 w:select=q w:d1c2 b:select=n b:h6g8

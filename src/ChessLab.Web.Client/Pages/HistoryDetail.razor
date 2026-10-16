@@ -1,0 +1,141 @@
+@page "/history/{Id:guid}"
+@attribute [Authorize]
+@using ChessLab.Core.Contracts
+@using ChessLab.Core.Rooms
+@using ChessLab.Web.Client.Components
+@using ChessLab.Web.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GameClient Game
+@inject CurrentGameContext GameContext
+
+<PageTitle>Finished game</PageTitle>
+
+@if (error is not null)
+{
+    <p data-testid="history-error" class="text-sm text-rust">@error</p>
+}
+else if (notFound)
+{
+    <div data-testid="history-not-found">
+        <p class="text-sm text-rust">That game was not found.</p>
+        <a href="history" class="mt-4 inline-block border border-amber-700/40 bg-amber-700/5 px-4 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+            Back to history
+        </a>
+    </div>
+}
+else if (detail is null)
+{
+    <p class="text-espresso/42">Loading<span class="blink-cursor" aria-hidden="true">_</span></p>
+}
+else
+{
+    <div data-testid="history-detail" class="flex h-full min-h-0 flex-col gap-4 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
+        <div class="min-h-0 w-full flex-1">
+            @if (detail.Summary.Kind == GameKind.MartianChess)
+            {
+                <pre data-testid="final-position-text" class="border border-espresso/16 bg-white/40 p-4 font-mono text-sm leading-6">@MartianGrid(detail.FinalFen)</pre>
+            }
+            else if (detail.Summary.Kind == GameKind.AliceChess)
+            {
+                <div class="grid gap-3 xl:grid-cols-2">
+                    @foreach (var (label, fen) in AliceBoards(detail.FinalFen))
+                    {
+                        <div>
+                            <p class="font-mono text-[10px] uppercase tracking-wide text-espresso-soft/60">@label</p>
+                            <div class="board-fit aspect-square w-full">
+                                <ChessBoard Fen="@fen" Interactive="false" />
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="board-fit h-full w-full">
+                    <ChessBoard Fen="@BoardPart(detail.FinalFen)" Interactive="false" />
+                </div>
+                @if (PowersPart(detail.FinalFen) is { } powers)
+                {
+                    <p data-testid="final-powers" class="mt-2 font-mono text-xs text-espresso-soft/70">absorbed moves: @powers</p>
+                }
+            }
+        </div>
+
+        <div class="flex min-h-0 flex-col">
+            <GameResultSummary Entry="detail.Summary" ViewerUserId="myUserId" />
+
+            <p class="mt-2 font-mono text-xs text-espresso-soft/60">Room @detail.Summary.RoomCode · final position</p>
+
+            <h3 class="mt-4 shrink-0 text-xs font-normal text-espresso/42">MOVE HISTORY</h3>
+            <div class="h-1 w-full shrink-0 border-b border-espresso/16"></div>
+            <ol data-testid="history-moves" class="mt-2 flex min-h-0 flex-1 flex-wrap content-start gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
+                @for (var i = 0; i < detail.MovesSan.Count; i++)
+                {
+                    <li><span class="text-espresso-soft/70">@(i + 1).</span> @detail.MovesSan[i]</li>
+                }
+            </ol>
+
+            <a href="history" class="mt-4 w-fit shrink-0 border border-amber-700/40 bg-amber-700/5 px-4 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+                Back to history
+            </a>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private GameHistoryDetailDto? detail;
+    private Guid myUserId;
+    private bool notFound;
+    private string? error;
+
+    protected override void OnInitialized() => GameContext.Set("History");
+
+    private static string BoardPart(string position) => position.Split(" | ")[0];
+
+    private static string? PowersPart(string position)
+    {
+        var parts = position.Split(" | ");
+        return parts.Length > 1 ? parts[1] : null;
+    }
+
+    private static IEnumerable<(string Label, string Fen)> AliceBoards(string position)
+    {
+        var parts = position.Split(" | ");
+        yield return ("board a", parts[0]);
+
+        if (parts.Length > 1)
+            yield return ("board b", parts[1]);
+    }
+
+    private static string MartianGrid(string position)
+    {
+        var parts = position.Split(' ');
+        var rows = string.Join('\n', parts[0].Split('/'));
+        return parts.Length > 2 ? $"{rows}\n\nscore {parts[2]}" : rows;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            var authState = await AuthStateTask!;
+            myUserId = Guid.Parse(authState.User.FindFirst("buid")!.Value);
+
+            await Game.EnsureConnectedAsync();
+            detail = await Game.GetGameHistoryEntryAsync(Id);
+            notFound = detail is null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+
+        StateHasChanged();
+    }
+}

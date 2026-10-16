@@ -1,0 +1,5 @@
+3 9384 seed=0
+3 25201 seed=2 w:g2g4 b:g8f6 w:b2b4 b:c7c5 w:a2a4 b:h8g8 w:g4g5 b:e7e5
+3 16369 seed=3 w:b2b4 b:c7c5 w:c1a3 b:g7g6 w:a3c1 b:b8a6 w:c2c4 b:g8f6
+3 38788 seed=5 w:c2c3 b:b8a6 w:d2d4 b:a6b8 w:f2f3 b:d7d6 w:d1a4 b:d8d5
+3 29783 seed=6 w:h2h3 b:b7b5 w:h1h5 b:a7a5 w:b2b3 b:e7e6 w:h5h4 b:a8a7

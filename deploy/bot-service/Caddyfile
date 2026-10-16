@@ -1,0 +1,9 @@
+{
+	auto_https off
+	admin off
+}
+
+:8443 {
+	tls /certs/bot-service.crt /certs/bot-service.key
+	reverse_proxy bots:8080
+}

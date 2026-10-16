@@ -1,0 +1,351 @@
+@page "/game/{Code}"
+@attribute [Authorize]
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Contracts
+@using ChessLab.Core.Games
+@using ChessLab.Core.HandBrain
+@using ChessLab.Core.Rooms
+@using ChessLab.Web.Client.Components
+@using ChessLab.Web.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GameClient Game
+@inject NavigationManager Nav
+@inject CurrentGameContext GameContext
+@implements IDisposable
+
+<PageTitle>Game @Code</PageTitle>
+
+@if (roomIsGone)
+{
+    <div data-testid="room-gone" class="max-w-xl">
+        <p class="text-sm text-rust">Room '@Code' was not found.</p>
+        <p class="mt-2 text-sm text-espresso-soft">
+            Rooms only live while the server is running, so this one is gone if the game ended or the server restarted.
+        </p>
+        <a href="" class="mt-4 inline-block border border-amber-700/40 bg-amber-700/5 px-4 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+            Back to games
+        </a>
+    </div>
+}
+else if (room is null || state is null)
+{
+    if (error is not null)
+    {
+        <p data-testid="game-error" class="text-sm text-rust">@error</p>
+    }
+    else
+    {
+        <p class="text-espresso/42">Connecting<span class="blink-cursor" aria-hidden="true">_</span></p>
+    }
+}
+else
+{
+    if (error is not null)
+    {
+        <button type="button" data-testid="game-error" title="Dismiss" @onclick="() => error = null" class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 border border-rust bg-paper px-4 py-2 font-mono text-sm text-rust hover:cursor-pointer">@error</button>
+    }
+
+    <div class="flex h-full min-h-0 flex-col gap-4 max-lg:h-auto max-lg:gap-2 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
+        <div class="flex min-h-0 w-full flex-col max-lg:contents">
+            <div class="board-fit min-h-0 w-full flex-1 max-lg:max-h-[75dvh] max-lg:flex-none max-lg:aspect-square">
+                <ChessBoard Fen="@state.PositionText"
+                            AvailableMoves="@state.AvailableMoves"
+                            Interactive="@(isBoardInteractive)"
+                            FlipBoard="@(mySeat?.Side == Side.Black)"
+                            OnMoveSelected="MakeMoveAsync" />
+            </div>
+
+            <div class="mt-3 min-h-24 shrink-0" data-testid="piece-kind-cards-slot">
+                @if (isMySideToMove && (mySeat?.Role == SeatRole.Brain || handBrain.SelectedPieceKind is not null))
+                {
+                    <div data-testid="piece-kind-cards">
+                        <PieceKindCards AvailableKinds="@handBrain.AvailablePieceKinds" Interactive="@isCardsInteractive"
+                                         SelectedKind="@handBrain.SelectedPieceKind" OnKindSelected="SelectPieceKindAsync" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="flex min-h-0 flex-col max-lg:contents">
+            <div class="flex flex-col items-start gap-1.5 max-lg:order-first max-lg:w-full max-lg:flex-row max-lg:flex-wrap max-lg:items-center max-lg:justify-between">
+                @if (mySeat is { } seat)
+                {
+                    var opponentSide = seat.Side == Side.White ? Side.Black : Side.White;
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <Clock TestId="@ClockTestId(opponentSide)" Label="@SideLabel(opponentSide)"
+                               RemainingMs="@RemainingMsOf(opponentSide)" IsActive="@IsClockActive(opponentSide)"
+                               AccentBorderClass="@AccentBorderClass(opponentSide)" />
+                        @if (state is { IsGameOver: false } && state.SideToMove == opponentSide)
+                        {
+                            @if (handBrain.Phase == TurnPhase.BrainSelecting)
+                            {
+                                <span class="text-xs text-espresso-soft/60">choosing…</span>
+                            }
+                            else if (handBrain.SelectedPieceKind is { } opponentKind)
+                            {
+                                <span data-testid="opponent-pick" class="border border-espresso/16 bg-white/40 px-2 py-0.5 text-xs">
+                                    opponent: @PieceKindDisplay.Glyph(opponentKind) @PieceKindDisplay.Label(opponentKind)
+                                </span>
+                            }
+                        }
+                    </div>
+                    <Clock TestId="@ClockTestId(seat.Side)" Label="@SideLabel(seat.Side)"
+                           RemainingMs="@RemainingMsOf(seat.Side)" IsActive="@IsClockActive(seat.Side)"
+                           AccentBorderClass="@AccentBorderClass(seat.Side)" />
+                }
+                else
+                {
+                    <div class="flex items-center gap-2 font-mono text-sm">
+                        <Clock TestId="clock-white" Label="white" RemainingMs="@RemainingMsOf(Side.White)"
+                               IsActive="@IsClockActive(Side.White)" AccentBorderClass="@AccentBorderClass(Side.White)" />
+                        <Clock TestId="clock-black" Label="black" RemainingMs="@RemainingMsOf(Side.Black)"
+                               IsActive="@IsClockActive(Side.Black)" AccentBorderClass="@AccentBorderClass(Side.Black)" />
+                    </div>
+                }
+            </div>
+
+            <PausedBanner Deadline="@state.PauseDeadline" />
+
+            @if (state.IsGameOver)
+            {
+                <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
+                    <span class="text-espresso-soft">Game over:</span> <span data-testid="game-over-reason">@EndReasonLabel(state.EndReason)</span>
+                    @if (state.Winner is { } winner)
+                    {
+                        <text> — <span data-testid="game-over-winner">@(winner == Side.White ? "white" : "black")</span> wins</text>
+                    }
+                </p>
+                <GameEndExplanation Reason="@state.EndReason" />
+                <button data-testid="back-to-room-link"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="BackToRoom"
+                        class="mt-4 w-fit shrink-0 self-start border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+                    Back to room
+                </button>
+            }
+            else
+            {
+                <p data-testid="turn-status" class="mt-4 max-lg:mt-2 flex flex-wrap items-center gap-2 font-mono text-sm">
+                    <span data-turn-indicator class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
+                    <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
+                    <span class="@(handBrain.Phase == TurnPhase.BrainSelecting ? "text-moss" : "text-amber-700")">
+                        @(handBrain.Phase == TurnPhase.BrainSelecting ? "Brain is announcing a piece" : "Hand is making a move")
+                        @if (handBrain.Phase == TurnPhase.HandMoving && handBrain.SelectedPieceKind is { } announced)
+                        {
+                            <text> (@PieceKindDisplay.Label(announced))</text>
+                        }
+                    </span>
+                </p>
+
+                @if (mySeat is not null)
+                {
+                    <button data-testid="resign-btn"
+                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                            @onclick="ResignAsync"
+                            class="mt-4 w-fit shrink-0 self-start border border-rust/40 bg-rust/5 px-3 py-1.5 font-mono text-sm text-rust hover:bg-rust/20 transition duration-300 hover:cursor-pointer">
+                        Resign
+                    </button>
+                }
+            }
+
+            <h3 class="mt-4 shrink-0 text-xs font-normal text-espresso/42 max-lg:order-last">MOVE HISTORY</h3>
+            <div class="h-1 w-full shrink-0 border-b border-espresso/16 max-lg:order-last"></div>
+            <ol data-testid="move-history" class="mt-2 flex min-h-0 flex-1 flex-wrap max-lg:order-last max-lg:min-h-8 content-start gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
+                @for (var i = 0; i < state.MoveHistory.Count; i++)
+                {
+                    <li><span class="text-espresso-soft/70">@(i + 1).</span> @state.MoveHistory[i].San</li>
+                }
+            </ol>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private RoomStateDto? room;
+    private GameStateEnvelopeDto? state;
+    private List<ChessMove> moveHistory = [];
+    private Guid myUserId;
+    private SeatId? mySeat;
+    private string? error;
+    private bool roomIsGone;
+
+    private HandBrainSectionDto handBrain => state!.HandBrain!;
+
+    private bool isMyTurn =>
+        mySeat is not null && state is { PauseDeadline: null } &&
+        mySeat.Value == new SeatId(state.SideToMove, handBrain.Phase == TurnPhase.BrainSelecting ? SeatRole.Brain : SeatRole.Hand);
+
+    private bool isMySideToMove => mySeat is not null && state is not null && mySeat.Value.Side == state.SideToMove;
+
+    private bool isBoardInteractive => state is { IsGameOver: false } && isMyTurn && handBrain.Phase == TurnPhase.HandMoving;
+    private bool isCardsInteractive => state is { IsGameOver: false } && isMyTurn && handBrain.Phase == TurnPhase.BrainSelecting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask!;
+        myUserId = Guid.Parse(authState.User.FindFirst("buid")!.Value);
+
+        GameContext.Set("Hand and Brain");
+        Game.RoomUpdated += OnRoomUpdated;
+        Game.GameUpdated += OnGameUpdated;
+        Game.Reconnected += OnReconnectedAsync;
+        Game.NoticeReceived += OnNoticeReceived;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await Game.EnsureConnectedAsync();
+            if (await Game.JoinRoomAsync(Code) is not { } joined)
+            {
+                if (await Game.GetGameHistoryByRoomCodeAsync(Code) is { } finished)
+                {
+                    Nav.NavigateTo($"history/{finished.Summary.Id}");
+                    return;
+                }
+
+                roomIsGone = true;
+                StateHasChanged();
+                return;
+            }
+
+            if (GameRoutes.RedirectIfNotThisRoomsPage(Nav, joined))
+                return;
+
+            room = joined;
+            mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
+            SetFullState(await Game.GetGameStateAsync(Code));
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+    private long RemainingMsOf(Side side) => side == Side.White ? state!.WhiteRemainingMs : state!.BlackRemainingMs;
+
+    private bool IsClockActive(Side side) => state is { IsGameOver: false, PauseDeadline: null } && state.SideToMove == side;
+
+    private static string SideLabel(Side side) => side == Side.White ? "white" : "black";
+
+    private static string ClockTestId(Side side) => side == Side.White ? "clock-white" : "clock-black";
+
+    private static string AccentBorderClass(Side side) => side == Side.White ? "border-amber-700/50" : "border-moss/50";
+
+    private static string EndReasonLabel(GameEndReason? reason) => reason switch
+    {
+        GameEndReason.Checkmate => "checkmate",
+        GameEndReason.Stalemate => "stalemate",
+        GameEndReason.InsufficientMaterial => "insufficient material",
+        GameEndReason.FiftyMoveRule => "fifty-move rule",
+        GameEndReason.Repetition => "threefold repetition",
+        GameEndReason.Resignation => "resignation",
+        GameEndReason.Timeout => "timeout",
+        GameEndReason.DrawAgreed => "draw",
+        GameEndReason.BotUnavailable => "bot unavailable",
+        _ => "",
+    };
+
+    private async Task SelectPieceKindAsync(PieceKind kind)
+    {
+        try { await Game.PerformActionAsync(Code, GameAction.SelectPieceKind(kind)); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task MakeMoveAsync(ChessMove move)
+    {
+        try { await Game.PerformActionAsync(Code, GameAction.MovePiece(move.From, move.To, move.PromoteTo)); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task ResignAsync()
+    {
+        try { await Game.ResignAsync(Code); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private void BackToRoom() => Nav.NavigateTo($"/room/{Code}");
+
+    private void OnRoomUpdated(RoomStateDto dto)
+    {
+        room = dto;
+        mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnGameUpdated(GameUpdateEnvelopeDto dto)
+    {
+        if (dto.MoveHistoryCount == moveHistory.Count + 1 && dto.LatestMove is { } move)
+            moveHistory.Add(move);
+        else if (dto.MoveHistoryCount != moveHistory.Count)
+            _ = ResyncFullStateAsync();
+
+        ApplyUpdate(dto);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ResyncFullStateAsync()
+    {
+        try
+        {
+            SetFullState(await Game.GetGameStateAsync(Code));
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplyUpdate(GameUpdateEnvelopeDto dto)
+    {
+        state = new GameStateEnvelopeDto(
+            dto.Kind, dto.SideToMove, dto.PositionText, dto.AvailableMoves, moveHistory,
+            dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
+            HandBrain: dto.HandBrain, PauseDeadline: dto.PauseDeadline);
+    }
+
+    private void SetFullState(GameStateEnvelopeDto dto)
+    {
+        state = dto;
+        moveHistory = [.. dto.MoveHistory];
+    }
+
+    private async Task OnReconnectedAsync()
+    {
+        try
+        {
+            if (await Game.JoinRoomAsync(Code) is { } rejoined)
+                OnRoomUpdated(rejoined);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+
+        await ResyncFullStateAsync();
+    }
+
+    private void OnNoticeReceived(string message)
+    {
+        error = message;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Game.Reconnected -= OnReconnectedAsync;
+        Game.NoticeReceived -= OnNoticeReceived;
+        Game.RoomUpdated -= OnRoomUpdated;
+        Game.GameUpdated -= OnGameUpdated;
+    }
+}

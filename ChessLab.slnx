@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ChessLab.Bots/ChessLab.Bots.csproj" />
+    <Project Path="src/ChessLab.BotService/ChessLab.BotService.csproj" />
+    <Project Path="src/ChessLab.Core/ChessLab.Core.csproj" />
+    <Project Path="src/ChessLab.Data/ChessLab.Data.csproj" />
+    <Project Path="src/ChessLab.Web.Client/ChessLab.Web.Client.csproj" />
+    <Project Path="src/ChessLab.Web/ChessLab.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ChessLab.BotService.Tests/ChessLab.BotService.Tests.csproj" />
+    <Project Path="tests/ChessLab.Core.Tests/ChessLab.Core.Tests.csproj" />
+    <Project Path="tests/ChessLab.E2E.Tests/ChessLab.E2E.Tests.csproj" />
+    <Project Path="tests/ChessLab.Engine.Tests/ChessLab.Engine.Tests.csproj" />
+    <Project Path="tests/ChessLab.Web.Tests/ChessLab.Web.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/ChessLab.Arena/ChessLab.Arena.csproj" />
+  </Folder>
+</Solution>

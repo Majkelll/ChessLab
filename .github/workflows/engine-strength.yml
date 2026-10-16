@@ -1,0 +1,103 @@
+name: Engine strength
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+concurrency:
+  group: engine-strength-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    name: detect
+    runs-on: [self-hosted, chesslab]
+    outputs:
+      modes: ${{ steps.changed.outputs.modes }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find modes whose bench changed
+        id: changed
+        run: |
+          git fetch --no-tags origin "$GITHUB_BASE_REF"
+          modes=()
+          for file in tests/engine-data/*/bench.expected; do
+            if git cat-file -e "origin/$GITHUB_BASE_REF:$file" 2>/dev/null && ! git diff --quiet "origin/$GITHUB_BASE_REF" -- "$file"; then
+              modes+=("$(basename "$(dirname "$file")")")
+            fi
+          done
+          json="$(printf '%s\n' "${modes[@]}" | jq -R . | jq -sc 'map(select(length > 0))')"
+          echo "modes=$json" >> "$GITHUB_OUTPUT"
+          if [ "${#modes[@]}" -eq 0 ]; then
+            echo "No bench node count changed, so no SPRT is needed." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Bench changed for: ${modes[*]}. The SPRT runs on the \`chesslab-sprt\` runner; the engine-strength check stays pending until that runner is online." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  sprt:
+    name: sprt (${{ matrix.mode }})
+    needs: detect
+    if: needs.detect.outputs.modes != '[]'
+    runs-on: [self-hosted, chesslab-sprt]
+    timeout-minutes: 2880
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        mode: ${{ fromJson(needs.detect.outputs.modes) }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build the candidate
+        run: mise exec dotnet@10.0.400 -- dotnet build tools/ChessLab.Arena -c Release
+
+      - name: Build the base branch as the baseline
+        run: |
+          git fetch --no-tags origin "$GITHUB_BASE_REF"
+          mise exec dotnet@10.0.400 -- dotnet tools/ChessLab.Arena/bin/Release/net10.0/ChessLab.Arena.dll \
+            anchor --commit "origin/$GITHUB_BASE_REF" --label main --mode "${{ matrix.mode }}" --root "$RUNNER_TEMP/arena"
+
+      - name: SPRT against the base branch
+        env:
+          BOUNDS: ${{ contains(github.event.pull_request.labels.*.name, 'sprt-bounds-0-10') && '0,10' || '0,5' }}
+        run: |
+          report="$RUNNER_TEMP/sprt-${{ matrix.mode }}.txt"
+          status=0
+          mise exec dotnet@10.0.400 -- dotnet tools/ChessLab.Arena/bin/Release/net10.0/ChessLab.Arena.dll \
+            sprt --mode "${{ matrix.mode }}" --candidate bot:Expert \
+            --baseline "anchor:$RUNNER_TEMP/arena/anchors/${{ matrix.mode }}/main:Expert" \
+            --bounds "$BOUNDS" --stockfish "$(command -v stockfish || echo stockfish)" --report "$report" || status=$?
+          { echo "### SPRT for ${{ matrix.mode }}"; echo '```'; cat "$report"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+  engine-strength:
+    name: engine-strength
+    needs: [detect, sprt]
+    if: always()
+    runs-on: [self-hosted, chesslab]
+
+    steps:
+      - name: Decide
+        run: |
+          if [ "${{ needs.detect.result }}" != "success" ]; then
+            echo "Detecting changed benches failed." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if [ '${{ needs.detect.outputs.modes }}' = '[]' ]; then
+            echo "No bench changed: passed without an SPRT." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "${{ needs.sprt.result }}" = "success" ]; then
+            echo "Every SPRT accepted H1." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "An SPRT ended with H0 accepted or inconclusive (result: ${{ needs.sprt.result }})." >> "$GITHUB_STEP_SUMMARY"
+          exit 1

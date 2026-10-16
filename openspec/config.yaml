@@ -1,0 +1,183 @@
+schema: spec-driven
+
+context: |
+  ChessLab is a browser app for playing nine chess variants against friends or bots:
+  Hand and Brain, Card Chess, Arcane Chess, Bidding Chess, Progressive Chess, Alice Chess,
+  Absorption Chess, Martian Chess and Draft Chess.
+
+  Tech stack
+  - .NET 10 (SDK pinned to 10.0.400 in mise.toml), C# with nullable and implicit usings enabled.
+  - ASP.NET Core host with Blazor WebAssembly UI (InteractiveWebAssembly render mode, prerendered
+    on the server), SignalR hub at /hubs/game using the MessagePack protocol.
+  - EF Core 10 with two providers: PostgreSQL (Npgsql) and SQLite. A connection string starting
+    with "Data Source=" selects SQLite, anything else selects PostgreSQL.
+  - Google OAuth plus cookie authentication. Data protection keys are stored in the database.
+  - Gera.Chess 1.2.0 supplies standard chess rules; Stockfish (external UCI process, run only by the
+    bot service) drives some bots.
+  - Tailwind CSS 4 built through npm on every build of ChessLab.Web (Node 22 in the Docker image;
+    elsewhere whatever npm is on PATH); cm-chessboard renders boards in the browser.
+  - xUnit 2.9 for tests; Playwright 1.55 (Chromium) for end-to-end tests.
+  - Three Docker multi-stage images (web, bot service with Stockfish, and arena with Stockfish),
+    docker-compose with postgres:18-alpine and the bot service, GitHub Actions on self-hosted
+    runners. A push to main publishes the images to GHCR, deploys the bot service to the home
+    server over SSH, waits for its /health to report the new version, then deploys the web image
+    to Render.
+
+  Architecture
+  - src/ChessLab.Core: rules for every mode, rooms, seats, clocks, wire contracts (DTOs).
+    No web dependencies. Each mode has its own GameState implementing IGameEngineState and a
+    RoomSession<TGame> subclass in Rooms/ that maps GameAction to rule calls and builds DTO sections
+    (the Hand and Brain session is named GameSession). Hand and Brain, Card, Arcane and Progressive
+    Chess run on Gera.Chess through IChessRulesEngine; Bidding, Alice, Absorption and Draft Chess run
+    on Board/PieceBoard; Martian Chess has its own grid.
+  - src/ChessLab.Bots: StockfishEngine wrapper (IChessEngine) and one IGameBot per mode. Bots choose
+    from a GameStateEnvelopeDto built for the bot's seat only, never from the live session.
+  - src/ChessLab.BotService: standalone ASP.NET Core service on the home server. POST /v1/action
+    (bearer API key, body BotActionRequest, answers one GameAction; 400 malformed or kind mismatch,
+    422 seat has nothing to do, 503 queued over 15 s, 500 engine crash) and GET /health (version
+    and workers, 503 while an engine is down). A WorkerPool runs one Stockfish per worker from an
+    arrival-ordered queue. GET /internal/queue (queued and running requests) answers only on
+    BotService:InternalPort, or to loopback callers when no internal port is set. Deployment
+    templates live in deploy/bot-service.
+  - src/ChessLab.Data: ChessLabDbContext, AppUser, GameRecord, GameRecordPlayer, UserService,
+    EF migrations.
+  - src/ChessLab.Web: host (Program.CreateApp), GameHub, RoomRegistry, BotRunner, ClockWatchdog,
+    GameArchive, GameHistoryService, /hc health report. BotServiceClient calls the bot service,
+    BotAvailability probes its /health every 10 seconds; no bot code or Stockfish runs in the host.
+  - A game whose bot cannot act is paused (RoomSession.Pause): clocks stop, actions other than
+    resignation are rejected, BotRunner retries every 5 seconds, and ClockWatchdog ends it as
+    BotUnavailable after 5 minutes. Time comes from the injected TimeProvider.
+  - src/ChessLab.Web.Client: WebAssembly pages and components, GameClient hub wrapper.
+  - tools/ChessLab.Arena: console app that measures bots with Core sessions as the referee. Games
+    run in pairs (same opening, same seed, colours swapped); illegal actions, crashes and
+    exceeding twice the per-action budget lose. Positions everywhere are action lines replayed
+    from the start: "seed=N w:e2e4 b:select=n w:bid=12 b:pick=q w:place=k@e1 ..."; for Card and
+    Arcane Chess the pair seed then reshuffles the decks and redeals the hands (GameState.Reseed).
+    IEngineUnderTest is what a per-mode engine implements (apply, undo, hash, legal actions,
+    evaluate, mirror, search); EngineRegistry maps each mode to its engine, today the
+    CoreReferenceEngine that clones Core sessions.
+  - Core randomness is seeded through GameRandom (Start takes an optional seed; unseeded games use
+    a random one), every GameState and IRoomSession has Clone(), and GeraChessRulesEngine returns
+    legal moves in a fixed order, so arena runs replay exactly.
+  - tests/engine-data/<mode>/: openings.txt (60 balanced openings), perft.txt ("depth nodes
+    position", from Core), bench.txt (30 positions), bench.expected ("depth=N nodes=M", the
+    engine's behaviour fingerprint), tactics.txt ("expected-action position"), mining.json
+    (blunder threshold and depth, full-information modes only), and ladder.csv at the top
+    (baseline Elo ladder).
+  - tests/ChessLab.Core.Tests (rules, sessions, bots), tests/ChessLab.Web.Tests (host, hub over a
+    real SignalR connection, HTTP endpoints, an in-process fake bot service),
+    tests/ChessLab.BotService.Tests (API, auth, worker pool with a fake engine),
+    tests/ChessLab.E2E.Tests (Playwright, hosting the real bot service in-process),
+    tests/ChessLab.Engine.Tests (arena, SPRT against published fishtest runs, perft, fuzzing and
+    invariants with seeded bugs in a sample allocation-free Martian engine, engine data suites).
+  - Rooms and live games exist only in server memory (RoomRegistry singleton), so the app runs
+    as a single instance. Only finished games are persisted. Rooms are removed 15 minutes after
+    their game ends, or after 2 hours when it never starts.
+  - Rule violations are raised as InvalidOperationException (or ArgumentException) in Core.
+    Hubs/HubErrorFilter turns them into HubException for every hub method, so clients see the
+    rule's message. The hub's own checks throw HubException directly.
+  - Every change to a room or game, and every DTO built from it, happens inside lock (session):
+    in GameHub, BotRunner and ClockWatchdog. Never await inside that lock; BotRunner builds the
+    bot request under the lock and calls the bot service outside it.
+  - Game state is built per viewer: IRoomSession.ToUpdateDto/ToStateDto take the viewer's side
+    (null for a spectator) and sessions override the *For(viewer) hooks to leave out secrets.
+    Services/GameBroadcaster sends each connection its own copy; never send a game DTO to a
+    whole group.
+  - Bot management and clearing seats are host-only (checked in GameHub). Adding or changing a bot
+    and starting a game with a bot seat are rejected while the bot service is unavailable.
+
+  Conventions
+  - No comments of any kind in any source file (see CLAUDE.md). Explanations belong in commit
+    messages or PR descriptions. The only exception is the
+    `# syntax=` directive in the Dockerfiles.
+  - Conventional Commits for recent history (feat:, refactor:, test:, style: are in use).
+  - File-scoped namespaces and records for DTOs throughout; primary constructors and collection
+    expressions where they fit.
+  - Tests in ChessLab.Core.Tests are named Subject_Condition_Outcome or as a PascalCase sentence;
+    tests in ChessLab.E2E.Tests are snake_case sentences. UI elements used by tests carry
+    data-testid attributes.
+  - Migrations are generated for PostgreSQL only. SQLite databases are created with EnsureCreated.
+
+  Commands
+  - Build (needs npm): dotnet build ChessLab.slnx -c Release
+  - Unit tests (CI, on pull requests and before every deploy): dotnet test tests/ChessLab.Core.Tests
+  - Host and hub tests (CI, same): dotnet test tests/ChessLab.Web.Tests
+  - Bot service tests (CI, same; skip the real Stockfish tests when no stockfish is on PATH):
+    dotnet test tests/ChessLab.BotService.Tests
+  - End-to-end tests (not run in CI; need Playwright's Chromium; without stockfish on PATH the
+    in-process bot service plays the first candidate move and the Stockfish bot tests are
+    skipped): dotnet test tests/ChessLab.E2E.Tests
+  - Slow end-to-end tests only: dotnet test tests/ChessLab.E2E.Tests --filter Category=LongGame
+  - End-to-end without the slow ones: dotnet test tests/ChessLab.E2E.Tests --filter "Category!=LongGame"
+  - Run locally: dotnet run --project src/ChessLab.Web (http://localhost:5021; Development
+    expects PostgreSQL on localhost unless ConnectionStrings:Default is overridden, and the bot
+    service at http://localhost:5090)
+  - Run the bot service locally: dotnet run --project src/ChessLab.BotService (http://localhost:5090;
+    needs stockfish on PATH)
+  - Run with Docker: docker compose up --build (http://localhost:8080, bot service included)
+  - Bot service image only: docker build -f src/ChessLab.BotService/Dockerfile .
+  - CSS only: npm --prefix src/ChessLab.Web run build:css
+  - Validate specs: openspec validate --all --strict --no-interactive
+  - Engine tests (CI): dotnet test tests/ChessLab.Engine.Tests
+  - Arena (run 'arena --help' for every command):
+    dotnet run --project tools/ChessLab.Arena -c Release -- <command> --mode <mode|all> ...
+    perft / fuzz / invariants (CI on every pull request), bench --check (fails when bench.expected
+    is stale; --write updates it), tactics --player engine|bot:<level> [--compare main-solved],
+    match and sprt --candidate <player> --baseline <player> [--bounds 0,5] with players bot:<level>,
+    random or anchor:<dir>:<level>, calibrate (fails when a level is not stronger than the one
+    below), anchor and ladder (frozen builds pinned by commit and the Elo ladder CSV), mine
+    --connection <db> (blunders into review lists), openings (new suites), bench-compare.
+  - Arena image only: docker build -f tools/ChessLab.Arena/Dockerfile .
+
+  Known gaps (no automated check)
+  - PostgreSQL migrations and the Degraded and Unhealthy health reports (every test runs on SQLite).
+  - The real Google sign-in and the user record upsert.
+  - HSTS and HTTPS redirection, which only apply outside Development.
+  - Stockfish-backed bots unless a stockfish binary is on PATH; the end-to-end suite is not run in CI.
+  - The deployed bot service path: Render to home server, TLS certificate pinning against the real
+    certificate, and the SSH deploy step (checked by hand per deploy/bot-service/README.md).
+  - How Arcane Chess Extra Turn behaves after a move that gives check.
+  - The engine-strength gate itself: it needs the chesslab-sprt runner (see
+    ~/Repos/Github/Runners/README.md) and is made a required check only with the first per-mode
+    engine. The nightly arena on the home server (deploy/arena) is checked by hand.
+
+  Engine gates
+  - CI on every pull request also runs the engine tests, perft, fuzzing, invariants, bench --check
+    and tools/ChessLab.Arena/scripts/compare-with-main.sh, which fails when nodes per second drop
+    more than 10 percent below main measured in the same job or a tactic main solves is lost.
+  - .github/workflows/engine-strength.yml posts the engine-strength check. For every mode whose
+    bench.expected differs from main it builds main as an anchor and runs an SPRT (normalized
+    Elo bounds 0,5, or 0,10 with the sprt-bounds-0-10 label; alpha and beta 0.05; 40000 games at
+    most) on the chesslab-sprt runner, and passes only on H1 accepted. Unchanged benches pass
+    at once.
+
+  Required configuration
+  - ConnectionStrings:Default (Development has a default), Authentication:Google:ClientId and
+    Authentication:Google:ClientSecret. The host throws at startup when any is missing or blank.
+  - Optional: Bots:ServiceUrl (no default; Development uses http://localhost:5090; without it bots
+    are unavailable), Bots:ServiceKey, Bots:ServiceCertificateThumbprint (SHA-256 fingerprint the
+    bot service's TLS certificate must match), Game:InitialClockSeconds (default 600),
+    Game:ClockIncrementSeconds (default 0), E2E_TEST_AUTH (enables /TestAuth/Login, Development only).
+  - Bot service: BotService:ApiKey (required, at least 32 characters; refuses to start otherwise),
+    BotService:Workers (default processor count), BotService:StockfishPath (default "stockfish").
+
+rules:
+  specs:
+    - Describe observable behavior only and ground every requirement in code or an existing test
+    - Write scenarios as WHEN/THEN and name concrete values (chips, prices, limits) from the code
+    - Keep one capability per mode; shared room, clock and hub behavior lives in rooms and game-session
+    - Specs hold requirements and scenarios only. Put open questions and missing tests in the
+      change's proposal or tasks, not in the spec
+    - Keep each requirement's text under 500 characters and move detail into scenarios, or strict
+      validation fails
+  proposal:
+    - Name the affected capabilities under openspec/specs and state what is out of scope
+  design:
+    - Decide for every new piece of game state who may see it and filter it in the session's viewer hooks
+    - Keep rules in ChessLab.Core free of web, database and bot dependencies
+    - A new mode needs a GameState, a RoomSession subclass, a DTO section, a bot and a client page
+  tasks:
+    - Include unit tests in tests/ChessLab.Core.Tests for every rule change and tests in
+      tests/ChessLab.Web.Tests for every change to the hub, the host or what clients are sent
+    - Never add comments to source files
+    - Add an EF Core migration when ChessLab.Data entities change

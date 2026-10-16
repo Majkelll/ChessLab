@@ -1,0 +1,12 @@
+@using ChessLab.Core.Chess
+
+@if (Reason == GameEndReason.BotUnavailable)
+{
+    <p data-testid="game-over-explanation" class="mt-1 font-mono text-sm text-espresso-soft">
+        The game ended because the bot stopped responding.
+    </p>
+}
+
+@code {
+    [Parameter] public GameEndReason? Reason { get; set; }
+}

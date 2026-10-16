@@ -1,0 +1,73 @@
+@page "/history"
+@attribute [Authorize]
+@using ChessLab.Core.Contracts
+@using ChessLab.Web.Client.Components
+@using ChessLab.Web.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GameClient Game
+@inject CurrentGameContext GameContext
+
+<PageTitle>Game history</PageTitle>
+
+<h1 class="text-2xl font-semibold">Game history</h1>
+<p class="mt-2 text-sm text-espresso-soft">Every finished game you played, newest first.</p>
+
+@if (error is not null)
+{
+    <p data-testid="history-error" class="mt-6 text-sm text-rust">@error</p>
+}
+else if (games is null)
+{
+    <p class="mt-6 text-espresso/42">Loading<span class="blink-cursor" aria-hidden="true">_</span></p>
+}
+else if (games.Count == 0)
+{
+    <p data-testid="history-empty" class="mt-6 text-sm text-espresso-soft">
+        No finished games yet. Play one and it will show up here.
+    </p>
+}
+else
+{
+    <ul data-testid="history-list" class="mt-6 flex flex-col gap-2">
+        @foreach (var entry in games)
+        {
+            <li>
+                <a href="@($"history/{entry.Id}")"
+                   class="block border border-espresso/16 bg-white/40 p-3 hover:border-amber-600/60 transition duration-300">
+                    <GameResultSummary Entry="entry" ViewerUserId="myUserId" />
+                </a>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private IReadOnlyList<GameHistoryEntryDto>? games;
+    private Guid myUserId;
+    private string? error;
+
+    protected override void OnInitialized() => GameContext.Set("History");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            var authState = await AuthStateTask!;
+            myUserId = Guid.Parse(authState.User.FindFirst("buid")!.Value);
+
+            await Game.EnsureConnectedAsync();
+            games = await Game.GetMyGameHistoryAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+
+        StateHasChanged();
+    }
+}

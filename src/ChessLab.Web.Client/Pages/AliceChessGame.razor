@@ -1,0 +1,53 @@
+@page "/alice/{Code}"
+@attribute [Authorize]
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Games
+@using ChessLab.Web.Client.Components
+
+<GameShell Code="@Code" GameName="Alice Chess" StatusText="StatusText">
+    <Board Context="view">
+        @{ var alice = view.State.Alice!; }
+        <div class="grid min-h-0 w-full flex-1 gap-3 max-lg:flex-none xl:grid-cols-2">
+            <div class="flex min-h-0 flex-col" data-testid="alice-board-a">
+                <p class="shrink-0 font-mono text-[10px] uppercase tracking-wide text-espresso-soft/60">board a</p>
+                <div class="board-fit min-h-0 w-full flex-1 max-lg:aspect-square max-lg:max-h-[45dvh]">
+                    <ChessBoard Fen="@alice.BoardAFen"
+                                AvailableMoves="@MovesOn(view, alice.BoardAFen)"
+                                Interactive="@view.IsBoardInteractive"
+                                FlipBoard="@view.IsFlipped"
+                                OnMoveSelected="move => view.Perform(GameAction.MovePiece(move.From, move.To, move.PromoteTo))" />
+                </div>
+            </div>
+            <div class="flex min-h-0 flex-col" data-testid="alice-board-b">
+                <p class="shrink-0 font-mono text-[10px] uppercase tracking-wide text-espresso-soft/60">board b</p>
+                <div class="board-fit min-h-0 w-full flex-1 max-lg:aspect-square max-lg:max-h-[45dvh]">
+                    <ChessBoard Fen="@alice.BoardBFen"
+                                AvailableMoves="@MovesOn(view, alice.BoardBFen)"
+                                Interactive="@view.IsBoardInteractive"
+                                FlipBoard="@view.IsFlipped"
+                                OnMoveSelected="move => view.Perform(GameAction.MovePiece(move.From, move.To, move.PromoteTo))" />
+                </div>
+            </div>
+        </div>
+    </Board>
+    <Panel Context="view">
+        <div class="border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-xs text-espresso-soft">
+            <p>A piece moves on the board it stands on, and the square it lands on has to be empty on the other one.</p>
+            <p class="mt-1">It then crosses over — which is why a move can never give check by itself.</p>
+            @if (view.State.Alice!.IsInCheck && !view.State.IsGameOver)
+            {
+                <p data-testid="alice-check" class="mt-2 text-rust">@(view.State.SideToMove == Side.White ? "white" : "black") is in check.</p>
+            }
+        </div>
+    </Panel>
+</GameShell>
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+
+    private static IReadOnlyList<ChessMove> MovesOn(GameView view, string fen) =>
+        [.. view.State.AvailableMoves.Where(move => FenBoard.PieceAt(fen, move.From) is not null)];
+
+    private static string StatusText(GameView view) =>
+        view.State.Alice!.IsInCheck ? "in check — a move has to answer it" : "choosing a move on either board";
+}

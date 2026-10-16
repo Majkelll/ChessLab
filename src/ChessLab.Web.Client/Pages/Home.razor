@@ -1,0 +1,249 @@
+@page "/"
+@using ChessLab.Core.Rooms
+@using ChessLab.Web.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GameClient Game
+@inject NavigationManager Nav
+@inject CurrentGameContext GameContext
+
+<PageTitle>Hand and Brain</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <h1 data-testid="home-heading" class="text-3xl font-semibold leading-tight sm:text-4xl md:text-5xl md:leading-15">
+            Welcome, @context.User.Identity?.Name!
+        </h1>
+        <p class="mt-2 text-base text-espresso-soft md:text-lg">
+            Pick a game below, or drop straight into a room someone already sent you.
+        </p>
+
+        <form @onsubmit="JoinRoomAsync" @onsubmit:preventDefault
+              class="mt-6 flex items-center gap-2 border border-espresso/16 bg-white/40 py-2 pr-2 pl-3 focus-within:border-moss/60 sm:w-fit">
+            <span class="text-moss select-none" aria-hidden="true">&gt;</span>
+            <input data-testid="join-code-input" @bind="joinCode" @bind:event="oninput" placeholder="ROOM CODE" maxlength="6"
+                   class="w-32 bg-transparent font-mono uppercase tracking-widest placeholder:text-espresso/30 focus:outline-none" />
+            <button data-testid="join-room-btn" type="submit"
+                    class="border border-espresso/16 bg-white/60 px-3 py-1 font-mono text-sm hover:border-moss/60 transition duration-300 hover:cursor-pointer">
+                join
+            </button>
+        </form>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <p data-testid="home-error" class="mt-3 text-sm text-rust">@error</p>
+        }
+
+        <div class="mt-10">
+            <div class="flex items-baseline justify-between gap-3">
+                <h2 class="text-sm font-normal text-amber-700">GAMES</h2>
+                <a data-testid="history-link" href="history" class="font-mono text-xs text-espresso-soft hover:text-amber-700 transition duration-300">
+                    game history -&gt;
+                </a>
+            </div>
+            <div class="h-1 w-full border-b border-espresso/16"></div>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="rounded-card shadow-card flex flex-col gap-3 border border-espresso/16 bg-white/40 p-4 transition duration-card hover:-translate-y-1 hover:border-amber-600/60 hover:shadow-card-lift">
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-base font-semibold">Hand and Brain</h3>
+                    <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs text-espresso-soft">2v2</span>
+                </div>
+                <p class="flex-1 text-xs text-espresso/60">
+                    One teammate (the Brain) sees the whole board and calls out a piece type. The other
+                    (the Hand) has to move one of that kind — blind to why.
+                </p>
+                <button data-testid="create-room-btn"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="() => CreateRoomAsync(GameKind.HandAndBrain)"
+                        class="self-start border border-amber-700/40 bg-amber-700/5 px-4 py-1.5 font-mono text-sm transition duration-300 hover:bg-amber-700/20 hover:cursor-pointer disabled:opacity-50"
+                        disabled="@(creatingKind is not null)">
+                    Create room
+                </button>
+            </div>
+
+            <div class="rounded-card shadow-card flex flex-col gap-3 border border-espresso/16 bg-white/40 p-4 transition duration-card hover:-translate-y-1 hover:border-moss/60 hover:shadow-card-lift">
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-base font-semibold">Card Chess</h3>
+                    <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs text-espresso-soft">1v1</span>
+                </div>
+                <p class="flex-1 text-xs text-espresso/60">
+                    Standard chess, except you don't choose your move — you draw a card, and it decides
+                    which piece you're allowed to play. 3 HP lets you break the rule when you're in check
+                    and the deck won't cooperate.
+                </p>
+                <button data-testid="create-cardchess-room-btn"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="() => CreateRoomAsync(GameKind.CardChess)"
+                        class="self-start border border-moss/40 bg-moss/5 px-4 py-1.5 font-mono text-sm transition duration-300 hover:bg-moss/20 hover:cursor-pointer disabled:opacity-50"
+                        disabled="@(creatingKind is not null)">
+                    Create room
+                </button>
+            </div>
+
+            <div class="rounded-card shadow-card flex flex-col gap-3 border border-espresso/16 bg-white/40 p-4 transition duration-card hover:-translate-y-1 hover:border-rust/60 hover:shadow-card-lift">
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-base font-semibold">Arcane Chess</h3>
+                    <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs text-espresso-soft">1v1</span>
+                </div>
+                <p class="flex-1 text-xs text-espresso/60">
+                    Card Chess plus a hand of spells: shield a piece, freeze a square, teleport,
+                    swap two of your own pieces, or grant yourself an extra turn. Spend mana to
+                    cast one spell per turn alongside your usual card-driven move.
+                </p>
+                <button data-testid="create-arcanechess-room-btn"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="() => CreateRoomAsync(GameKind.ArcaneChess)"
+                        class="self-start border border-rust/40 bg-rust/5 px-4 py-1.5 font-mono text-sm transition duration-300 hover:bg-rust/20 hover:cursor-pointer disabled:opacity-50"
+                        disabled="@(creatingKind is not null)">
+                    Create room
+                </button>
+            </div>
+
+            <div class="rounded-card shadow-card flex flex-col gap-3 border border-espresso/16 bg-white/40 p-4 transition duration-card hover:-translate-y-1 hover:border-amber-700/60 hover:shadow-card-lift">
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-base font-semibold">Bidding Chess</h3>
+                    <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs text-espresso-soft">1v1</span>
+                </div>
+                <p class="flex-1 text-xs text-espresso/60">
+                    Nobody has a turn. Before every move both sides bid chips in secret, the higher bid gets to move and pays it to the other side, and a tie goes to whoever holds the marker. Win several bids in a row and you move several times — so check means nothing here, and the game is won by taking the king.
+                </p>
+                <button data-testid="create-biddingchess-room-btn"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="() => CreateRoomAsync(GameKind.BiddingChess)"
+                        class="self-start border border-amber-700/40 bg-amber-700/5 px-4 py-1.5 font-mono text-sm transition duration-300 hover:bg-amber-700/20 hover:cursor-pointer disabled:opacity-50"
+                        disabled="@(creatingKind is not null)">
+                    Create room
+                </button>
+            </div>
+
+            <div class="rounded-card shadow-card flex flex-col gap-3 border border-espresso/16 bg-white/40 p-4 transition duration-card hover:-translate-y-1 hover:border-moss/60 hover:shadow-card-lift">
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-base font-semibold">Progressive Chess</h3>
+                    <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs text-espresso-soft">1v1</span>
+                </div>
+                <p class="flex-1 text-xs text-espresso/60">
+                    White plays one move, Black two, White three, and it keeps growing. A check ends your series on the spot, so it can only ever be your last move — and a player in check has to escape with the first move of theirs.
+                </p>
+                <button data-testid="create-progressivechess-room-btn"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="() => CreateRoomAsync(GameKind.ProgressiveChess)"
+                        class="self-start border border-moss/40 bg-moss/5 px-4 py-1.5 font-mono text-sm transition duration-300 hover:bg-moss/20 hover:cursor-pointer disabled:opacity-50"
+                        disabled="@(creatingKind is not null)">
+                    Create room
+                </button>
+            </div>
+
+            <div class="rounded-card shadow-card flex flex-col gap-3 border border-espresso/16 bg-white/40 p-4 transition duration-card hover:-translate-y-1 hover:border-rust/60 hover:shadow-card-lift">
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-base font-semibold">Alice Chess</h3>
+                    <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs text-espresso-soft">1v1</span>
+                </div>
+                <p class="flex-1 text-xs text-espresso/60">
+                    Two boards. A piece moves on the board it stands on, has to land on a square that's empty on the other one, and then crosses over. Your king is only ever threatened by pieces sharing its board, so every check here is uncovered rather than delivered.
+                </p>
+                <button data-testid="create-alicechess-room-btn"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="() => CreateRoomAsync(GameKind.AliceChess)"
+                        class="self-start border border-rust/40 bg-rust/5 px-4 py-1.5 font-mono text-sm transition duration-300 hover:bg-rust/20 hover:cursor-pointer disabled:opacity-50"
+                        disabled="@(creatingKind is not null)">
+                    Create room
+                </button>
+            </div>
+
+            <div class="rounded-card shadow-card flex flex-col gap-3 border border-espresso/16 bg-white/40 p-4 transition duration-card hover:-translate-y-1 hover:border-amber-700/60 hover:shadow-card-lift">
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-base font-semibold">Absorption Chess</h3>
+                    <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs text-espresso-soft">1v1</span>
+                </div>
+                <p class="flex-1 text-xs text-espresso/60">
+                    Whatever a piece captures, it becomes as well. A knight that takes a rook moves as both from then on, and a pawn that eats a queen keeps its little step too. The king absorbs as well — and still has to stay safe.
+                </p>
+                <button data-testid="create-absorptionchess-room-btn"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="() => CreateRoomAsync(GameKind.AbsorptionChess)"
+                        class="self-start border border-amber-700/40 bg-amber-700/5 px-4 py-1.5 font-mono text-sm transition duration-300 hover:bg-amber-700/20 hover:cursor-pointer disabled:opacity-50"
+                        disabled="@(creatingKind is not null)">
+                    Create room
+                </button>
+            </div>
+
+            <div class="rounded-card shadow-card flex flex-col gap-3 border border-espresso/16 bg-white/40 p-4 transition duration-card hover:-translate-y-1 hover:border-moss/60 hover:shadow-card-lift">
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-base font-semibold">Martian Chess</h3>
+                    <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs text-espresso-soft">1v1</span>
+                </div>
+                <p class="flex-1 text-xs text-espresso/60">
+                    Not chess: four files, eight ranks, three sizes of pyramid and no king at all. You own whatever stands in your half, so a piece pushed across the middle becomes your opponent's. Take pieces for points and stop when either half runs empty.
+                </p>
+                <button data-testid="create-martianchess-room-btn"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="() => CreateRoomAsync(GameKind.MartianChess)"
+                        class="self-start border border-moss/40 bg-moss/5 px-4 py-1.5 font-mono text-sm transition duration-300 hover:bg-moss/20 hover:cursor-pointer disabled:opacity-50"
+                        disabled="@(creatingKind is not null)">
+                    Create room
+                </button>
+            </div>
+
+            <div class="rounded-card shadow-card flex flex-col gap-3 border border-espresso/16 bg-white/40 p-4 transition duration-card hover:-translate-y-1 hover:border-rust/60 hover:shadow-card-lift">
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-base font-semibold">Draft Chess</h3>
+                    <span class="border border-espresso/16 bg-paper px-2 py-0.5 text-xs text-espresso-soft">1v1</span>
+                </div>
+                <p class="flex-1 text-xs text-espresso/60">
+                    Build your army before you play it. Spend 39 points out of a shared pool, taking turns and watching what your opponent takes, then lay your pieces out on your own two ranks in secret. No two games start the same way.
+                </p>
+                <button data-testid="create-draftchess-room-btn"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="() => CreateRoomAsync(GameKind.DraftChess)"
+                        class="self-start border border-rust/40 bg-rust/5 px-4 py-1.5 font-mono text-sm transition duration-300 hover:bg-rust/20 hover:cursor-pointer disabled:opacity-50"
+                        disabled="@(creatingKind is not null)">
+                    Create room
+                </button>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <h1 data-testid="home-heading-anon" class="text-3xl font-semibold leading-tight sm:text-4xl md:text-5xl md:leading-15">Hand and Brain</h1>
+        <p class="mt-2 text-base text-espresso-soft md:text-lg">
+            Two chess variants for four... or two. Sign in with Google to pick one and get a room going.
+        </p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string joinCode = "";
+    private string? error;
+    private GameKind? creatingKind;
+
+    protected override void OnInitialized() => GameContext.Set(null);
+
+    private async Task CreateRoomAsync(GameKind kind)
+    {
+        creatingKind = kind;
+        error = null;
+        try
+        {
+            await Game.EnsureConnectedAsync();
+            var room = await Game.CreateRoomAsync(kind);
+            Nav.NavigateTo($"/room/{room.Code}");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            creatingKind = null;
+        }
+    }
+
+    private Task JoinRoomAsync()
+    {
+        if (string.IsNullOrWhiteSpace(joinCode))
+            return Task.CompletedTask;
+
+        Nav.NavigateTo($"/room/{joinCode.Trim().ToUpperInvariant()}");
+        return Task.CompletedTask;
+    }
+}

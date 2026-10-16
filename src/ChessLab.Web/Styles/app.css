@@ -1,0 +1,312 @@
+@import "tailwindcss";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+@import "@fontsource/jetbrains-mono/700.css";
+@import "@fontsource/noto-sans-symbols-2/400.css";
+
+@source "../Components/**/*.razor";
+@source "../../ChessLab.Web.Client/**/*.razor";
+
+@theme {
+  --font-mono: "JetBrains Mono", ui-monospace, "Noto Sans Symbols 2", monospace;
+
+  --color-cream: #f6efe4;
+  --color-paper: #efe3d0;
+  --color-paper-dark: #e3d0b0;
+  --color-espresso: #2b2019;
+  --color-espresso-soft: #6b5843;
+  --color-moss: #4a5940;
+  --color-moss-soft: #7c8a6e;
+  --color-rust: #a1462f;
+
+  --color-board-light: #ead9b8;
+  --color-board-dark: #8a6a45;
+
+  --radius-card: 0.75rem;
+  --shadow-card: 0 2px 6px color-mix(in srgb, var(--color-espresso) 25%, transparent),
+    0 1px 2px color-mix(in srgb, var(--color-espresso) 15%, transparent);
+  --shadow-card-lift: 0 14px 24px color-mix(in srgb, var(--color-espresso) 35%, transparent),
+    0 4px 8px color-mix(in srgb, var(--color-espresso) 20%, transparent);
+  --duration-card: 220ms;
+}
+
+:focus:not([tabindex="-1"]) {
+  outline: 2px solid #b45309;
+  outline-offset: 2px;
+}
+
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+html {
+  overflow-anchor: none;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-espresso) 32%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--color-espresso) 5%, transparent);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--color-espresso) 28%, transparent);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--color-espresso) 45%, transparent);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in srgb, var(--color-espresso) 60%, transparent);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.grain-wood {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-espresso) 5%, transparent) 0px,
+    color-mix(in srgb, var(--color-espresso) 5%, transparent) 1px,
+    transparent 1px,
+    transparent 5px
+  );
+}
+
+@keyframes cursor-blink {
+  0%, 45% { opacity: 1; }
+  50%, 95% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.blink-cursor {
+  animation: cursor-blink 1.1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.hand-card {
+  position: relative;
+  transform-origin: bottom center;
+  transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px));
+  z-index: calc(10 + var(--i, 0));
+  width: clamp(2.5rem, min(14vw, 9vh), 4.25rem);
+}
+
+button.hand-card:hover,
+.hand-card[aria-current="true"] {
+  z-index: 50;
+}
+
+.hand-card.hand-card-mini {
+  width: clamp(1.5rem, min(6vw, 4vh), 2.25rem);
+}
+
+.hand-row {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.5rem;
+  padding-bottom: clamp(0.75rem, 2.5vh, 1.75rem);
+}
+
+.hand-row-mini {
+  padding-top: 0.25rem;
+  padding-bottom: clamp(0.5rem, 2vh, 1.5rem);
+}
+
+.hand-row-spells .hand-card {
+  width: 5.5rem;
+}
+
+.board-frame {
+  width: 100%;
+}
+
+.board-fit {
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.board-fit > .board-frame {
+  width: min(100cqw, 100cqh);
+  height: min(100cqw, 100cqh);
+}
+
+.hand-card-visual {
+  position: relative;
+  overflow: hidden;
+  transform-origin: bottom center;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  background: linear-gradient(155deg, color-mix(in srgb, white 55%, var(--color-cream)) 0%, var(--color-cream) 60%);
+  transition: transform var(--duration-card) cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow var(--duration-card) ease;
+}
+
+button.hand-card:hover .hand-card-visual,
+.hand-card[aria-current="true"] .hand-card-visual {
+  transform: translateY(-0.75rem) scale(1.08) rotate(calc(var(--rot, 0deg) * -1));
+  box-shadow: var(--shadow-card-lift);
+}
+
+.hand-card-visual.hand-card-mini {
+  box-shadow: none;
+}
+
+.hand-card-visual::after {
+  content: "";
+  position: absolute;
+  inset: -50% -20%;
+  background: linear-gradient(115deg, transparent 35%, color-mix(in srgb, white 70%, transparent) 48%, transparent 60%);
+  opacity: 0;
+  transform: translateX(-60%);
+  pointer-events: none;
+}
+
+button.hand-card:hover .hand-card-visual::after {
+  opacity: 1;
+  animation: card-sheen var(--duration-card) ease-out;
+}
+
+.hand-shelf {
+  background: radial-gradient(70% 100% at 50% 0%, color-mix(in srgb, var(--color-espresso) 7%, transparent), transparent 72%);
+  padding-block: 0.25rem 0.25rem;
+}
+
+@keyframes card-sheen {
+  from { transform: translateX(-60%); }
+  to { transform: translateX(60%); }
+}
+
+@keyframes card-deal {
+  from {
+    opacity: 0;
+    transform: translateY(2.5rem) rotate(var(--rot, 0deg)) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px));
+  }
+}
+
+.hand-card.hand-card-deal {
+  animation: card-deal 320ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes card-flip {
+  0% { transform: rotateY(0deg); }
+  50% { transform: rotateY(90deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+.hand-card-visual.hand-card-marked {
+  animation: card-flip 360ms ease-in-out;
+  background: linear-gradient(155deg, color-mix(in srgb, white 55%, var(--color-rust) 8%) 0%, color-mix(in srgb, var(--color-cream) 85%, var(--color-rust) 15%) 60%);
+}
+
+@keyframes hp-hit {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-3px); }
+  40%, 80% { transform: translateX(3px); }
+}
+
+.hp-hit {
+  animation: hp-hit 400ms ease-in-out;
+}
+
+@keyframes turn-slide {
+  from { opacity: 0; transform: translateX(-0.5rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+[data-turn-indicator] {
+  animation: turn-slide 260ms ease-out;
+}
+
+.cm-chessboard.hand-and-brain .board .square.white {
+  fill: var(--color-board-light);
+}
+
+.cm-chessboard.hand-and-brain .board .square.black {
+  fill: var(--color-board-dark);
+}
+
+.cm-chessboard.hand-and-brain.border-type-none .board .border {
+  fill: var(--color-board-dark);
+  stroke: none;
+}
+
+.cm-chessboard.hand-and-brain .coordinates .coordinate.white {
+  fill: var(--color-board-dark);
+  opacity: 0.7;
+}
+
+.cm-chessboard.hand-and-brain .coordinates .coordinate.black {
+  fill: var(--color-board-light);
+  opacity: 0.85;
+}
+
+.cm-chessboard.hand-and-brain .markers .marker.marker-square {
+  fill: var(--color-amber-700);
+  opacity: 0.18;
+}
+
+.cm-chessboard.hand-and-brain .markers .marker.marker-dot,
+.cm-chessboard.hand-and-brain .markers .marker.marker-bevel {
+  fill: var(--color-amber-700);
+  opacity: 0.45;
+}
+
+.cm-chessboard.hand-and-brain .markers .marker.marker-frame-primary {
+  stroke: var(--color-rust);
+  stroke-width: 3px;
+  opacity: 0.9;
+}
+
+svg.cm-chessboard .promotion-dialog-group .promotion-dialog {
+  fill: var(--color-cream);
+  fill-opacity: 0.98;
+  stroke: var(--color-espresso);
+  stroke-width: 0.7%;
+}
+
+svg.cm-chessboard .promotion-dialog-group .promotion-dialog-button:hover,
+svg.cm-chessboard .promotion-dialog-group .promotion-dialog-button-group:focus .promotion-dialog-button {
+  fill: color-mix(in srgb, var(--color-amber-700) 20%, transparent);
+}

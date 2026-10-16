@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/wwwroot/css/app.css
+**/*.db
+**/*.db-shm
+**/*.db-wal
+.git/
+.vs/
+.idea/

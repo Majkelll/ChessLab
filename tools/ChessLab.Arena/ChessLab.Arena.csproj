@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>ChessLab.Arena</AssemblyName>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ChessLab.Bots\ChessLab.Bots.csproj" />
+    <ProjectReference Include="..\..\src\ChessLab.Core\ChessLab.Core.csproj" />
+    <ProjectReference Include="..\..\src\ChessLab.Data\ChessLab.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ChessLab.Engine.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,60 @@
+@implements IDisposable
+
+<span data-testid="@TestId" class="border border-espresso/16 bg-paper-dark px-2 py-1 text-xs font-mono @(IsActive ? AccentBorderClass : "")">@Label @FormatClock(DisplayedRemainingMs())</span>
+
+@code {
+    [Parameter, EditorRequired] public long RemainingMs { get; set; }
+    [Parameter] public bool IsActive { get; set; }
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string TestId { get; set; } = "";
+    [Parameter] public string AccentBorderClass { get; set; } = "";
+
+    private long lastKnownRemainingMs;
+    private DateTimeOffset receivedAt;
+    private CancellationTokenSource? tickCts;
+
+    protected override void OnInitialized()
+    {
+        lastKnownRemainingMs = RemainingMs;
+        receivedAt = DateTimeOffset.UtcNow;
+        tickCts = new CancellationTokenSource();
+        _ = TickLoopAsync(tickCts.Token);
+    }
+
+    protected override void OnParametersSet()
+    {
+        lastKnownRemainingMs = RemainingMs;
+        receivedAt = DateTimeOffset.UtcNow;
+    }
+
+    private async Task TickLoopAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
+        while (!ct.IsCancellationRequested && await timer.WaitForNextTickAsync(ct))
+        {
+            if (IsActive)
+                await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private long DisplayedRemainingMs()
+    {
+        if (!IsActive)
+            return lastKnownRemainingMs;
+
+        var elapsed = (DateTimeOffset.UtcNow - receivedAt).TotalMilliseconds;
+        return Math.Max(0, lastKnownRemainingMs - (long)elapsed);
+    }
+
+    private static string FormatClock(long ms)
+    {
+        var span = TimeSpan.FromMilliseconds(Math.Max(0, ms));
+        return $"{(int)span.TotalMinutes:00}:{span.Seconds:00}";
+    }
+
+    public void Dispose()
+    {
+        tickCts?.Cancel();
+        tickCts?.Dispose();
+    }
+}

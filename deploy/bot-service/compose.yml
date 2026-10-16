@@ -1,0 +1,22 @@
+services:
+  bots:
+    image: ghcr.io/majkelll/chesslab-bot-service:${BOT_SERVICE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      - BotService__ApiKey=${BOT_SERVICE_KEY:?Set BOT_SERVICE_KEY in .env}
+      - BotService__Workers=${BOT_SERVICE_WORKERS:-4}
+      - BotService__InternalPort=8081
+      - ASPNETCORE_URLS=http://+:8080;http://+:8081
+    ports:
+      - "127.0.0.1:${BOT_SERVICE_INTERNAL_PORT:-51822}:8081"
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${BOT_SERVICE_PUBLIC_PORT:-51821}:8443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+    depends_on:
+      - bots

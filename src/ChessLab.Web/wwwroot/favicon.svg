@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#2b2019" />
+  <text x="32" y="35" text-anchor="middle" dominant-baseline="central"
+        font-family="Georgia, 'DejaVu Sans', 'Segoe UI Symbol', serif" font-size="38"
+        fill="#f6efe4">♞</text>
+  <rect x="24" y="47" width="16" height="3" fill="#b45309" />
+</svg>

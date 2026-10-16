@@ -1,0 +1,66 @@
+@page "/absorption/{Code}"
+@attribute [Authorize]
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Games
+@using ChessLab.Web.Client.Components
+
+<GameShell Code="@Code" GameName="Absorption Chess" StatusText="StatusText">
+    <Board Context="view">
+        <div class="board-fit min-h-0 w-full flex-1 max-lg:max-h-[75dvh] max-lg:flex-none max-lg:aspect-square">
+            <ChessBoard Fen="@view.State.Absorption!.Fen"
+                        AvailableMoves="@view.State.AvailableMoves"
+                        Interactive="@view.IsBoardInteractive"
+                        FlipBoard="@view.IsFlipped"
+                        OnMoveSelected="move => view.Perform(GameAction.MovePiece(move.From, move.To, move.PromoteTo))" />
+        </div>
+    </Board>
+    <Panel Context="view">
+        @{ var powers = ParsePowers(view.State.Absorption!.PowersText); }
+        <div class="border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm" data-testid="absorbed-powers">
+            <p class="text-xs uppercase tracking-wide text-espresso-soft/60">absorbed moves</p>
+            @if (powers.Count == 0)
+            {
+                <p class="mt-1 text-xs text-espresso-soft/70">Nothing has eaten anything yet.</p>
+            }
+            else
+            {
+                <ul class="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                    @foreach (var (square, letters) in powers)
+                    {
+                        <li data-testid="@($"absorbed-{square}")">
+                            <span class="text-espresso-soft/70">@square</span>
+                            <span class="ml-1">also moves as @Describe(letters)</span>
+                        </li>
+                    }
+                </ul>
+            }
+            @if (view.State.Absorption!.IsInCheck && !view.State.IsGameOver)
+            {
+                <p data-testid="absorption-check" class="mt-2 text-rust">@(view.State.SideToMove == Side.White ? "white" : "black") is in check.</p>
+            }
+        </div>
+    </Panel>
+</GameShell>
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+
+    private static IReadOnlyList<(string Square, string Letters)> ParsePowers(string text) =>
+        text.Length == 0
+            ? []
+            : [.. text.Split(',').Select(entry => entry.Split(':')).Select(parts => (parts[0], parts[1]))];
+
+    private static string Describe(string letters) =>
+        string.Join(" + ", letters.Select(letter => letter switch
+        {
+            'Q' => "a queen",
+            'R' => "a rook",
+            'B' => "a bishop",
+            'N' => "a knight",
+            'K' => "a king",
+            _ => "a pawn",
+        }));
+
+    private static string StatusText(GameView view) =>
+        view.State.Absorption!.IsInCheck ? "in check" : "choosing a move";
+}

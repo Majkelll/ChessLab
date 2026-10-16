@@ -1,0 +1,5 @@
+3 1328 seed=0
+3 1271 seed=0 w:c3d2 b:b7a6 w:a3a4 b:c8b7 w:a4a3 b:d8c8
+3 3302 seed=1 w:b3a4 b:c6d5 w:c2b3 b:b6c5 w:c3b4 b:d7c6
+3 9179 seed=3 w:b3a4 b:b6a7 w:a2d5 b:d5d3 w:d3c4 b:c6d5
+3 7072 seed=4 w:c3b4 b:b8a8 w:c2d3 b:c6d5 w:b3c4 b:b7a6

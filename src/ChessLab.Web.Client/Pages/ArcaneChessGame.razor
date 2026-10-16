@@ -1,0 +1,748 @@
+@page "/arcanechess/{Code}"
+@attribute [Authorize]
+@using ChessLab.Core.ArcaneChess
+@using ChessLab.Core.CardChess
+@using ChessLab.Core.Chess
+@using ChessLab.Core.Contracts
+@using ChessLab.Core.Games
+@using ChessLab.Core.Rooms
+@using ChessLab.Web.Client.Components
+@using ChessLab.Web.Client.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject GameClient Game
+@inject NavigationManager Nav
+@inject CurrentGameContext GameContext
+@implements IDisposable
+
+<PageTitle>Arcane Chess @Code</PageTitle>
+
+@if (roomIsGone)
+{
+    <div data-testid="room-gone" class="max-w-xl">
+        <p class="text-sm text-rust">Room '@Code' was not found.</p>
+        <p class="mt-2 text-sm text-espresso-soft">
+            Rooms only live while the server is running, so this one is gone if the game ended or the server restarted.
+        </p>
+        <a href="" class="mt-4 inline-block border border-amber-700/40 bg-amber-700/5 px-4 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300">
+            Back to games
+        </a>
+    </div>
+}
+else if (room is null || state is null)
+{
+    if (error is not null)
+    {
+        <p data-testid="game-error" class="text-sm text-rust">@error</p>
+    }
+    else
+    {
+        <p class="text-espresso/42">Connecting<span class="blink-cursor" aria-hidden="true">_</span></p>
+    }
+}
+else
+{
+    if (error is not null)
+    {
+        <button type="button" data-testid="game-error" title="Dismiss" @onclick="() => error = null" class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 border border-rust bg-paper px-4 py-2 font-mono text-sm text-rust hover:cursor-pointer">@error</button>
+    }
+
+    <div class="flex h-full min-h-0 flex-col gap-4 max-lg:h-auto max-lg:gap-2 lg:grid lg:grid-cols-[minmax(280px,1fr)_19rem] lg:gap-6">
+        <div class="flex min-h-0 w-full flex-col max-lg:contents">
+            @if (mySeat is { } opponentSeat)
+            {
+                var handOwnerSide = opponentSeat.Side == Side.White ? Side.Black : Side.White;
+                var opponentHand = HandOf(handOwnerSide);
+                <div class="flex shrink-0 flex-col items-center" data-testid="opponent-hand">
+                    <div class="hand-row hand-row-mini -space-x-1">
+                        @if (opponentHand.Count == 0)
+                        {
+                            <span data-testid="opponent-hand-hidden" class="font-mono text-[10px] uppercase tracking-wide text-espresso-soft/40">hidden · Peek reveals it</span>
+                        }
+                        @for (var i = 0; i < opponentHand.Count; i++)
+                        {
+                            var card = opponentHand[i];
+                            var marked = PendingRerollOf(handOwnerSide).Contains(card);
+                            <HandCard @key="card"
+                                      Interactive="false"
+                                      Size="mini"
+                                      Glyph="@PieceKindDisplay.Glyph(card.ToPieceKind())"
+                                      Label="@PieceKindDisplay.Label(card.ToPieceKind())"
+                                      Marked="marked"
+                                      Index="i"
+                                      Count="opponentHand.Count"
+                                      Title="@(marked ? $"{PieceKindDisplay.Label(card.ToPieceKind())} — marked for reroll" : PieceKindDisplay.Label(card.ToPieceKind()))" />
+                        }
+                    </div>
+                    <p class="mt-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wide text-espresso-soft/60">
+                        <span>@SideLabel(handOwnerSide)'s hand</span>
+                        <span class="@ManaHitClass(handOwnerSide)">@ManaPips(handOwnerSide)</span>
+                    </p>
+                </div>
+            }
+
+            <div class="board-fit min-h-0 w-full flex-1 max-lg:max-h-[75dvh] max-lg:flex-none max-lg:aspect-square">
+                <ChessBoard Fen="@state.PositionText"
+                            AvailableMoves="@state.AvailableMoves"
+                            Interactive="@(isBoardInteractive && !IsTargetingSquares)"
+                            FlipBoard="@(mySeat?.Side == Side.Black)"
+                            OnMoveSelected="MakeMoveAsync"
+                            SquareSelect="@IsTargetingSquares"
+                            SelectedSquares="@targetSquares"
+                            OnSquareSelected="OnSquareTargeted" />
+            </div>
+
+            <div class="relative shrink-0">
+                @if (mySeat is { } mine)
+                {
+                    var canToggle = isMyTurn && !state.IsGameOver;
+                    var hand = HandOf(mine.Side);
+                    var markedCount = PendingRerollOf(mine.Side).Count;
+                    <div class="hand-shelf relative z-10 -mt-3 flex flex-col items-center" data-testid="my-hand">
+                        <div class="hand-row">
+                            @for (var i = 0; i < hand.Count; i++)
+                            {
+                                var card = hand[i];
+                                var marked = PendingRerollOf(mine.Side).Contains(card);
+                                <HandCard @key="card"
+                                          TestId="@($"hand-card-{card}")"
+                                          Glyph="@PieceKindDisplay.Glyph(card.ToPieceKind())"
+                                          Label="@PieceKindDisplay.Label(card.ToPieceKind())"
+                                          Marked="marked"
+                                          Disabled="!canToggle"
+                                          Index="i"
+                                          Count="hand.Count"
+                                          Title="@(marked ? $"{PieceKindDisplay.Label(card.ToPieceKind())} — marked for reroll next turn" : PieceKindDisplay.Label(card.ToPieceKind()))"
+                                          OnClick="() => ToggleRerollAsync(card)" />
+                            }
+                        </div>
+                        <div class="relative flex w-full flex-col items-center gap-1 text-center font-mono text-xs text-espresso-soft/70" data-testid="hand-hint">
+                            <p class="uppercase tracking-wide">Your hand</p>
+                            <p class="@(canToggle ? "" : "invisible")">click a card to mark it for reroll (swapped in next turn, can't be played now)</p>
+                            <span class="absolute top-0 right-0 border border-rust/50 bg-rust/10 px-1.5 py-0.5 text-[10px] text-rust @(canToggle && markedCount > 0 ? "" : "invisible")" data-testid="reroll-marked-count">
+                                @markedCount / @ChessLab.Core.CardChess.GameState.MaxRerollSelection marked ↻
+                            </span>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="mt-2 min-h-10 shrink-0 max-lg:mt-0 max-lg:min-h-0">
+                @if (cards.EmergencyMoveAvailable && isMyTurn)
+                {
+                    <p data-testid="emergency-move-banner" class="border border-rust/40 bg-rust/5 px-3 py-2 font-mono text-sm text-rust">
+                        No card can save you — move any piece to escape check (costs 1 HP, unless Deep Breath is active).
+                    </p>
+                }
+                else if (cards.HandHasNoPlayableCard && isMyTurn)
+                {
+                    <p data-testid="no-playable-card-banner" class="border border-espresso/16 bg-white/40 px-3 py-2 font-mono text-sm text-espresso-soft">
+                        No card in your hand can move right now — pick any piece, free of charge.
+                    </p>
+                }
+                else if (isMyTurn && !state.IsGameOver && state.AvailableMoves.Count == 0 && PendingRerollOf(state.SideToMove).Count > 0)
+                {
+                    <p data-testid="all-playable-cards-marked-banner" class="border border-rust/40 bg-rust/5 px-3 py-2 font-mono text-sm text-rust">
+                        Only your marked cards can move — unmark one to play it.
+                    </p>
+                }
+            </div>
+        </div>
+
+        <div class="flex min-h-0 flex-col max-lg:contents">
+            <div class="flex shrink-0 flex-col items-start gap-1.5 max-lg:order-first max-lg:w-full max-lg:flex-row max-lg:flex-wrap max-lg:items-center max-lg:justify-between">
+                @if (mySeat is { } seat)
+                {
+                    var opponentSide = seat.Side == Side.White ? Side.Black : Side.White;
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <Clock TestId="@ClockTestId(opponentSide)" Label="@SideLabel(opponentSide)"
+                               RemainingMs="@RemainingMsOf(opponentSide)" IsActive="@IsClockActive(opponentSide)"
+                               AccentBorderClass="@AccentBorderClass(opponentSide)" />
+                        <span data-testid="@HpTestId(opponentSide)" class="text-rust @HpHitClass(opponentSide)">@HpHearts(opponentSide)</span>
+                        <span class="text-espresso-soft/60 @ManaHitClass(opponentSide)">@ManaPips(opponentSide)</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <Clock TestId="@ClockTestId(seat.Side)" Label="@SideLabel(seat.Side)"
+                               RemainingMs="@RemainingMsOf(seat.Side)" IsActive="@IsClockActive(seat.Side)"
+                               AccentBorderClass="@AccentBorderClass(seat.Side)" />
+                        <span data-testid="@HpTestId(seat.Side)" class="text-rust @HpHitClass(seat.Side)">@HpHearts(seat.Side)</span>
+                        <span class="text-espresso-soft/60 @ManaHitClass(seat.Side)">@ManaPips(seat.Side)</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="flex flex-wrap items-center gap-2 font-mono text-sm">
+                        <Clock TestId="clock-white" Label="white" RemainingMs="@RemainingMsOf(Side.White)"
+                               IsActive="@IsClockActive(Side.White)" AccentBorderClass="@AccentBorderClass(Side.White)" />
+                        <span data-testid="hp-white" class="text-rust @HpHitClass(Side.White)">@HpHearts(Side.White)</span>
+                        <Clock TestId="clock-black" Label="black" RemainingMs="@RemainingMsOf(Side.Black)"
+                               IsActive="@IsClockActive(Side.Black)" AccentBorderClass="@AccentBorderClass(Side.Black)" />
+                        <span data-testid="hp-black" class="text-rust @HpHitClass(Side.Black)">@HpHearts(Side.Black)</span>
+                    </div>
+                }
+            </div>
+
+            <PausedBanner Deadline="@state.PauseDeadline" />
+
+            @if (state.IsGameOver)
+            {
+                <p data-testid="game-over-banner" class="mt-4 text-lg font-semibold">
+                    <span class="text-espresso-soft">Game over:</span> <span data-testid="game-over-reason">@EndReasonLabel(state.EndReason)</span>
+                    @if (state.Winner is { } winner)
+                    {
+                        <text> — <span data-testid="game-over-winner">@(winner == Side.White ? "white" : "black")</span> wins</text>
+                    }
+                </p>
+                <GameEndExplanation Reason="@state.EndReason" />
+                <button data-testid="back-to-room-link"
+                        @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                        @onclick="BackToRoom"
+                        class="mt-4 w-fit shrink-0 self-start border border-amber-700/40 bg-amber-700/5 px-6 py-2 font-mono text-sm hover:bg-amber-700/20 transition duration-300 hover:cursor-pointer">
+                    Back to room
+                </button>
+            }
+            else
+            {
+                <p data-testid="turn-status" class="mt-4 max-lg:mt-2 flex flex-wrap items-center gap-2 font-mono text-sm" @key="state.SideToMove">
+                    <span data-turn-indicator class="border px-2 py-0.5 text-xs font-semibold @(state.SideToMove == Side.White ? "border-amber-700/40 bg-amber-700/10 text-amber-700" : "border-moss/40 bg-moss/10 text-moss")">@(state.SideToMove == Side.White ? "white" : "black")</span>
+                    <span class="text-espresso-soft/60" aria-hidden="true">&raquo;</span>
+                    <span class="text-espresso-soft">
+                        @(TurnStatusText())
+                    </span>
+                </p>
+
+                @if (mySeat is not null)
+                {
+                    <button data-testid="resign-btn"
+                            @onmousedown="() => { }" @onmousedown:preventDefault="true"
+                            @onclick="ResignAsync"
+                            class="mt-4 w-fit shrink-0 self-start border border-rust/40 bg-rust/5 px-3 py-1.5 font-mono text-sm text-rust hover:bg-rust/20 transition duration-300 hover:cursor-pointer">
+                        Resign
+                    </button>
+                }
+            }
+
+            <h3 class="mt-4 shrink-0 text-xs font-normal text-espresso/42 max-lg:order-last">MOVE HISTORY</h3>
+            <div class="h-1 w-full shrink-0 border-b border-espresso/16 max-lg:order-last"></div>
+            <ol data-testid="move-history" class="mt-2 flex min-h-0 flex-1 flex-wrap max-lg:order-last max-lg:min-h-8 content-start gap-x-3 gap-y-1 overflow-y-auto font-mono text-sm">
+                @for (var i = 0; i < state.MoveHistory.Count; i++)
+                {
+                    <li><span class="text-espresso-soft/70">@(i + 1).</span> @state.MoveHistory[i].San</li>
+                }
+            </ol>
+
+            @if (mySeat is { } mySpellSeat)
+            {
+                <div class="mt-3 shrink-0 border-t border-espresso/16 pt-2" data-testid="my-spell-hand">
+                    <div class="mb-1 flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-espresso-soft/70">
+                        <span class="uppercase tracking-wide">Your spells</span>
+                        <span class="flex items-center gap-1">
+                            <span class="text-espresso-soft/60 @ManaHitClass(mySpellSeat.Side)">@ManaPips(mySpellSeat.Side)</span>
+                            <span>mana</span>
+                        </span>
+                    </div>
+                    <div class="hand-row hand-row-spells flex-wrap gap-1">
+                        @{ var spellHand = SpellHandOf(mySpellSeat.Side); }
+                        @for (var i = 0; i < spellHand.Count; i++)
+                        {
+                            var spell = spellHand[i];
+                            var affordable = isMyTurn && !state.IsGameOver && !hasCastSpellThisTurn && ManaOf(mySpellSeat.Side) >= spell.Cost();
+                            var selected = selectedSpell == spell;
+                            <HandCard @key="spell"
+                                      TestId="@($"spell-card-{spell}")"
+                                      Glyph="✦"
+                                      Label="@spell.Label()"
+                                      Sublabel="@($"cost {spell.Cost()}")"
+                                      Title="@spell.Description()"
+                                      Selected="selected"
+                                      Disabled="!affordable"
+                                      Accent="rust"
+                                      Index="i"
+                                      Count="1"
+                                      OnClick="() => SelectSpell(spell)" />
+                        }
+                    </div>
+
+                    @if (selectedSpell is { } spellBeingCast)
+                    {
+                        <div class="mt-2 flex flex-col gap-2 border border-espresso/16 bg-white/40 px-3 py-2" data-testid="spell-target-form">
+                            <span class="font-mono text-xs text-espresso-soft">@spellBeingCast.Label()</span>
+                            @switch (ShapeOf(spellBeingCast))
+                            {
+                                case TargetShape.OneSquare:
+                                case TargetShape.TwoSquares:
+                                    <p data-testid="spell-target-prompt" class="font-mono text-[11px] text-espresso-soft/70">
+                                        @TargetPrompt(spellBeingCast)
+                                    </p>
+                                    <div class="flex flex-wrap items-center gap-1">
+                                        @for (var i = 0; i < SquaresNeeded(spellBeingCast); i++)
+                                        {
+                                            var picked = i < targetSquares.Count ? targetSquares[i].ToString() : null;
+                                            <span data-testid="@($"spell-target-slot-{i}")"
+                                                  class="@($"border px-2 py-0.5 font-mono text-xs uppercase {(picked is null ? "border-dashed border-espresso/30 text-espresso/30" : "border-rust/50 bg-rust/10 text-rust")}")">
+                                                @(picked ?? "pick")
+                                            </span>
+                                        }
+                                        @if (targetSquares.Count > 0)
+                                        {
+                                            <button type="button" data-testid="clear-spell-target-btn" @onclick="ClearSpellTarget"
+                                                    class="ml-1 font-mono text-[11px] text-espresso-soft underline hover:text-rust hover:cursor-pointer">
+                                                clear
+                                            </button>
+                                        }
+                                    </div>
+                                    break;
+                                case TargetShape.HandCard:
+                                    <p class="font-mono text-[11px] text-espresso-soft/70">Pick a card to swap.</p>
+                                    <select data-testid="spell-target-handcard" @bind="targetHandCardText"
+                                            class="w-fit border border-espresso/16 bg-white/60 px-1 py-1 font-mono text-xs focus:outline-none">
+                                        <option value="">choose a card</option>
+                                        @foreach (var card in HandOf(mySpellSeat.Side))
+                                        {
+                                            <option value="@card">@PieceKindDisplay.Label(card.ToPieceKind()) (@card)</option>
+                                        }
+                                    </select>
+                                    break;
+                            }
+                            @if (spellError is not null)
+                            {
+                                <p data-testid="spell-error" class="font-mono text-[11px] text-rust">@spellError</p>
+                            }
+                            <div class="flex items-center gap-3">
+                                <button type="button" data-testid="cast-spell-btn"
+                                        disabled="@(!CanCast(spellBeingCast))"
+                                        @onclick="CastSpellAsync"
+                                        class="border border-rust/40 bg-rust/5 px-3 py-1 font-mono text-xs text-rust transition duration-300 disabled:opacity-40 not-disabled:hover:bg-rust/20 not-disabled:hover:cursor-pointer">
+                                    Cast
+                                </button>
+                                <button type="button" data-testid="cancel-spell-btn"
+                                        @onclick="CancelSpell"
+                                        class="font-mono text-xs text-espresso-soft underline hover:text-rust hover:cursor-pointer">
+                                    cancel
+                                </button>
+                            </div>
+                        </div>
+                    }
+
+                    @if (arcane.ActiveEffects.Count > 0)
+                    {
+                        <ul data-testid="active-effects" class="mt-2 flex flex-wrap gap-2 font-mono text-[10px] text-espresso-soft/70">
+                            @foreach (var effect in arcane.ActiveEffects)
+                            {
+                                <li class="border border-espresso/16 bg-white/40 px-2 py-0.5">@EffectLabel(effect)</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <a data-testid="rules-credit" href="https://patrykborowiec.com/" target="_blank" rel="noopener noreferrer"
+       class="fixed bottom-2 left-3 font-mono text-xs text-espresso/50 select-none hover:text-espresso/70 max-lg:static max-lg:mt-4 max-lg:block">
+        Card rules by patrykborowiec.com — spells are ChessLab's own
+    </a>
+}
+
+@code {
+    private enum TargetShape { None, OneSquare, TwoSquares, HandCard }
+
+    [Parameter] public string Code { get; set; } = "";
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private RoomStateDto? room;
+    private GameStateEnvelopeDto? state;
+    private List<ChessMove> moveHistory = [];
+    private Guid myUserId;
+    private SeatId? mySeat;
+    private string? error;
+    private bool roomIsGone;
+
+    private SpellRank? selectedSpell;
+    private List<Square> targetSquares = [];
+    private string? spellError;
+    private string targetHandCardText = "";
+
+    private bool whiteHpJustDropped;
+    private bool blackHpJustDropped;
+    private bool whiteManaJustSpent;
+    private bool blackManaJustSpent;
+
+    private CardChessSectionDto cards => state!.CardChess!;
+
+    private ArcaneChessSectionDto arcane => state!.Arcane!;
+
+    private bool isMyTurn => mySeat is not null && state is { PauseDeadline: null } && mySeat.Value.Side == state.SideToMove;
+
+    private bool isBoardInteractive => state is { IsGameOver: false } && isMyTurn;
+
+    private bool hasCastSpellThisTurn => isMyTurn && arcane.SideToMoveHasCast;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask!;
+        myUserId = Guid.Parse(authState.User.FindFirst("buid")!.Value);
+
+        GameContext.Set("Arcane Chess");
+        Game.RoomUpdated += OnRoomUpdated;
+        Game.GameUpdated += OnGameUpdated;
+        Game.Reconnected += OnReconnectedAsync;
+        Game.NoticeReceived += OnNoticeReceived;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await Game.EnsureConnectedAsync();
+            if (await Game.JoinRoomAsync(Code) is not { } joined)
+            {
+                if (await Game.GetGameHistoryByRoomCodeAsync(Code) is { } finished)
+                {
+                    Nav.NavigateTo($"history/{finished.Summary.Id}");
+                    return;
+                }
+
+                roomIsGone = true;
+                StateHasChanged();
+                return;
+            }
+
+            if (GameRoutes.RedirectIfNotThisRoomsPage(Nav, joined))
+                return;
+
+            room = joined;
+            mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
+            SetFullState(await Game.GetGameStateAsync(Code));
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+    private long RemainingMsOf(Side side) => side == Side.White ? state!.WhiteRemainingMs : state!.BlackRemainingMs;
+
+    private bool IsClockActive(Side side) => state is { IsGameOver: false, PauseDeadline: null } && state.SideToMove == side;
+
+    private static string SideLabel(Side side) => side == Side.White ? "white" : "black";
+
+    private static string ClockTestId(Side side) => side == Side.White ? "clock-white" : "clock-black";
+
+    private static string HpTestId(Side side) => side == Side.White ? "hp-white" : "hp-black";
+
+    private string HpHitClass(Side side) => (side == Side.White ? whiteHpJustDropped : blackHpJustDropped) ? "hp-hit" : "";
+
+    private string ManaHitClass(Side side) => (side == Side.White ? whiteManaJustSpent : blackManaJustSpent) ? "hp-hit" : "";
+
+    private IReadOnlyList<CardRank> HandOf(Side side) => side == Side.White ? cards.WhiteHand : cards.BlackHand;
+
+    private IReadOnlyList<CardRank> PendingRerollOf(Side side) =>
+        side == Side.White ? cards.WhitePendingReroll : cards.BlackPendingReroll;
+
+    private IReadOnlyList<SpellRank> SpellHandOf(Side side) => side == Side.White ? arcane.WhiteSpellHand : arcane.BlackSpellHand;
+
+    private int ManaOf(Side side) => side == Side.White ? arcane.WhiteMana : arcane.BlackMana;
+
+    private string ManaPips(Side side)
+    {
+        var mana = ManaOf(side);
+        return string.Concat(Enumerable.Repeat("✦", Math.Max(0, mana)).Concat(Enumerable.Repeat("✧", Math.Max(0, ChessLab.Core.ArcaneChess.GameState.MaxMana - mana))));
+    }
+
+    private string HpHearts(Side side)
+    {
+        var hp = side == Side.White ? cards.WhiteHp : cards.BlackHp;
+        return string.Concat(Enumerable.Repeat("♥", Math.Max(0, hp)).Concat(Enumerable.Repeat("♡", Math.Max(0, ChessLab.Core.CardChess.GameState.StartingHp - hp))));
+    }
+
+    private static string AccentBorderClass(Side side) => side == Side.White ? "border-amber-700/50" : "border-moss/50";
+
+    private string TurnStatusText()
+    {
+        if (cards.EmergencyMoveAvailable)
+            return "in check, no card helps — Emergency Move";
+        if (cards.HandHasNoPlayableCard)
+            return "no hand card can move — picking freely";
+        return "choosing a move from hand";
+    }
+
+    private static string EndReasonLabel(GameEndReason? reason) => reason switch
+    {
+        GameEndReason.Checkmate => "checkmate",
+        GameEndReason.Stalemate => "stalemate",
+        GameEndReason.InsufficientMaterial => "insufficient material",
+        GameEndReason.FiftyMoveRule => "fifty-move rule",
+        GameEndReason.Repetition => "threefold repetition",
+        GameEndReason.Resignation => "resignation",
+        GameEndReason.Timeout => "timeout",
+        GameEndReason.DrawAgreed => "draw",
+        GameEndReason.HpDepleted => "out of HP",
+        GameEndReason.BotUnavailable => "bot unavailable",
+        _ => "",
+    };
+
+    private static string EffectLabel(ArcaneEffect effect)
+    {
+        var icon = effect.Kind switch
+        {
+            ArcaneEffectKind.Shield => "🛡",
+            ArcaneEffectKind.Freeze => "❄",
+            ArcaneEffectKind.PinDown => "⛓",
+            ArcaneEffectKind.Disarm => "🚫",
+            _ => "?",
+        };
+        return $"{icon} {effect.Square} → {SideLabel(effect.AffectedSide)}'s next turn";
+    }
+
+    private static TargetShape ShapeOf(SpellRank spell) => spell switch
+    {
+        SpellRank.Shield or SpellRank.FreezeSquare or SpellRank.PinDown or SpellRank.Disarm
+            or SpellRank.Dispel or SpellRank.Execution or SpellRank.MindSwap => TargetShape.OneSquare,
+        SpellRank.Swap or SpellRank.Teleport or SpellRank.TimeFreeze => TargetShape.TwoSquares,
+        SpellRank.SnapSwap => TargetShape.HandCard,
+        _ => TargetShape.None,
+    };
+
+    private static int SquaresNeeded(SpellRank spell) => ShapeOf(spell) switch
+    {
+        TargetShape.OneSquare => 1,
+        TargetShape.TwoSquares => 2,
+        _ => 0,
+    };
+
+    private static string TargetPrompt(SpellRank spell) => ShapeOf(spell) switch
+    {
+        TargetShape.TwoSquares => "Click the two squares on the board.",
+        TargetShape.OneSquare => "Click the target square on the board.",
+        _ => "",
+    };
+
+    private bool CanCast(SpellRank spell) => ShapeOf(spell) switch
+    {
+        TargetShape.OneSquare or TargetShape.TwoSquares => targetSquares.Count == SquaresNeeded(spell),
+        TargetShape.HandCard => !string.IsNullOrWhiteSpace(targetHandCardText),
+        _ => true,
+    };
+
+    private bool IsTargetingSquares =>
+        selectedSpell is { } spell && SquaresNeeded(spell) > 0 && isMyTurn && !state!.IsGameOver;
+
+    private void OnSquareTargeted(Square square)
+    {
+        if (selectedSpell is not { } spell || SquaresNeeded(spell) == 0)
+            return;
+
+        if (targetSquares.Contains(square))
+            targetSquares.Remove(square);
+        else if (targetSquares.Count < SquaresNeeded(spell))
+            targetSquares.Add(square);
+        else
+            targetSquares = [square];
+
+        spellError = null;
+        StateHasChanged();
+    }
+
+    private void ClearSpellTarget()
+    {
+        targetSquares.Clear();
+        spellError = null;
+    }
+
+    private void SelectSpell(SpellRank spell)
+    {
+        selectedSpell = selectedSpell == spell ? null : spell;
+        targetSquares.Clear();
+        targetHandCardText = "";
+        spellError = null;
+    }
+
+    private void CancelSpell() => SelectSpell(selectedSpell ?? default);
+
+    private async Task CastSpellAsync()
+    {
+        if (selectedSpell is not { } spell)
+            return;
+
+        try
+        {
+            var target = ShapeOf(spell) switch
+            {
+                TargetShape.OneSquare => new SpellTarget(Primary: targetSquares.FirstOrDefault()),
+                TargetShape.TwoSquares => new SpellTarget(Primary: targetSquares[0], Secondary: targetSquares[1]),
+                TargetShape.HandCard => new SpellTarget(HandCard: ParseHandCard(targetHandCardText)),
+                _ => default,
+            };
+
+            await Game.PerformActionAsync(Code, GameAction.CastSpell(spell, target));
+            SelectSpell(spell);
+        }
+        catch (Exception ex) { spellError = ex.Message; }
+    }
+
+    private static CardRank? ParseHandCard(string text) =>
+        string.IsNullOrWhiteSpace(text) ? null : Enum.Parse<CardRank>(text);
+
+    private async Task MakeMoveAsync(ChessMove move)
+    {
+        try { await Game.PerformActionAsync(Code, GameAction.MovePiece(move.From, move.To, move.PromoteTo)); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task ToggleRerollAsync(CardRank card)
+    {
+        if (mySeat is not { } mine || state is null)
+            return;
+
+        var current = PendingRerollOf(mine.Side).ToList();
+        if (current.Contains(card))
+        {
+            current.Remove(card);
+        }
+        else
+        {
+            if (current.Count >= ChessLab.Core.CardChess.GameState.MaxRerollSelection)
+                return;
+
+            current.Add(card);
+        }
+
+        try { await Game.PerformActionAsync(Code, GameAction.SelectReroll(current)); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task ResignAsync()
+    {
+        try { await Game.ResignAsync(Code); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private void BackToRoom() => Nav.NavigateTo($"/room/{Code}");
+
+    private void OnRoomUpdated(RoomStateDto dto)
+    {
+        room = dto;
+        mySeat = room.Seats.FirstOrDefault(s => s.UserId == myUserId)?.Id;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnGameUpdated(GameUpdateEnvelopeDto dto)
+    {
+        if (dto.MoveHistoryCount == moveHistory.Count + 1 && dto.LatestMove is { } move)
+            moveHistory.Add(move);
+        else if (dto.MoveHistoryCount != moveHistory.Count)
+            _ = ResyncFullStateAsync();
+
+        ApplyUpdate(dto);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ResyncFullStateAsync()
+    {
+        try
+        {
+            SetFullState(await Game.GetGameStateAsync(Code));
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplyUpdate(GameUpdateEnvelopeDto dto)
+    {
+        if (state is not null)
+        {
+            if (dto.CardChess!.WhiteHp < cards.WhiteHp)
+                TriggerHpHit(Side.White);
+            if (dto.CardChess!.BlackHp < cards.BlackHp)
+                TriggerHpHit(Side.Black);
+            if (dto.Arcane!.WhiteMana < arcane.WhiteMana)
+                TriggerManaHit(Side.White);
+            if (dto.Arcane!.BlackMana < arcane.BlackMana)
+                TriggerManaHit(Side.Black);
+        }
+
+        state = new GameStateEnvelopeDto(
+            dto.Kind, dto.SideToMove, dto.PositionText, dto.AvailableMoves, moveHistory,
+            dto.WhiteRemainingMs, dto.BlackRemainingMs, dto.IsGameOver, dto.EndReason, dto.Winner,
+            CardChess: dto.CardChess, Arcane: dto.Arcane, PauseDeadline: dto.PauseDeadline);
+    }
+
+    private void TriggerHpHit(Side side)
+    {
+        if (side == Side.White)
+            whiteHpJustDropped = true;
+        else
+            blackHpJustDropped = true;
+
+        _ = ClearHitAsync(side, hp: true);
+    }
+
+    private void TriggerManaHit(Side side)
+    {
+        if (side == Side.White)
+            whiteManaJustSpent = true;
+        else
+            blackManaJustSpent = true;
+
+        _ = ClearHitAsync(side, hp: false);
+    }
+
+    private async Task ClearHitAsync(Side side, bool hp)
+    {
+        await Task.Delay(400);
+
+        if (hp)
+        {
+            if (side == Side.White) whiteHpJustDropped = false; else blackHpJustDropped = false;
+        }
+        else
+        {
+            if (side == Side.White) whiteManaJustSpent = false; else blackManaJustSpent = false;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void SetFullState(GameStateEnvelopeDto dto)
+    {
+        state = dto;
+        moveHistory = [.. dto.MoveHistory];
+    }
+
+    private async Task OnReconnectedAsync()
+    {
+        try
+        {
+            if (await Game.JoinRoomAsync(Code) is { } rejoined)
+                OnRoomUpdated(rejoined);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+
+        await ResyncFullStateAsync();
+    }
+
+    private void OnNoticeReceived(string message)
+    {
+        error = message;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Game.Reconnected -= OnReconnectedAsync;
+        Game.NoticeReceived -= OnNoticeReceived;
+        Game.RoomUpdated -= OnRoomUpdated;
+        Game.GameUpdated -= OnGameUpdated;
+    }
+}
