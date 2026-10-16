@@ -13,7 +13,7 @@ public sealed class MartianChessBot(int? seed = null) : IGameBot
     public Task<GameAction> ChooseActionAsync(GameStateEnvelopeDto state, SeatId seat, BotDifficulty difficulty,
         CancellationToken ct = default)
     {
-        var move = GreedyPlay.Choose(state.AvailableMoves, difficulty, random, candidate => GivingAwayPenalty(seat.Side, candidate));
+        var move = GreedyPlay.Choose(state.AvailableMoves, BotDifficulty.Easy, random, candidate => GivingAwayPenalty(seat.Side, candidate));
         return Task.FromResult(GameBots.MoveAction(move));
     }
 
