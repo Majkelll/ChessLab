@@ -26,13 +26,13 @@ public class BenchTests
     public void MinimumTime_RepeatsThePositionsButReportsTheNodesAndTimeOfOnePass()
     {
         var positions = EngineData.Locate(null).Lines(GameKind.MartianChess, "bench.txt").Select(PositionLine.Parse).ToArray();
-        var minimum = TimeSpan.FromMilliseconds(300);
+        var minimum = TimeSpan.FromMilliseconds(500);
 
-        var single = Bench.Run(new SampleMartianEngine(), positions, 4);
-        var repeated = Bench.Run(new SampleMartianEngine(), positions, 4, minimum);
+        var single = Bench.Run(new SampleMartianEngine(), positions, 1);
+        var repeated = Bench.Run(new SampleMartianEngine(), positions, 1, minimum);
 
         Assert.Equal(single.Nodes, repeated.Nodes);
-        Assert.True(repeated.Elapsed < minimum);
+        Assert.True(repeated.Elapsed < minimum / 2);
     }
 
     [Fact]
