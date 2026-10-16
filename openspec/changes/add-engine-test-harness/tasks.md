@@ -44,7 +44,7 @@
 ## 8. Nightly job
 
 - [x] 8.1 Add an internal queue-depth endpoint to the bot service, reachable only from the server itself; verify it returns 0 when idle and the queued count under load
-- [ ] 8.2 Package the arena as a container and add a systemd timer template under `deploy/arena/` (nice 19, concurrency 2, waits while the bot queue is non-empty); verify a manual run on the home server pauses during bot traffic
+- [x] 8.2 Package the arena as a container and add a systemd timer template under `deploy/arena/` (nice 19, concurrency 2, waits while the bot queue is non-empty); verify a manual run on the home server pauses during bot traffic
 - [x] 8.3 Implement blunder mining for full-information modes from PostgreSQL game records with per-mode thresholds in `mining.json`; verify on a stored game containing a known blunder
 
 ## 9. Documentation
