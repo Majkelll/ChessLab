@@ -15,6 +15,7 @@ WORKDIR /src
 COPY ChessLab.slnx .
 COPY src/ src/
 COPY tests/ tests/
+COPY tools/ tools/
 COPY --from=css /src/src/ChessLab.Web/wwwroot/css/app.css src/ChessLab.Web/wwwroot/css/app.css
 COPY --from=css /src/src/ChessLab.Web/wwwroot/css/files src/ChessLab.Web/wwwroot/css/files
 COPY --from=css /src/src/ChessLab.Web/wwwroot/js/cm-chessboard src/ChessLab.Web/wwwroot/js/cm-chessboard
