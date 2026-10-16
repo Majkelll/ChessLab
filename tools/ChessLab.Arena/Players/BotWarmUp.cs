@@ -13,6 +13,8 @@ public static class BotWarmUp
 {
     public const string ReadyLine = "ready";
 
+    private const int WholeGameActions = 300;
+
     private static readonly ConcurrentDictionary<(GameKind, BotDifficulty), Lazy<Task>> InThisProcess = new();
 
     public static Task OnceAsync(GameKind kind, BotDifficulty difficulty, IChessEngine? engine, CancellationToken ct) =>
@@ -20,30 +22,28 @@ public static class BotWarmUp
 
     public static async Task RunAsync(GameKind kind, BotDifficulty difficulty, IChessEngine? engine, CancellationToken ct)
     {
-        var request = StartRequest(kind, difficulty, out _);
-        var action = await GameBots.For(kind, engine, seed: 0)
-            .ChooseActionAsync(request.State, request.Seat, request.Difficulty, ct);
-        RoundTrip(request, action);
+        var session = CoreGames.Start(kind, PositionLine.Start());
+        var bot = GameBots.For(kind, engine, seed: 0);
+        var actions = GameBots.NeedsChessEngine(kind) ? 1 : WholeGameActions;
+
+        for (var played = 0; played < actions && session.HasActiveGame; played++)
+        {
+            var seat = session.ActiveSeats.First();
+            var request = RoundTrip(new BotActionRequest(kind, seat, difficulty, session.ToStateDto(seat.Side)));
+            var action = RoundTrip(await bot.ChooseActionAsync(request.State, request.Seat, request.Difficulty, ct));
+            CoreGames.Apply(session, new SeatAction(seat, action));
+        }
     }
 
     public static void WarmUpRequests(GameKind kind, BotDifficulty difficulty)
     {
-        var request = StartRequest(kind, difficulty, out var session);
-        RoundTrip(request, CoreGames.LegalActions(session)[0].Action);
-    }
-
-    private static BotActionRequest StartRequest(GameKind kind, BotDifficulty difficulty, out IRoomSession session)
-    {
-        session = CoreGames.Start(kind, PositionLine.Start());
+        var session = CoreGames.Start(kind, PositionLine.Start());
         var seat = session.ActiveSeats.First();
-        return new BotActionRequest(kind, seat, difficulty, session.ToStateDto(seat.Side));
+        RoundTrip(new BotActionRequest(kind, seat, difficulty, session.ToStateDto(seat.Side)));
+        RoundTrip(CoreGames.LegalActions(session)[0].Action);
     }
 
-    private static void RoundTrip(BotActionRequest request, GameAction action)
-    {
-        JsonSerializer.Deserialize<BotActionRequest>(JsonSerializer.Serialize(request, BotServiceJson.Options),
-            BotServiceJson.Options);
-        JsonSerializer.Deserialize<GameAction>(JsonSerializer.Serialize(action, BotServiceJson.Options),
-            BotServiceJson.Options);
-    }
+    private static T RoundTrip<T>(T value) =>
+        JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value, BotServiceJson.Options), BotServiceJson.Options)
+        ?? throw new InvalidOperationException($"{typeof(T).Name} did not survive a JSON round trip.");
 }

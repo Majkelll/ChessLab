@@ -6,6 +6,10 @@ using ChessLab.Core.Rooms;
 
 namespace ChessLab.Engine.Tests.Matches;
 
+[CollectionDefinition(nameof(AnchorTests), DisableParallelization = true)]
+public class AnchorTimingCollection;
+
+[Collection(nameof(AnchorTests))]
 public class AnchorTests
 {
     [Theory]
