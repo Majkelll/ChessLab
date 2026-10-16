@@ -6,16 +6,17 @@ dotnet_run() { mise exec dotnet@10.0.400 -- dotnet "$@"; }
 repository="$(git rev-parse --show-toplevel)"
 work="${RUNNER_TEMP:-$(mktemp -d)}/engine-main"
 pr_arena="$repository/tools/ChessLab.Arena/bin/Release/net10.0/ChessLab.Arena.dll"
+base="${GITHUB_BASE_REF:-main}"
 
 dotnet_run "$pr_arena" bench --mode all --check --best-of 3 --output "$work-pr-bench.txt"
 
-git fetch --no-tags --depth=1 origin main
+git fetch --no-tags --depth=1 origin "$base"
 rm -rf "$work"
 git worktree add --detach "$work" FETCH_HEAD
 trap 'git -C "$repository" worktree remove --force "$work"' EXIT
 
 if [ ! -d "$work/tools/ChessLab.Arena" ]; then
-  echo "main has no arena yet, so there is nothing to compare nodes per second and tactics with."
+  echo "$base has no arena yet, so there is nothing to compare nodes per second and tactics with."
   exit 0
 fi
 
