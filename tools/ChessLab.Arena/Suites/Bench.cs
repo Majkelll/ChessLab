@@ -43,17 +43,36 @@ public static class Bench
         _ => 2,
     };
 
-    public static BenchResult Run(IEngineUnderTest engine, IReadOnlyList<PositionLine> positions, int depth)
+    public static BenchResult Run(IEngineUnderTest engine, IReadOnlyList<PositionLine> positions, int depth,
+        TimeSpan minimumTime = default)
+    {
+        var clock = Stopwatch.StartNew();
+        var nodes = SearchAll(engine, positions, depth);
+        if (minimumTime <= TimeSpan.Zero)
+            return new BenchResult(engine.Kind, engine.Name, positions.Count, depth, nodes, clock.Elapsed);
+
+        var passes = 0;
+        clock.Restart();
+        do
+        {
+            SearchAll(engine, positions, depth);
+            passes++;
+        }
+        while (clock.Elapsed < minimumTime);
+
+        return new BenchResult(engine.Kind, engine.Name, positions.Count, depth, nodes, clock.Elapsed / passes);
+    }
+
+    private static long SearchAll(IEngineUnderTest engine, IReadOnlyList<PositionLine> positions, int depth)
     {
         var nodes = 0L;
-        var clock = Stopwatch.StartNew();
         foreach (var position in positions)
         {
             engine.Load(position);
             nodes += engine.Search(depth).Nodes;
         }
 
-        return new BenchResult(engine.Kind, engine.Name, positions.Count, depth, nodes, clock.Elapsed);
+        return nodes;
     }
 
     public static IReadOnlyList<PositionLine> Generate(GameKind kind) =>

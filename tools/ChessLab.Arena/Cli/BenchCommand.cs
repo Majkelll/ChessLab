@@ -12,11 +12,12 @@ public sealed class BenchCommand : IArenaCommand
     public string Summary => "Search the bench positions to a fixed depth on one thread; print nodes and nodes per second.";
 
     public string Usage =>
-        "bench --mode <mode|all> [--depth <n>] [--check] [--write] [--generate] [--best-of 1] [--output <file>] [--data <dir>]\n" +
+        "bench --mode <mode|all> [--depth <n>] [--check] [--write] [--generate] [--best-of 1] [--min-time-ms 0] [--output <file>] [--data <dir>]\n" +
         "  --check     fail when the node count differs from bench.expected\n" +
         "  --write     store the node count in bench.expected\n" +
         "  --generate  write new bench.txt positions first\n" +
-        "  --output    append 'mode nodes nps' records for bench-compare";
+        "  --output    append 'mode nodes nps' records for bench-compare\n" +
+        "  --min-time-ms  after one untimed warm-up pass, repeat the positions for at least this long per run";
 
     public async Task<int> RunAsync(CommandArgs args, TextWriter output, CancellationToken ct)
     {
@@ -40,8 +41,9 @@ public sealed class BenchCommand : IArenaCommand
             var depth = args.Int("depth", expected?.Depth ?? Bench.DefaultDepth(kind));
             var positions = data.Lines(kind, "bench.txt").Select(PositionLine.Parse).ToArray();
 
+            var minimumTime = TimeSpan.FromMilliseconds(args.Int("min-time-ms", 0));
             var result = Enumerable.Range(0, Math.Max(1, args.Int("best-of", 1)))
-                .Select(_ => Bench.Run(EngineRegistry.For(kind), positions, depth))
+                .Select(_ => Bench.Run(EngineRegistry.For(kind), positions, depth, minimumTime))
                 .MaxBy(run => run.NodesPerSecond)!;
 
             output.WriteLine(result.Describe());
