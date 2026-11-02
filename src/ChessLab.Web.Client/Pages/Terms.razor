@@ -1,0 +1,48 @@
+@page "/terms"
+@using ChessLab.Web.Client.Services
+@inject CurrentGameContext GameContext
+
+<PageTitle>Terms of service</PageTitle>
+
+<h1 class="text-3xl font-semibold leading-tight sm:text-4xl">Terms of service</h1>
+<p class="mt-2 text-sm text-espresso-soft">Last updated 2 November 2026</p>
+
+<div class="mt-6 flex max-w-3xl flex-col gap-4 text-sm leading-relaxed">
+    <p>
+        Hand and Brain is a free hobby project run by Michal Witko. By signing in you agree to these terms.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">Using the service</h2>
+    <p>
+        Play fair and be decent to the other players. Do not cheat with outside help, abuse bots or rooms,
+        try to break or overload the service, or use it for anything unlawful.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">Your account</h2>
+    <p>
+        Your account is your Google account. You are responsible for what happens under it. We may suspend
+        access for anyone who breaks these terms.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">No guarantees</h2>
+    <p>
+        The service is provided as it is. It may be slow, change, go down or disappear, and games in
+        progress or in your history may be lost. To the extent the law allows, we are not liable for any
+        loss arising from using it.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">Your data</h2>
+    <p>
+        How we handle your data is described in the
+        <a class="text-amber-700 underline hover:text-amber-600" href="privacy">privacy policy</a>.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">Contact</h2>
+    <p>
+        Questions go to <a class="text-amber-700 underline hover:text-amber-600" href="mailto:m.witko2000@gmail.com">m.witko2000@gmail.com</a>.
+    </p>
+</div>
+
+@code {
+    protected override void OnInitialized() => GameContext.Set(null);
+}
