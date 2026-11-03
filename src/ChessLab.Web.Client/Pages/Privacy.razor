@@ -1,0 +1,58 @@
+@page "/privacy"
+@using ChessLab.Web.Client.Services
+@inject CurrentGameContext GameContext
+
+<PageTitle>Privacy policy</PageTitle>
+
+<h1 class="text-3xl font-semibold leading-tight sm:text-4xl">Privacy policy</h1>
+<p class="mt-2 text-sm text-espresso-soft">Last updated 2 November 2026</p>
+
+<div class="mt-6 flex max-w-3xl flex-col gap-4 text-sm leading-relaxed">
+    <p>
+        Hand and Brain is a hobby project run by Michal Witko. This page explains what it knows about you
+        and what it does with that.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">What we collect</h2>
+    <p>
+        You sign in with Google. From your Google account we receive your name, email address, profile picture
+        and Google account identifier. We do not receive your password and we do not ask for any other
+        Google data.
+    </p>
+    <p>
+        We also store the games you finish: the room code, the game mode, the players, the result and when it
+        ended.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">What we use it for</h2>
+    <p>
+        Your name and picture are shown to the other players in your room. Your identifier recognises you when
+        you come back. Finished games make up your game history. Nothing is used for advertising or sold.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">Cookies</h2>
+    <p>
+        We set one cookie to keep you signed in and another that protects the sign-in flow. We use no analytics
+        or tracking cookies.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">Who else sees it</h2>
+    <p>
+        The data lives in a PostgreSQL database and is served through our hosting provider. We do not share it
+        with anyone else, except where the law requires it.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">Deleting your data</h2>
+    <p>
+        Write to <a class="text-amber-700 underline hover:text-amber-600" href="mailto:m.witko2000@gmail.com">m.witko2000@gmail.com</a>
+        and your account and game history will be deleted. You can also remove the app's access in your
+        <a class="text-amber-700 underline hover:text-amber-600" href="https://myaccount.google.com/permissions" rel="noopener">Google account settings</a>.
+    </p>
+
+    <h2 class="text-base font-semibold text-amber-700">Changes</h2>
+    <p>If this policy changes, the date at the top changes with it.</p>
+</div>
+
+@code {
+    protected override void OnInitialized() => GameContext.Set(null);
+}
